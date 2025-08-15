@@ -1,3 +1,19 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "enigma2"
+version = "1.0.0"
+description = "A symmetric cryptographic algorithm based on enigma algo but doped, to be used as a python module for encryption and decryption of data"
+authors = [
+    { name = "r00ster", email = "s1llyr00st3r@gmail.com" }
+]
+readme = "README.md"
+requires-python = ">=3.7"
+license = { text = "MIT" }
+# ...add dependencies below if needed...
+dependencies = [
+    "numpy"
+]
+
