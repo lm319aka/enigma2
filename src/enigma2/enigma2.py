@@ -2,8 +2,31 @@ import numpy as np
 import hashlib
 from typing import Union
 from pathlib import Path
+from encodings_getter import encoding_dtype_map
+import chardet
+import os
 # import pprint
 
+def find_encoding(obj: Union[str, bytes, Path]) -> str:
+    if isinstance(obj, bytes):
+        data = obj
+    elif isinstance(obj, str, Path):
+        if os.path.exists(obj) and os.path.isfile(obj):
+            with open(obj, 'rb') as f:
+                data = f.read()
+        else:
+            raise FileNotFoundError(f"File {obj} does not exist")
+    
+    for encoding in encoding_dtype_map.keys():
+        try:
+            data.decode(encoding)
+            return encoding
+        except UnicodeDecodeError:
+            continue
+        except LookupError:
+            continue
+    
+    raise ValueError(f"Could not find encoding for data: {data}")
 
 def file2array_bits(path, bit_unit):
     # 1. Leer archivo como uint8 (bytes crudos)
@@ -46,15 +69,24 @@ class E2:
 
     def __init__(self, 
                  pwd: bytes,
-                 hash_alg: str="sha512", # Hash len must be always >=64
                  config: dict = None,
                 ):
+
+        # private params
+        self.__main_seeds_len: int = 16
+        self.__seeds_number: int = 4
+        self.__hash_alg: str = "sha512" # Hash len must be always >=64
+
         # Initialize pwd and pwd hash
         self.pwd: bytes = pwd
-        self.hash_pwd: str = hashlib.new(hash_alg).hexdigest()
+        self.hash_pwd: str = hashlib.new(self.__hash_alg).hexdigest()
 
-        self.main_seeds_len: int = 16
-        self.seeds_number: int = 4
+        self.dtype2btype: dict = {
+            np.uint8: 2**8,
+            np.uint16: 2**16,
+            np.uint32: 2**32,
+            np.uint64: 2**64
+        }
 
         # Initialize config, where all important params are stored when first initialized the class object
         self.config = config
@@ -69,7 +101,7 @@ class E2:
         self.noise_seed: int = self.config["noise_seed"]
         self.noise_size: int = self.config["noise_size"]
 
-
+        assert self.dtype2btype[self.dtype] == self.btype, f"dtype and btype mismatch: {self.dtype} != {self.btype}"
         assert self.number_rotors > 0, "Number of rotors must be greater than 0"
         assert self.btype > 0, "Base type must be greater than 0"
         assert self.dtype in [np.uint8, np.uint16, np.uint32, np.uint64], "Unsupported dtype"
@@ -145,13 +177,13 @@ class E2:
 
     def define_params(self) -> dict:
         # Defines seeds and number of rotors based on the password hash
-        assert len(self.hash_pwd)>=self.main_seeds_len*self.seeds_number, "Password hash is too short"
-        hex_chains = [self.hash_pwd[i*self.main_seeds_len:(i+1)*self.main_seeds_len] for i in range(0, self.seeds_number)]
+        assert len(self.hash_pwd)>=self.__main_seeds_len*self.__seeds_number, "Password hash is too short"
+        hex_chains = [self.hash_pwd[i*self.__main_seeds_len:(i+1)*self.__main_seeds_len] for i in range(0, self.__seeds_number)]
         # print("Hex chains:", hex_chains)
         if self.config is None:
             self.config = {
                 "btype": 256,
-                "dtype": np.uint16,
+                "dtype": np.uint8,
 
                 "rotations_seed": None,
 
@@ -169,14 +201,11 @@ class E2:
             self.config["noise_seed"] = int(hex_chains[1], 16)
         if self.config["rotors_seed"] is None:
             self.config["rotors_seed"] = int(hex_chains[2], 16)
-        # optional parameters to take from hash
-        # print("noise_size:", int(hex_chains[3][:self.main_seeds_len//2], 16) % 2**12)
-        # print("number_rotors:", int(hex_chains[3][self.main_seeds_len//2:], 16) % 2**8 + 4)
-        # print(hex_chains[3][:self.main_seeds_len//2], hex_chains[3][self.main_seeds_len//2:])
+        # optional parameters to take from last hash part
         if self.config["noise_size"] is None:
-            self.config["noise_size"] = int(hex_chains[3][:self.main_seeds_len//2], 16) % 2**16 # 0-65535
+            self.config["noise_size"] = int(hex_chains[3][:4], 16) # 0-65535
         if self.config["number_rotors"] is None:
-            self.config["number_rotors"] = int(hex_chains[3][self.main_seeds_len//2:], 16) % 14 + 2 # 2-16
+            self.config["number_rotors"] = int(hex_chains[3][4], 16) + 1 # 1-16
 
         # print("Config:", self.config)
 
@@ -216,7 +245,10 @@ class E2:
         # return np.mod(data_array + noise_array, self.btype)
         return data_array + noise_array
 
-    def encrypt_file(self, file_path: Union[str, Path], output_path: Union[str, Path]=None) -> None:
+    def encrypt_file(self, 
+                     file_path: Union[str, Path], 
+                     output_path: Union[str, Path]=None,
+                     detect_encoding: bool=False) -> None:
 
         if isinstance(file_path, str):
             file_path = Path(file_path)
@@ -236,7 +268,16 @@ class E2:
             output_path = Path(output_path).joinpath(file_path.name)
             print("Output path:", output_path.as_posix()+".npy")
 
-        data = np.fromfile(file_path.as_posix(), dtype=self.dtype)
+        if detect_encoding:
+            with open(file_path.as_posix(), "rb") as f:
+                file_data = f.read()
+            file_encoding = chardet.detect(file_data)["encoding"]
+            if file_encoding is None:
+                file_encoding = find_encoding(file_data)
+            print("File encoding:", file_encoding)
+            data = np.fromfile(file_path.as_posix(), dtype=encoding_dtype_map[file_encoding])
+        else:
+            data = np.fromfile(file_path.as_posix(), dtype=self.dtype)
         encrypted_data = self.encrypt(data)
         np.save(output_path.as_posix(), encrypted_data)
 
@@ -259,7 +300,10 @@ class E2:
 
         return data_array
 
-    def decrypt_file(self, file_path: Union[str, Path], output_path: Union[str, Path]=None) -> None:
+    def decrypt_file(self, 
+                     file_path: Union[str, Path], 
+                     output_path: Union[str, Path]=None) -> None:
+        
         if isinstance(file_path, str):
             file_path = Path(file_path)
         if not file_path.exists():
@@ -289,6 +333,7 @@ if __name__ == "__main__":
     import os
 
     dtype_dict = {
+        "None": None,
         "utf-8": np.uint8,
         "utf-16": np.uint16,
         "utf-32": np.uint32,
@@ -304,8 +349,33 @@ if __name__ == "__main__":
     parser.add_argument("--out_path", type=str, help="path of output File")
     parser.add_argument("--pwd", required=True, type=str, help="Password for encryption/decryption")
     parser.add_argument("--op", type=str, default="E", choices=["E", "D"], help="Operation to perform (E for encrypt, D for decrypt)")
-    parser.add_argument("--encoding", type=str, default="utf-8", choices=["utf-8", "utf-16"], help="Encoding to use for input/output")
+    parser.add_argument("--encoding", type=str, default="None", choices=dtype_dict.keys(), help="Encoding to use for input/output")
     args = parser.parse_args()
+    
+    # TODO: btype should be deleted from config and be processed later inside object
+    if args.encoding == "None":
+        default_encoding = "utf-8"
+        config_dtype = np.uint8
+        config_btype = 256
+    else:
+        default_encoding = args.encoding
+        config_dtype = dtype_dict[args.encoding]
+        # print(args.encoding)
+        # print(encoding_dtype_map[args.encoding])
+        config_btype = encoding_dtype_map[args.encoding]
+
+    config_data = {
+        "btype": config_btype,
+        "dtype": config_dtype,
+
+        "rotations_seed": None,
+
+        "number_rotors": None,
+        "rotors_seed": None,
+
+        "noise_size": None,
+        "noise_seed": None
+    }
     codec = E2(pwd=args.pwd.encode("utf-8"))
 
     if not args.data and not args.fpath:
@@ -318,20 +388,39 @@ if __name__ == "__main__":
             # Try to parse as a numpy array string
             if not "[" in args.data or not "]" in args.data:
                 raise Exception("Not a numpy array string")
-            data = np.fromstring(args.data.replace('[','').replace(']',''), sep=' ', dtype=np.uint16)
+            data = np.fromstring(args.data.replace('[','').replace(']',''), sep=' ', dtype=dtype_dict[default_encoding])
         except Exception:
             # Otherwise, treat as text and encode
-            data = np.frombuffer(args.data.encode(args.encoding), dtype=dtype_dict[args.encoding])
-
+            data = np.frombuffer(args.data.encode(default_encoding), dtype=dtype_dict[default_encoding])
+            
         if args.op == "E":
             transformed_data: np.array = codec.encrypt(data)
             print(transformed_data)
+            if args.out_path is not None:
+                out_path = Path(args.out_path)
+                if not out_path.parent.exists():
+                    raise FileNotFoundError(f"Output path {args.out_path} does not exist")
+                else:
+                    np.save(args.out_path.as_posix(), transformed_data)
         else:
             transformed_data: np.array = codec.decrypt(data)
-            print(transformed_data.tobytes().decode(args.encoding))
+            print(transformed_data.tobytes().decode(default_encoding))
+            if args.out_path is not None:
+                if not os.path.exists(args.out_path):
+                    # raise FileNotFoundError(f"Output path {args.out_path} does not exist")
+                    try:
+                        with open(args.out_path, "wb") as f:
+                            f.write(
+                                b""
+                            )
+                    except Exception:
+                        raise FileNotFoundError(f"Output path {args.out_path} does not exist")
+
+                with open(args.out_path, "wb") as f:
+                    f.write(transformed_data.tobytes())
 
     elif args.fpath:
         if args.op == "E":
-            codec.encrypt_file(args.fpath, args.out_path)
+            codec.encrypt_file(args.fpath, args.out_path, detect_encoding=True if args.encoding == "None" else False)
         else:
             codec.decrypt_file(args.fpath, args.out_path)

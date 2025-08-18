@@ -1,0 +1,135 @@
+import numpy as np
+
+
+encoding_dtype_map = {
+    # canonical encodings
+    'utf-8': np.uint8,
+    'utf-16': np.uint16,
+    'utf-32': np.uint32,    
+    'ascii': np.uint8,
+    'utf-7': np.uint8,
+    'base64-codec': np.uint8,
+
+    # other encodings
+    'big5': np.uint8,
+    'big5hkscs': np.uint8,
+    'bz2-codec': np.uint8,
+    'cp037': np.uint8,
+    'cp1026': np.uint8,
+    'cp1125': np.uint8,
+    'cp1140': np.uint8,
+    'cp1250': np.uint8,
+    'cp1251': np.uint8,
+    'cp1252': np.uint8,
+    'cp1253': np.uint8,
+    'cp1254': np.uint8,
+    'cp1255': np.uint8,
+    'cp1256': np.uint8,
+    'cp1257': np.uint8,
+    'cp1258': np.uint8,
+    'cp273': np.uint8,
+    'cp424': np.uint8,
+    'cp437': np.uint8,
+    'cp500': np.uint8,
+    'cp720': np.uint8,
+    'cp737': np.uint8,
+    'cp775': np.uint8,
+    'cp850': np.uint8,
+    'cp852': np.uint8,
+    'cp855': np.uint8,
+    'cp856': np.uint8,
+    'cp857': np.uint8,
+    'cp858': np.uint8,
+    'cp860': np.uint8,
+    'cp861': np.uint8,
+    'cp862': np.uint8,
+    'cp863': np.uint8,
+    'cp864': np.uint8,
+    'cp865': np.uint8,
+    'cp866': np.uint8,
+    'cp869': np.uint8,
+    'cp874': np.uint8,
+    'cp875': np.uint8,
+    'cp932': np.uint8,
+    'cp949': np.uint8,
+    'cp950': np.uint8,
+    'euc-jis-2004': np.uint8,
+    'euc-jisx0213': np.uint8,
+    'euc-jp': np.uint8,
+    'euc-kr': np.uint8,
+    'gb18030': np.uint8,
+    'gb2312': np.uint8,
+    'gbk': np.uint8,
+    'hex-codec': np.uint8,
+    'hp-roman8': np.uint8,
+    'hz': np.uint8,
+    'idna': np.uint8,
+    'iso2022-jp': np.uint8,
+    'iso2022-jp-1': np.uint8,
+    'iso2022-jp-2': np.uint8,
+    'iso2022-jp-2004': np.uint8,
+    'iso2022-jp-3': np.uint8,
+    'iso2022-jp-ext': np.uint8,
+    'iso2022-kr': np.uint8,
+    'iso8859-1': np.uint8,
+    'iso8859-10': np.uint8,
+    'iso8859-11': np.uint8,
+    'iso8859-13': np.uint8,
+    'iso8859-14': np.uint8,
+    'iso8859-15': np.uint8,
+    'iso8859-16': np.uint8,
+    'iso8859-2': np.uint8,
+    'iso8859-3': np.uint8,
+    'iso8859-4': np.uint8,
+    'iso8859-5': np.uint8,
+    'iso8859-6': np.uint8,
+    'iso8859-7': np.uint8,
+    'iso8859-8': np.uint8,
+    'iso8859-9': np.uint8,
+    'johab': np.uint8,
+    'koi8-r': np.uint8,
+    'koi8-t': np.uint8,
+    'koi8-u': np.uint8,
+    'kz1048': np.uint8,
+    'mac-cyrillic': np.uint8,
+    'mac-greek': np.uint8,
+    'mac-iceland': np.uint8,
+    'mac-latin2': np.uint8,
+    'mac-roman': np.uint8,
+    'mac-turkish': np.uint8,
+    'ptcp154': np.uint8,
+    'quopri-codec': np.uint8,
+    'raw-unicode-escape': np.uint8,
+    'rot-13': np.uint8,
+    'shift-jis': np.uint8,
+    'shift-jis-2004': np.uint8,
+    'shift-jisx0213': np.uint8,
+    'tis-620': np.uint8,
+    'utf-16-be': np.uint16,
+    'utf-16-le': np.uint16,
+    'utf-32-be': np.uint32,
+    'utf-32-le': np.uint32, 
+    'utf-8-sig': np.uint8,
+    'uu-codec': np.uint8,
+    'zlib-codec': np.uint8,
+    'latin-1': np.uint8,
+
+}
+
+# import encodings
+# try:
+#     # Get all canonical encodings known to Python
+#     all_encodings = sorted(set(encodings.aliases.aliases.values()))
+
+#     def encoding_to_dtype(enc: str):
+#         e = enc.lower()
+#         if "32" in e or "ucs4" in e:
+#             return np.uint32
+#         elif "16" in e or "ucs2" in e:
+#             return np.uint16
+#         else:
+#             return np.uint8
+
+#     encoding_dtype_map = {enc: encoding_to_dtype(enc) for enc in all_encodings}
+# except Exception as e:
+#     print(e)
