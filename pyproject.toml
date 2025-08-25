@@ -4,16 +4,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "enigma2"
-version = "1.0.0"
-description = "A symmetric cryptographic algorithm based on enigma algo but doped, to be used as a python module for encryption and decryption of data"
+version = "1.1.0"
+description = "Enigma2 encryption and decryption module"
 authors = [
-    { name = "r00ster", email = "s1llyr00st3r@gmail.com" }
+    { name="r00st3r", email="s1llyr00st3r@gmail.com" }
 ]
 readme = "README.md"
-requires-python = ">=3.7"
-license = { text = "MIT" }
-# ...add dependencies below if needed...
+requires-python = ">=3.8"
 dependencies = [
-    "numpy"
+    "numpy",
+    "chardet"
 ]
 
+[tool.setuptools]
+package-dir = { "" = "src" }
+packages = ["enigma2"]
+
+[tool.setuptools.package-data]
+"*" = ["LICENSE.txt"]

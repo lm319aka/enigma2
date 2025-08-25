@@ -10,7 +10,7 @@ import os
 def find_encoding(obj: Union[str, bytes, Path]) -> str:
     if isinstance(obj, bytes):
         data = obj
-    elif isinstance(obj, str, Path):
+    elif isinstance(obj, (str, Path)):
         if os.path.exists(obj) and os.path.isfile(obj):
             with open(obj, 'rb') as f:
                 data = f.read()
@@ -130,6 +130,7 @@ class E2:
         self.noise_values = self.noise_rng.integers(low=0, high=self.btype, size=self.noise_size, dtype=self.dtype)
 
     def reset_rng(self):
+        # TODO: should it be activated automatically if cipher operation is changed (from encrypt to decrypt or viceversa)?
         self.rotations_rng = np.random.default_rng(self.rotations_seed)
         self.rotors_rng = np.random.default_rng(self.rotors_seed)
         self.noise_rng = np.random.default_rng(self.noise_seed)
@@ -175,7 +176,7 @@ class E2:
         noise_array[noise_indexes] = self.noise_values
         return noise_array
 
-    def define_params(self) -> dict:
+    def define_params(self) -> None:
         # Defines seeds and number of rotors based on the password hash
         assert len(self.hash_pwd)>=self.__main_seeds_len*self.__seeds_number, "Password hash is too short"
         hex_chains = [self.hash_pwd[i*self.__main_seeds_len:(i+1)*self.__main_seeds_len] for i in range(0, self.__seeds_number)]

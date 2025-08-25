@@ -1,2 +1,3 @@
 # Add your dependencies here
 numpy
+chardet
