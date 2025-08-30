@@ -16,7 +16,22 @@ class E2:
                  pwd: bytes,
                  config: dict = None,
                 ):
+        """
+        initialize E2
+        :param pwd: password in bytes
+        :param config: dict with all important params
 
+        it should have a structure like this:
+        {
+            "btype": 256,
+            "dtype": np.uint8,
+            "rotations_seed": 1700,
+            "number_rotors": 5,
+            "rotors_seed": 1701,
+            "noise_size": 10000,
+            "noise_seed": 1702
+        }
+        """
         # private params
         self.__main_seeds_len: int = 16
         self.__seeds_number: int = 4
@@ -210,7 +225,7 @@ class E2:
     def encrypt_file(self, 
                      file_path: Union[str, Path], 
                      output_path: Union[str, Path]=None,
-                     detect_encoding: bool=False) -> None:
+                     detect_encoding: bool=False) -> str:
 
         if isinstance(file_path, str):
             file_path = Path(file_path)
@@ -242,6 +257,8 @@ class E2:
             data = np.fromfile(file_path.as_posix(), dtype=self.dtype)
         encrypted_data = self.encrypt(data)
         np.save(output_path.as_posix(), encrypted_data)
+        
+        return output_path.as_posix()+".npy"
 
     def decrypt(self, data_array: Union[np.array, bytes]) -> np.array:
         if self.config["dtype"] is None:
@@ -264,7 +281,7 @@ class E2:
 
     def decrypt_file(self, 
                      file_path: Union[str, Path], 
-                     output_path: Union[str, Path]=None) -> None:
+                     output_path: Union[str, Path]=None) -> str:
         
         if isinstance(file_path, str):
             file_path = Path(file_path)
@@ -289,6 +306,7 @@ class E2:
         with open(output_path.as_posix(), "wb") as f:
             f.write(decrypted_data.tobytes())
 
+        return output_path.as_posix()
 
 if __name__ == "__main__":
     import argparse
@@ -355,6 +373,7 @@ if __name__ == "__main__":
             
         if args.op == "E":
             transformed_data: np.array = codec.encrypt(data)
+            print("encrypted data:")
             print(transformed_data)
             if args.out_path is not None:
                 out_path = Path(args.out_path)
@@ -364,6 +383,7 @@ if __name__ == "__main__":
                     np.save(out_path.as_posix(), transformed_data)
         else:
             transformed_data: np.array = codec.decrypt(data)
+            print("decrypted data:")
             print(transformed_data.tobytes().decode(default_encoding))
             if args.out_path is not None:
                 if not os.path.exists(args.out_path):

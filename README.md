@@ -124,9 +124,9 @@ Considering that an actual top-tier supercomputer can compute $10^{18}flops$ (fl
 
 Using a password could be beneficial because it makes all the process of creating the elements for the cipher easier and automatically, and you only have to worry about the password and not about memorizing all the elements or keeping a config file with all of it.
 
-The issue with this approach is that makes the user and its data more vulnerable, this is because the password is transformed into a hash then parsed to obtain the seeds for the generators for each part (rotors, rotations and noise), the number of rotors... This hash is generated in v1.2 using sha3_256, that returns a string with 128 hex chars from which we will only use the first 53 hex chars. 
+The issue with this approach is that makes the user and its data more vulnerable, this is because the password is transformed into a hash then parsed to obtain the seeds for the generators for each part (rotors, rotations and noise), the number of rotors... This hash is generated in v1.2 using sha3_256, that returns a string with 64 hex chars from which we will only use the first 53 hex chars.
 
-What this means is that in order to crack the password you'd only need to brute-force $16^{53} = 2^{212}$ possible combinations. The difficulty is between trying to crack with brute force AES with a 192 bit key and the same with 256 bit key, in both cases it is impossible to crack on a reasonable amount of time, and so E2.
+This means that in order to crack the password you'd only need to brute-force $16^{53} = 2^{212}$ possible combinations. The difficulty is between trying to crack with brute force AES with a 192 bit key and the same with 256 bit key, in both cases it is impossible to crack on a reasonable amount of time, and so E2.
 
 ## Usage from terminal
 
@@ -192,12 +192,13 @@ For future versions an installable enigma.exe will be provided (obviously it is 
 
 ---------------
 
-To use Enigma2, you need to initialize the `E2` class with a password and an optional configuration dictionary(config is only for testing pourposes, never use for production). The password is used to generate the encryption keys, and the configuration dictionary can be used to customize the encryption algorithm.
+To use Enigma2, you need to initialize the `E2` class with a password and an optional configuration dictionary(config is only for testing purposes, never use for production). The password is used to generate the encryption keys, and the configuration dictionary can be used to customize the encryption algorithm.
 
 ```python
-from enigma2 import E2
+from enigma2.enigma2 import E2
 
 pwd = b"my_secret_password"
+# config is optional if you already have a password
 config = {
     "btype": 256,
     "dtype": np.uint16,
@@ -256,7 +257,7 @@ Here is an example use case for Enigma2:
 
 ```python
 
-from enigma2 import E2
+from enigma2.enigma2 import E2
 
 pwd = b"my_secret_password"
 config = {
@@ -272,15 +273,16 @@ config = {
 e2 = E2(pwd, config)
 
 data = b"Hello, World!"
-encrypted_data = e2.encrypt(data)
-print(encrypted_data)
-e2.reset_rng()
-decrypted_data = e2.decrypt(encrypted_data)
-print(decrypted_data)
+original_path = "C:/path/to/original/file.pdf"
+encrypted_file_dir = "C:/path/to/encrypted/file/"
+decrypted_file_dir = "C:/path/to/decrypted/file/"
+
+encrypted_file_path = e2.encrypt_file(original_path, encrypted_file_dir)
+e2.decrypt_file(encrypted_file_path, decrypted_file_dir)
 
 ```
 
-This example initializes the `E2` class with a password and a configuration dictionary, encrypts a byte string, and then decrypts the encrypted data.
+This example initializes the `E2` class with a password and a configuration dictionary, encrypts a file to then decrypt it.
 
 ## Contributing
 
