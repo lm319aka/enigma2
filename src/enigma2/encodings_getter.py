@@ -1,5 +1,7 @@
 import numpy as np
-
+from typing import Union
+from pathlib import Path
+import os
 
 encoding_dtype_map = {
     # canonical encodings
@@ -133,3 +135,61 @@ encoding_dtype_map = {
 #     encoding_dtype_map = {enc: encoding_to_dtype(enc) for enc in all_encodings}
 # except Exception as e:
 #     print(e)
+
+
+def find_encoding(obj: Union[str, bytes, Path]) -> str:
+    if isinstance(obj, bytes):
+        data = obj
+    elif isinstance(obj, (str, Path)):
+        if os.path.exists(obj) and os.path.isfile(obj):
+            with open(obj, 'rb') as f:
+                data = f.read()
+        else:
+            raise FileNotFoundError(f"File {obj} does not exist")
+    
+    for encoding in encoding_dtype_map.keys():
+        try:
+            data.decode(encoding)
+            return encoding
+        except UnicodeDecodeError:
+            continue
+        except LookupError:
+            continue
+    
+    raise ValueError(f"Could not find encoding for data: {data}")
+
+def file2array_bits(path, bit_unit):
+    # 1. Leer archivo como uint8 (bytes crudos)
+    with open(path, "rb") as f:
+        data = np.frombuffer(f.read(), dtype=np.uint8)
+
+    # 2. Expandir a bits (array de 0/1)
+    bits = np.unpackbits(data)
+
+    # 3. Calcular padding para múltiplo de bit_unit
+    resto = bits.size % bit_unit
+    print("Resto:", resto)
+    if resto != 0:
+        bits = np.concatenate([bits, np.zeros(bit_unit - resto, dtype=np.uint8)])
+
+    # 4. Agrupar y convertir a enteros
+    #   reshape: cada fila = un valor
+    bit_chunks = bits.reshape(-1, bit_unit)
+
+    # Convertir cada grupo de bits a número entero
+    # Creamos potencias de 2: [2^(n-1), ..., 2^0]
+    potencias = 2 ** np.arange(0, bit_unit, dtype=np.uint64)
+
+    # 5. Selección de dtype según el tamaño necesario
+    if bit_unit <= 8:
+        dtype = np.uint8
+    elif bit_unit <= 16:
+        dtype = np.uint16
+    elif bit_unit <= 32:
+        dtype = np.uint32
+    else:
+        dtype = np.uint64  # hasta 64 bits sin perder
+
+    values = np.array((bit_chunks * potencias).sum(axis=1), dtype=dtype)
+
+    return values
