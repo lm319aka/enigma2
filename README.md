@@ -98,7 +98,7 @@ For this case we are assuming the creation of all elements is totally random, so
 
 Total possible states: $256!^r \cdot p= \frac{256!^r \cdot s!}{(s-n)!}$
 
-Also, if the encryption is linear and we could start the operation on any possible rotation index, the possible states to crack would be $\frac{c! \cdot s! \cdot r \cdot c^r}{(s-n)!}$.
+Also, if the encryption is linear and we could start the operation on any possible rotation index, the possible states to crack would be $\frac{s! \cdot c!^r \cdot c^r}{(s-n)!}$.
 
 You can use this lambda function to calculate the possible states (2**result):
 
@@ -106,13 +106,13 @@ You can use this lambda function to calculate the possible states (2**result):
 from math import factorial, log2
 lambda s, r, n : log2(factorial(256)**r * factorial(s)) - log2(factorial(s-n))
 
-# it returns the log2 of the possible states because it is impossible to calculate the total number of states itself when numbers go wild ;)
+# it returns the log2 of the possible states because it is impossible to calculate the total number of states themselves when numbers go wild ;)
 
 ```
 
 Using the first expression and substituting the values we can guess how hard it would be to crack this algorithm. 
 
-In the worst case scenario, where we only have one rotor, no noise and linear rotations, the possible states to crack would be $256! \approx 10^{507} \approx 2^{1684}$. This means that in order to crack the cipher we need to try $2^{1684}$ different rotor combinations, in comparison, the difficulty of brute-forcing a 256 bit key on the symmetric cipher AES is $2^{256}$. It is not that bad, we are thinking about the worst case scenario and we also won't add the random rotations that make it harder to crack on any case. The bad news are that this approach could be easily cracked in a matter of hours using some IoC focused on file metadata by knowing the file type and some other fixed data on the encrypted metadata.
+In the worst case scenario, where we only have one rotor, no noise and linear rotations, the possible states to crack would be $256! \approx 10^{507} \approx 2^{1684}$. This means that in order to crack the cipher we need to try $2^{1684}$ different rotor combinations, in comparison, the difficulty of brute-forcing a 256 bit key on the symmetric cipher AES is $2^{256}$. It is not that bad, we are thinking about the worst case scenario and we also won't add the random rotations that make it harder to crack on any case. The bad news are that this approach could be easily cracked in a matter of hours using some IoC focused on file metadata by knowing the file type and some other fixed data on the encrypted content and metadata.
 
 In a standard setup (4 rotors, 8192 bytes noise length array, linear rotations, for a file of let's say 65536 bytes), substituting terms, the possible combinations are about $2^{137036}$, supering by far the difficulty of brute-forcing an AES 256 bit key ($2^{256}$).
 
@@ -124,9 +124,9 @@ Considering that an actual top-tier supercomputer can compute $10^{18}flops$ (fl
 
 Using a password could be beneficial because it makes all the process of creating the elements for the cipher easier and automatically, and you only have to worry about the password and not about memorizing all the elements or keeping a config file with all of it.
 
-The issue with this approach is that makes the user and its data more vulnerable, this is because the password is transformed into a hash then parsed to obtain the seeds for the generators for each part (rotors, rotations and noise), the number of rotors... This hash is generated in v1.2 using sha3_256, that returns a string with 64 hex chars from which we will only use the first 53 hex chars.
+The issue with this approach is that makes the user and its data more vulnerable, this is because the password is transformed into a hash then parsed to obtain the seeds for the generators for each part (rotors, rotations and noise), the number of rotors... This hash is generated in v2.0 using sha3_256, that returns a string with 64 hex chars from which we will use all.
 
-This means that in order to crack the password you'd only need to brute-force $16^{53} = 2^{212}$ possible combinations. The difficulty is between trying to crack with brute force AES with a 192 bit key and the same with 256 bit key, in both cases it is impossible to crack on a reasonable amount of time, and so E2.
+This means that in order to crack the password you'd only need to brute-force $16^{64} = 2^{256}$ possible combinations. The difficulty is the same as trying to crack with brute force AES cipher with 256 bit key, in both cases it is impossible to crack on a reasonable amount of time, and so E2.
 
 ## Usage from terminal
 
@@ -141,7 +141,9 @@ python3 enigma2.py --help
 After pressing enter this message will pop up:
 
 ```bash
-usage: enigma2.py [-h] [--data DATA] [--fpath FPATH] [--out_path OUT_PATH] --pwd PWD [--op {E,D}] [--encoding {None,utf-8,utf-16,utf-32,utf-64}]
+usage: enigma2.py [-h] [--data DATA] [--fpath FPATH] [--out_path OUT_PATH] --pwd PWD [--op {E,D}]
+                  [--encoding {utf-8,utf-16,utf-32,ascii,utf-7,base64-codec,big5,big5hkscs,bz2-codec,cp037,cp1026,cp1125,cp1140,cp1250,cp1251,cp1252,cp1253,cp1254,cp1255,cp1256,cp1257,cp1258,cp273,cp424,cp437,cp500,cp720,cp737,cp775,cp850,cp852,cp855,cp856,cp857,cp858,cp860,cp861,cp862,cp863,cp864,cp865,cp866,cp869,cp874,cp875,cp932,cp949,cp950,euc-jis-2004,euc-jisx0213,euc-jp,euc-kr,gb18030,gb2312,gbk,hex-codec,hp-roman8,hz,idna,iso2022-jp,iso2022-jp-1,iso2022-jp-2,iso2022-jp-2004,iso2022-jp-3,iso2022-jp-ext,iso2022-kr,iso8859-1,iso8859-10,iso8859-11,iso8859-13,iso8859-14,iso8859-15,iso8859-16,iso8859-2,iso8859-3,iso8859-4,iso8859-5,iso8859-6,iso8859-7,iso8859-8,iso8859-9,johab,koi8-r,koi8-t,koi8-u,kz1048,mac-cyrillic,mac-greek,mac-iceland,mac-latin2,mac-roman,mac-turkish,ptcp154,quopri-codec,raw-unicode-escape,rot-13,shift-jis,shift-jis-2004,shift-jisx0213,tis-620,utf-16-be,utf-16-le,utf-32-be,utf-32-le,utf-8-sig,uu-codec,zlib-codec,latin-1}]        
+                  [--orig_rot] [--start_op_index START_OP_INDEX]
 
 Enigma2 Encryption/Decryption of files
 
@@ -152,8 +154,11 @@ options:
   --out_path OUT_PATH   path of output File
   --pwd PWD             Password for encryption/decryption
   --op {E,D}            Operation to perform (E for encrypt, D for decrypt)
-  --encoding {None,utf-8,utf-16,utf-32,utf-64}
+  --encoding {utf-8,utf-16,utf-32,ascii,utf-7,base64-codec,big5,big5hkscs,bz2-codec,cp037,cp1026,cp1125,cp1140,cp1250,cp1251,cp1252,cp1253,cp1254,cp1255,cp1256,cp1257,cp1258,cp273,cp424,cp437,cp500,cp720,cp737,cp775,cp850,cp852,cp855,cp856,cp857,cp858,cp860,cp861,cp862,cp863,cp864,cp865,cp866,cp869,cp874,cp875,cp932,cp949,cp950,euc-jis-2004,euc-jisx0213,euc-jp,euc-kr,gb18030,gb2312,gbk,hex-codec,hp-roman8,hz,idna,iso2022-jp,iso2022-jp-1,iso2022-jp-2,iso2022-jp-2004,iso2022-jp-3,iso2022-jp-ext,iso2022-kr,iso8859-1,iso8859-10,iso8859-11,iso8859-13,iso8859-14,iso8859-15,iso8859-16,iso8859-2,iso8859-3,iso8859-4,iso8859-5,iso8859-6,iso8859-7,iso8859-8,iso8859-9,johab,koi8-r,koi8-t,koi8-u,kz1048,mac-cyrillic,mac-greek,mac-iceland,mac-latin2,mac-roman,mac-turkish,ptcp154,quopri-codec,raw-unicode-escape,rot-13,shift-jis,shift-jis-2004,shift-jisx0213,tis-620,utf-16-be,utf-16-le,utf-32-be,utf-32-le,utf-8-sig,uu-codec,zlib-codec,latin-1}
                         Encoding to use for input/output
+  --orig_rot            Detect if the original rotations should be used
+  --start_op_index START_OP_INDEX
+                        Starting index for rotations
 ```
 
 Here are some example use cases:
