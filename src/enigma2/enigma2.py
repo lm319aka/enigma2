@@ -4,91 +4,54 @@ from typing import Union
 from pathlib import Path
 from encodings_getter import encoding_dtype_map, find_encoding
 import chardet
+import time
 import logging
+from enigma2.e2_config import E2Config, E2Generator
+# from dataclasses import dataclass
 
 logging.Logger(__name__).addHandler(logging.NullHandler())
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
+def timed(func):
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        end = time.perf_counter()
+        print(f"{func.__name__} took {end - start:.4f} seconds")
+        return result
+    return wrapper
+
+
 class E2:
 
     def __init__(self, 
-                 pwd: bytes,
-                 **kwargs,
+                 config: E2Config
                 ):
         """
         initialize E2
-        :param pwd: password in bytes
-        :param config: dict with all important params
-        :param kwargs: optional parameters
-        :Keyword Arguments:
-            - dtype: np.dtype -- supported data type
-            - rotations_seed: int
-            - number_rotors: int
-            - original_rotations: bool -- if True, rotations are like original enigma
-            - rotors_seed: int
-            - noise_size: int -- length of noise
-            - noise_seed: int
 
-        # maybe will be created in the future:
-            - rotations_array: np.array
-            - rotors_array: np.array
-            - noise_array: np.array
-        """
-        # private params
-        self.__main_seeds_len: int = 16
-        self.__seeds_number: int = 4
-        self.__hash_alg: str = "sha3_256" # Hash len must be always >=64
-
-        # Initialize pwd and pwd hash
-        self.pwd: bytes = pwd
-        self.hash_pwd: str = hashlib.new(self.__hash_alg).hexdigest()
-        logging.info(f"Password hash: {self.hash_pwd}")
-
-        self.dtype2btype: dict = {
-            np.uint8: 2**8,
-            np.uint16: 2**16,
-            np.uint32: 2**32,
-            np.uint64: 2**64
-        }
-
-        # Initialize config, where all important params are stored when first initialized the class object
-        self.config = kwargs.copy()
-        # print(self.config)
-        self.define_params()
-
-        # print(self.config)
-        self.number_rotors: int = self.config["number_rotors"]
-        self.btype: int = self.config["btype"]
-        self.dtype: np.dtype = self.config["dtype"]
-        self.rotations_seed: int = self.config["rotations_seed"]
-        self.rotors_seed: int = self.config["rotors_seed"]
-        self.noise_seed: int = self.config["noise_seed"]
-        self.noise_size: int = self.config["noise_size"]
-        self.original_rotations: bool = self.config["original_rotations"]
-
-        assert self.dtype2btype[self.dtype] == self.btype, f"dtype and btype mismatch: {self.dtype} != {self.btype}"
-        assert self.number_rotors > 0, "Number of rotors must be greater than 0"
-        # assert self.btype > 0, "Base type must be greater than 0"
-        assert self.dtype in [np.uint8, np.uint16, np.uint32, np.uint64], "Unsupported dtype"
-        # assert self.noise_size > 0, "Noise size must be greater than 0"
-        assert self.rotations_seed >= 0, "Rotations seed must be non-negative"
-        assert self.rotors_seed >= 0, "Rotors seed must be non-negative"
-        assert self.noise_seed >= 0, "Noise seed must be non-negative"
+        :param config: a config class that handles all the parameters, seeds, etc...
         
+        """
 
-        self.rotations_rng = np.random.default_rng(self.rotations_seed)
-        self.rotors_rng = np.random.default_rng(self.rotors_seed)
-        self.noise_rng = np.random.default_rng(self.noise_seed)
+        self.config = config
+        self.generator = E2Generator(self.config.pwd, self.config, hash_alg=self.config.hash_alg)
+        if config.verbose:
+            logging.basicConfig(
+                level=logging.INFO,
+                filename=config.log_path if config.log_path is not None else None,
+                format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S"
+            )
+        else:
+            logging.disable(logging.CRITICAL)
 
-        # rotors creation
-        self.encryption_rotors = np.zeros((self.number_rotors, self.btype), dtype=self.dtype)
-        self.decryption_rotors = np.zeros((self.number_rotors, self.btype), dtype=self.dtype)
 
-        for i in range(self.number_rotors):
-            encr_rotor = self.create_rotor()
-            self.encryption_rotors[i] = encr_rotor
-            self.decryption_rotors[i] = np.vectorize(lambda x: np.where(encr_rotor == x)[0][0])(np.arange(self.btype, dtype=self.dtype))
+        # rotors creation (2d arrays)
+        self.encryption_rotors, self.decryption_rotors = self.generator.generate_rotors(self.config.number_rotors, self.config.btype)
+        # plugboard (1d array)
+        self.encryption_plugboard, self.decryption_plugboard = self.generator.generate_plugboard()
         
         # logging.info(self.encryption_rotors)
         # logging.info(self.decryption_rotors)
@@ -104,158 +67,59 @@ class E2:
 
         logging.info(
             f"""
-            number_rotors: {self.number_rotors}
-            btype: {self.btype}
-            dtype: {self.dtype}
-            rotations_seed: {self.rotations_seed}
-            rotors_seed: {self.rotors_seed}
-            noise_seed: {self.noise_seed}
-            noise_size: {self.noise_size}
+            number_rotors: {self.config.number_rotors}
+            btype: {self.config.btype}
+            dtype: {self.config.dtype}
+            rotations_seed: {self.config.rotations_seed}
+            rotors_seed: {self.config.rotors_seed}
+            noise_seed: {self.config.noise_seed}
+            noise_size: {self.config.noise_size}
             """
-        )   
-        
+        )
+
     def reset_rng(self, start_index: int = 0):
-        # TODO: should it be activated automatically if cipher operation is changed (from encrypt to decrypt or viceversa)?
-        self.rotations_rng = np.random.default_rng(self.rotations_seed)
-        self.rotors_rng = np.random.default_rng(self.rotors_seed)
-        self.noise_rng = np.random.default_rng(self.noise_seed)
-        
-        if start_index > 0:
-            self.rotations_rng.random(start_index)
-            self.rotors_rng.random(start_index)
-            self.noise_rng.random(start_index)
-
-    def create_rotor(self) -> np.array:
-        new_rotor = np.arange(self.btype, dtype=self.dtype)
-        self.rotors_rng.shuffle(new_rotor)
-        return new_rotor
-
-    def create_rotations(self, 
-                         rotations_size: int, 
-                         original_type: bool=False, 
-                         initial_rotations_index: int = 0) -> np.array:
-        rotations_array = np.empty(shape=(self.number_rotors, rotations_size), dtype=self.dtype)
-        if original_type:
-            # rotations like original enigma (hard way)
-
-            # for rotation_index in range(self.number_rotors):
-            #     # most proximal distance btwn two identical nums
-            #     distance = self.btype**(rotation_index+1)
-            #     chunk_size = self.btype**rotation_index
-            #     for number in range(self.btype):
-            #         # TODO: maybe it could be better if all indexes were given to array to assign directly to its specified number
-            #         chunks_indexes = np.arange(start=chunk_size*number, 
-            #                                    stop=rotations_size,
-            #                                    step=distance,
-            #                                    dtype=np.uint64)
-            #         chunks_ends = chunks_indexes + chunk_size
-            #         for start, end in np.stack((chunks_indexes, chunks_ends), axis=1):
-            #             rotations_array[rotation_index][start: end] = number
-
-            # rotations like original enigma (easy way)
-            indexes = np.arange(rotations_size, dtype=np.uint64) + initial_rotations_index
-            for rotation_index in range(self.number_rotors):
-                # most proximal distance btwn two identical nums
-                chunk_size = self.btype**rotation_index
-                rotations_array[rotation_index] = (indexes.copy()//chunk_size)%self.btype
-
-        else:
-            # rotations like enigma2: random rotations
-            # self.rotations_rng = np.random.default_rng(self.rotations_seed)
-            for rotation_num in range(self.number_rotors):
-                rotations_array[rotation_num] = self.rotations_rng.integers(low=0, high=self.btype, size=rotations_size, dtype=self.dtype)
-        return rotations_array
-    
-    def create_noise(self, size: int) -> np.array:
-        # assert size > 0, "Size must be greater than 0"
-
-        if self.noise_size == 0:
-            return np.zeros(size, dtype=self.dtype)
-        
-        if self.noise_size > size:
-            self.noise_size = self.noise_size % size
-            # raise ValueError("Noise size cannot be greater than the data size")
-        # create noise array
-        self.noise_values = self.noise_rng.integers(low=0, high=self.btype, size=self.noise_size, dtype=self.dtype)
-        noise_indexes = self.noise_rng.choice(np.arange(size), size=self.noise_size, replace=True)
-        noise_array = np.zeros(size, dtype=self.dtype)
-        noise_array[noise_indexes] = self.noise_values
-        logging.debug(f"Noise array: {noise_array}")
-        return noise_array
-
-    def define_params(self) -> None:
-        # Defines seeds and number of rotors based on the password hash
-        assert len(self.hash_pwd)>=self.__main_seeds_len*self.__seeds_number, "Password hash is too short"
-        hex_chains = [self.hash_pwd[i*self.__main_seeds_len:(i+1)*self.__main_seeds_len] for i in range(0, self.__seeds_number)]
-        if self.config == {}:
-            self.config = {
-                "dtype": np.uint8,
-                "btype": self.dtype2btype[np.uint8],
-
-                "rotations_seed": None,
-
-                "number_rotors": None,
-                "rotors_seed": None,
-
-                "noise_size": None,
-                "noise_seed": None,
-
-                "original_rotations": False,
-                "start_op_index": 0
-            }
-        print(self.config)
-        # idk if seed 0 would be valid seed
-        # maybe will be changed in the future
-        if self.config.get("rotations_seed", None) is None:
-            self.config["rotations_seed"] = int(hex_chains[0], 16)
-        if self.config.get("noise_seed", None) is None:
-            self.config["noise_seed"] = int(hex_chains[1], 16)
-        if self.config.get("rotors_seed", None) is None:
-            self.config["rotors_seed"] = int(hex_chains[2], 16)
-        # optional parameters to take from last hash part
-        if self.config.get("number_rotors", None) is None:
-            self.config["number_rotors"] = int(hex_chains[3][0], 16) + 1 # 1-16
-        if self.config.get("noise_size", None) is None:
-            self.config["noise_size"] = int(hex_chains[3][1:], 16) # 0-16**15
-
-
+        self.generator.reset_rng(start_index)
 
     def rotor_encryption(self, data_array: np.array, rotor: np.array, rotation: np.array) -> np.array:
         # This function will encrypt data based on the rotor and rotation given
-        # res: np.array = np.mod(data_array + rotation, self.btype)
+        # res: np.array = np.mod(data_array + rotation, self.config.btype)
         res: np.array = data_array + rotation
         return rotor[res]
 
     def rotor_decryption(self, data_array: np.array, rotor: np.array, rotation: np.array) -> np.array:
         # This function will decrypt data based on the rotor and rotation given
         res: np.array = rotor[data_array]
-        # return np.mod(res - rotation, self.btype)
+        # return np.mod(res - rotation, self.config.btype)
         return res - rotation
 
+    @timed
     def encrypt(self, 
                 data_array: Union[np.array, bytes], 
                 start_op_index: int=0) -> np.array:
         # convert bytes to numpy array if necessary
         if isinstance(data_array, bytes):
-            data_array = np.frombuffer(data_array, dtype=self.dtype)
-        
-        if self.config["dtype"] is None:
-            self.config["dtype"] = data_array.dtype
+            data_array = np.frombuffer(data_array, dtype=self.config.dtype)
+
+        if self.config.dtype is None:
+            self.config.dtype = data_array.dtype
 
         if start_op_index:
-            self.reset_rng(start_op_index)
+            self.generator.reset_rng(start_op_index)
         # create rotations
-        rotations_array = self.create_rotations(data_array.size, 
-                                                original_type=self.original_rotations,
+        rotations_array = self.generator.generate_rotations(data_array.size, 
+                                                original_type=self.config.original_rotations,
                                                 initial_rotations_index=start_op_index)
         # noise creation
-        noise_array = self.create_noise(data_array.size)
+        noise_array = self.generator.generate_noise(data_array.size)
+
+        # apply plugboard
+        data_array = self.encryption_plugboard[data_array]
 
         # apply rotations
-        for i in range(self.number_rotors):
+        for i in range(self.config.number_rotors):
             data_array = self.rotor_encryption(data_array, self.encryption_rotors[i], rotations_array[i])
         # add noise
-        # return np.mod(data_array + noise_array, self.btype)
+        # return np.mod(data_array + noise_array, self.config.btype)
         return data_array + noise_array
 
     def encrypt_file(self, 
@@ -271,13 +135,13 @@ class E2:
         if file_path.is_dir():
             raise IsADirectoryError(f"File {file_path} is a directory")
         
-        file_path: Path
+        # file_path: Path
         if isinstance(output_path, str):
             output_path = Path(output_path)
         if output_path is None:
             output_path = file_path.parent
 
-        output_path: Path
+        # output_path: Path
         if output_path.is_dir():
             output_path = Path(output_path).joinpath(file_path.name)
             print("Output path:", output_path.as_posix()+".npy")
@@ -291,38 +155,41 @@ class E2:
             print("File encoding:", file_encoding)
             data = np.fromfile(file_path.as_posix(), dtype=encoding_dtype_map[file_encoding])
         else:
-            data = np.fromfile(file_path.as_posix(), dtype=self.dtype)
+            data = np.fromfile(file_path.as_posix(), dtype=self.config.dtype)
         encrypted_data = self.encrypt(data, start_op_index)
         np.save(output_path.as_posix(), encrypted_data)
         
         return output_path.as_posix()+".npy"
 
+    @timed
     def decrypt(self, 
                 data_array: Union[np.array, bytes],
                 start_op_index: int=0) -> np.array:
         # convert bytes to numpy array if necessary
         if isinstance(data_array, bytes):
-            data_array = np.frombuffer(data_array, dtype=self.dtype)
+            data_array = np.frombuffer(data_array, dtype=self.config.dtype)
 
-        if self.config["dtype"] is None:
-            self.config["dtype"] = data_array.dtype
+        if self.config.dtype is None:
+            self.config.dtype = data_array.dtype
 
         if start_op_index:
             self.reset_rng(start_op_index)
 
-        rotations_array = self.create_rotations(data_array.size, 
-                                                original_type=self.original_rotations,
+        rotations_array = self.generator.generate_rotations(data_array.size, 
+                                                original_type=self.config.original_rotations,
                                                 initial_rotations_index=start_op_index)
-        noise_array = self.create_noise(data_array.size)
+        noise_array = self.generator.generate_noise(data_array.size)
 
         # remove noise
-        # data_array = np.mod(data_array - noise_array, self.btype)
+        # data_array = np.mod(data_array - noise_array, self.config.btype)
         data_array = data_array - noise_array
 
         # apply rotations
-        for i in reversed(range(self.number_rotors)):
+        for i in reversed(range(self.config.number_rotors)):
             data_array = self.rotor_decryption(data_array, self.decryption_rotors[i], rotations_array[i])
-
+        
+        # apply plugboard
+        data_array = self.decryption_plugboard[data_array]
         return data_array
 
     def decrypt_file(self, 
@@ -337,13 +204,13 @@ class E2:
         if file_path.is_dir():
             raise IsADirectoryError(f"File {file_path} is a directory")
         
-        file_path: Path
+        # file_path: Path
         if isinstance(output_path, str):
             output_path = Path(output_path)
         if output_path is None:
             output_path = file_path.parent
 
-        output_path: Path
+        # output_path: Path
         if output_path.is_dir():
             output_path = Path(output_path).joinpath(file_path.name.replace(".npy", ""))
             print("Output path:", output_path.as_posix())
@@ -405,7 +272,8 @@ if __name__ == "__main__":
 
         "original_rotations": args.orig_rot,
     }
-    codec = E2(pwd=args.pwd.encode("utf-8"))
+
+    codec = E2(E2Config(pwd=args.pwd.encode("utf-8")))
 
     if not args.data and not args.fpath:
         parser.print_help()

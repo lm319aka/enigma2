@@ -22,20 +22,28 @@ On this document you will find the different features of past, present and futur
 - [x] function that resets all default random ranges to some index (by default 0 -> beginning)
 - [x] explain how hard is it to crack enigma2 (using math and probabilities), also explain its strengths and weaknesses
 
-## ENIGMA2 V2 (coming soon)
+## ENIGMA2 V2 (in process)
 
-- [ ] use kwargs instead of passing config dict
-- [ ] avoid duplicated rotors
-- [ ] try to change hash function to another one much more bigger and secure -> maybe an plausible option could be to generate a random chain of bytes of the desired length out of pc memory and optionally mix it with random data from np.random
-- [ ] instead of using default_rng, create functions from scratch that can generate all the possible states for each element (create a class called E2Gernerator that stores all this functions)
-- [ ] check that the original rotation mode is correctly programmed
-- [ ] increase seed size -> modify parser
-- [ ] pass an argument via terminal or in config for linear/original rotations
-- [ ] selection of starting index for rotations (via config or via terminal as argument)
-- [ ] modify code to allow passing rotors and other static elements/arrays directly in config
-- [ ] add option for using original enigma rotations on the process
-- [ ] create a layer on cipher that works as the original enigma plugboard, but it can have from 1 up to 16 plugs (connecting from 2 up to 32 chars)
-- [ ] pass config as json in terminal (well, you pass the path but nevermind)
-- [ ] improve speed using multi-threading and dividing the process in smaller parts, specially for large files
-- [ ] create installable enigma.exe (it can be executed everywhere on windows pc)
+- [X] check that the original rotation mode is correctly programmed
+- [X] add option for using original enigma rotations on the process
+- [x] pass an argument via terminal or in config for linear/original rotations
+- [x] selection of starting index for rotations (via config or via terminal as argument)
+
+- [X] Add timer to time the encryption/decryption process and much more (or use logging)
+- [ ] Add some metadata to encrypted files **(like file type, encryption time, doc hash[to verify if file will be successfully decrypted], starting rotations index, original rotations used bool, etc...)**
+- [ ] TODO: Automatically detect when to encrypt/decrypt file on terminal if no flag is given
+- [ ] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
+- [X] use kwargs instead of passing config dict
+
+- [X] try to change hash function to another one much more bigger and secure -> maybe an plausible option could be to generate a random chain of bytes of the desired length out of pc memory and optionally mix it with random data from np.random **it would treat the password as a fixed length chain of bytes (if len is less than standard complete with extra 0x00 bytes) and return the nth iteration of the possible ones for an element (rotor, noise, rotation, plugboard) -> this also creates a vulnerability issue because we are filling the len gap with known characters, this could be use to attack the cipher and break it more easily using brute-force**
+- [X] instead of using default_rng, create functions from scratch that can generate all the possible states for each element **(create a class called E2Generator that stores all this functions)**
+- [X] increase seed size -> modify parser
+- [X] create class that handles rotors, rotations, noise, etc... their creation and properties
+- [X] avoid duplicated rotors **(it is so unlikely for this scenario to happen that I do not consider spending any time on it)**
+- [ ] modify code to allow passing rotors and other static elements/arrays directly in config **(maybe implementing it is a waste of time)**
+- [X] create a layer on cipher that works as the original enigma plugboard, but it can have from 1 up to 16 plugs (connecting from 2 up to 32 chars)
+- [ ] pass config as json in terminal **(well, you pass the path but nevermind)**
+- [ ] modify README.md to include all the new features
+- [ ] TODO: improve speed using multi-threading and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**
+- [ ] TODO: create installable enigma.exe (it can be executed everywhere on windows pc)
 - [ ] calculate difficulty of breaking e2v1 compared with e2v2
