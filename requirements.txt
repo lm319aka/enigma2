@@ -1,3 +1,7 @@
-# Add your dependencies here
 numpy
 chardet
+
+# In case of using jupyter notebooks uncomment
+# ipython
+# ipykernel
+# matplotlib

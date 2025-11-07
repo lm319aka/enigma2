@@ -13,7 +13,7 @@ On this document you will find the different features of past, present and futur
 - [x] create functions for encrypting and decrypting files
 - [x] terminal interface (encrypt/decrypt files/raw data into files/raw data)
 
-## ENIGMA2 V1 (actual version)
+## ENIGMA2 V1 (deprecated)
 
 - [x] solve encoding issues while encrypting/decrypting
 - [x] all uint types are supported (uint8, uint16, uint32, uint64)
@@ -22,7 +22,7 @@ On this document you will find the different features of past, present and futur
 - [x] function that resets all default random ranges to some index (by default 0 -> beginning)
 - [x] explain how hard is it to crack enigma2 (using math and probabilities), also explain its strengths and weaknesses
 
-## ENIGMA2 V2 (in process)
+## ENIGMA2 V2 (actual version)
 
 - [X] check that the original rotation mode is correctly programmed
 - [X] add option for using original enigma rotations on the process
@@ -31,7 +31,7 @@ On this document you will find the different features of past, present and futur
 
 - [X] Add timer to time the encryption/decryption process and much more (or use logging)
 - [ ] Add some metadata to encrypted files **(like file type, encryption time, doc hash[to verify if file will be successfully decrypted], starting rotations index, original rotations used bool, etc...)**
-- [ ] TODO: Automatically detect when to encrypt/decrypt file on terminal if no flag is given
+- [X] TODO: Automatically detect when to encrypt/decrypt file on terminal if no flag is given
 - [ ] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
 - [X] use kwargs instead of passing config dict
 
@@ -42,6 +42,9 @@ On this document you will find the different features of past, present and futur
 - [X] avoid duplicated rotors **(it is so unlikely for this scenario to happen that I do not consider spending any time on it)**
 - [ ] modify code to allow passing rotors and other static elements/arrays directly in config **(maybe implementing it is a waste of time)**
 - [X] create a layer on cipher that works as the original enigma plugboard, but it can have from 1 up to 16 plugs (connecting from 2 up to 32 chars)
+- [X] auto-reset ranges to default values (0 -> beginning)
+- [X] write tests for E2, E2Config and E2Generator
+- [X] create new class method that generates random password (E2Generator)
 - [ ] pass config as json in terminal **(well, you pass the path but nevermind)**
 - [ ] modify README.md to include all the new features
 - [ ] TODO: improve speed using multi-threading and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**

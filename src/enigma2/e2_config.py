@@ -2,6 +2,7 @@ import hashlib
 import numpy as np
 import json
 from pathlib import Path
+from encodings_getter import encoding_dtype_map
 
 class E2Config:
      def __init__(self, 
@@ -43,11 +44,17 @@ class E2Config:
 
         # Initialize config, where all important params are stored when first initialized the class object
         self.dtype: np.dtype = kwargs.get("dtype", np.uint8)
-        self.btype: int = kwargs.get("btype", self.dtype2btype[np.uint8])
+        
+        assert self.dtype in [np.uint8, np.uint16, np.uint32, np.uint64], "Unsupported dtype"
 
+        self.btype: int = kwargs.get("btype", self.dtype2btype[self.dtype])
+
+        assert self.dtype2btype[self.dtype] == self.btype, f"dtype and btype mismatch: {self.dtype} != {self.btype}"
+        
         self.rotations_seed: int = kwargs.get("rotations_seed", None)
 
         self.number_rotors: int = kwargs.get("number_rotors", None)
+        self.number_rotations: int = self.number_rotors
         self.rotors_seed: int = kwargs.get("rotors_seed", None)
 
         self.plugboard_seed: int = kwargs.get("plugboard_seed", None)
@@ -56,12 +63,19 @@ class E2Config:
         self.noise_size: int = kwargs.get("noise_size", None)
         self.noise_seed: int = kwargs.get("noise_seed", None)
 
-        self.original_rotations: bool = kwargs.get("original_rotations", None)
+        self.original_rotations: bool = kwargs.get("original_rotations", False)
         self.start_op_index: int = kwargs.get("start_op_index", 0)
+
+        # erase later: it is used for testing
+        self.avoid_validation = kwargs.get("avoid_validation", False)
 
         # other optional params
         self.verbose: bool = kwargs.get("verbose", False)
         self.log_path: Path | str = kwargs.get("log_path", None)
+        self.encoding: str = kwargs.get("encoding", "utf-8")
+
+        if self.dtype != encoding_dtype_map[self.encoding]: 
+            raise ValueError(f"Encoding does not match dtype: {self.dtype} != {encoding_dtype_map[self.encoding]}")
 
         # Defines seeds and number of rotors based on the password hash
         assert len(self.hash_pwd)>=self.__main_seeds_len*self.__seeds_number, "Password hash is too short"
@@ -73,7 +87,7 @@ class E2Config:
         if len(hex_chains) < self.__seeds_number: raise IndexError("Password hash has not appropriate length")
         
         if self.rotations_seed is None:
-            self.rotations_seed = int(hex_chains[0], 16) # 0-2**64
+            self.rotations_seed = int(hex_chains[0], 16)
         if self.rotors_seed is None:
             self.rotors_seed = int(hex_chains[1], 16)
         if self.plugboard_seed is None:
@@ -84,19 +98,25 @@ class E2Config:
         if self.number_rotors is None:
             self.number_rotors = int(hex_chains[4][0], 16) + 1 # 1-16
         if self.plugboard_size is None:
-            self.plugboard_size = int(hex_chains[4][1], 16) # 1-16 -> 2-32 chars swapped
+            self.plugboard_size = int(hex_chains[4][1], 16) + 1 # 1-16 -> 2-32 chars swapped
         if self.noise_size is None:
-            self.noise_size = int(hex_chains[4][2:], 16) # 0-16**30
+            self.noise_size = int(hex_chains[4][2:], 16) #
 
-        assert self.dtype2btype[self.dtype] == self.btype, f"dtype and btype mismatch: {self.dtype} != {self.btype}"
-        assert self.number_rotors > 0, "Number of rotors must be greater than 0"
-        # assert self.btype > 0, "Base type must be greater than 0"
-        assert self.dtype in [np.uint8, np.uint16, np.uint32, np.uint64], "Unsupported dtype"
-        # assert self.noise_size > 0, "Noise size must be greater than 0"
-        assert self.rotations_seed >= 0, "Rotations seed must be non-negative"
-        assert self.rotors_seed >= 0, "Rotors seed must be non-negative"
-        assert self.noise_seed >= 0, "Noise seed must be non-negative"
-     
+        if not self.avoid_validation:
+            # TODO: Create a validator/serializer class to make all the assertions and other checks
+            assert self.number_rotors > 0, "Number of rotors must be greater than 0"
+            assert self.dtype in [np.uint8, np.uint16, np.uint32, np.uint64], "Unsupported dtype"
+            # write the complete numbers instead of doing the calculation every time (2**64 -> 18446744073709551616)
+            assert 16**self.__main_seeds_len>self.rotations_seed>=0, f"Rotations seed must be in range [0, {16**self.__main_seeds_len}-1]: {self.rotations_seed}"
+            assert 16**self.__main_seeds_len>self.rotors_seed>=0, f"Rotors seed must be in range [0, {16**self.__main_seeds_len}-1]: {self.rotors_seed}"
+            assert 16**self.__main_seeds_len>self.noise_seed>=0, f"Noise seed must be in range [0, {16**self.__main_seeds_len}-1]: {self.noise_seed}"
+            assert 16**self.__main_seeds_len>self.plugboard_seed>=0, f"Plugboard seed must be in range [0, {16**self.__main_seeds_len}-1]: {self.plugboard_seed}"
+            assert 16>=self.number_rotors>=1, f"Number of rotors must be in range [1, 16]: {self.number_rotors}"
+            assert 16>=self.plugboard_size>=1, f"Plugboard size must be in range [1, 16]: {self.plugboard_size}"
+            len_noise_size_hash_part = len(hex_chains[4][2:])
+            assert 16**len_noise_size_hash_part>self.noise_size>=0, f"Noise size must be in range [0, {16**len_noise_size_hash_part}-1]: {self.noise_size}"
+        self.number_rotations: int = self.number_rotors
+
      def __repr__(self) -> str:
         return f"E2Config({self.__dict__})"
      
@@ -120,31 +140,31 @@ class E2Generator:
         self.rotations_rng = np.random.default_rng(self.config.rotations_seed)
         self.rotors_rng = np.random.default_rng(self.config.rotors_seed)
         self.noise_rng = np.random.default_rng(self.config.noise_seed)
-        self.encryption_plugboard_rng = np.random.default_rng(self.config.plugboard_seed)
-
+        self.plugboard_rng = np.random.default_rng(self.config.plugboard_seed)
+    
     def reset_rng(self, start_index: int = 0):
         # TODO: reset_rng in E2Config??? thus all random generators on config
         # TODO: should it be activated automatically if cipher operation is changed (from encrypt to decrypt or viceversa)?
         self.rotations_rng = np.random.default_rng(self.config.rotations_seed)
         self.rotors_rng = np.random.default_rng(self.config.rotors_seed)
         self.noise_rng = np.random.default_rng(self.config.noise_seed)
-        self.encryption_plugboard_rng = np.random.default_rng(self.config.plugboard_seed)
+        self.plugboard_rng = np.random.default_rng(self.config.plugboard_seed)
         if start_index > 0:
             self.rotations_rng.random(start_index)
             self.rotors_rng.random(start_index)
             self.noise_rng.random(start_index)
-            self.encryption_plugboard_rng.random(start_index)
+            self.plugboard_rng.random(start_index)
     
-    def create_rotor(self) -> np.array:
+    def create_single_rotor(self) -> np.array:
         new_rotor = np.arange(self.config.btype, dtype=self.config.dtype)
         self.rotors_rng.shuffle(new_rotor)
         return new_rotor
 
-    def generate_rotors(self, number_rotors: int, btype: int=256):
+    def generate_rotors(self):
         encryption_rotors = np.zeros((self.config.number_rotors, self.config.btype), dtype=self.config.dtype)
         decryption_rotors = encryption_rotors.copy()
         for i in range(self.config.number_rotors):
-            encr_rotor = self.create_rotor()
+            encr_rotor = self.create_single_rotor()
             encryption_rotors[i] = encr_rotor
             decryption_rotors[i] = self.reverse_rotor(encr_rotor) # np.vectorize(lambda x: np.where(encr_rotor == x)[0][0])(np.arange(self.config.btype, dtype=self.config.dtype))
         return encryption_rotors, decryption_rotors
@@ -167,6 +187,7 @@ class E2Generator:
             # self.rotations_rng = np.random.default_rng(self.config.rotations_seed)
             for rotation_num in range(self.config.number_rotors):
                 rotations_array[rotation_num] = self.rotations_rng.integers(low=0, high=self.config.btype, size=rotations_size, dtype=self.config.dtype)
+        
         return rotations_array
 
     def generate_noise(self, size: int) -> np.array:
@@ -179,21 +200,46 @@ class E2Generator:
             self.config.noise_size = self.config.noise_size % size
             # raise ValueError("Noise size cannot be greater than the data size")
         # create noise array
-        self.noise_values = self.noise_rng.integers(low=0, high=self.config.btype, size=self.config.noise_size, dtype=self.config.dtype)
+        self.noise_values = self.noise_rng.integers(low=0, 
+                                                    high=self.config.btype, 
+                                                    size=self.config.noise_size, 
+                                                    dtype=self.config.dtype)
+        
         noise_indexes = self.noise_rng.choice(np.arange(size), size=self.config.noise_size, replace=True)
         noise_array = np.zeros(size, dtype=self.config.dtype)
         noise_array[noise_indexes] = self.noise_values
         return noise_array
 
-    def generate_plugboard(self) -> np.array:
+    def generate_plugboards(self) -> np.array:
+        assert 1<=self.config.plugboard_size<=16, f"Plugboard seed must be in range [1, 16]: {self.config.plugboard_size}"
+
         plugboard = np.arange(self.config.btype, dtype=self.config.dtype)
-        places_swap = self.encryption_plugboard_rng.choice(np.arange(self.config.btype), size=self.config.plugboard_size*2, replace=False).reshape(-1, 2)
+        places_swap = np.arange(self.config.btype, dtype=self.config.dtype)
+        self.plugboard_rng.shuffle(places_swap)
+        places_swap = places_swap.reshape(-1, 2)[:self.config.plugboard_size, :]
+
         for place_1, place_2 in places_swap:
             plugboard[place_1], plugboard[place_2] = plugboard[place_2], plugboard[place_1]
-        return plugboard, self.reverse_rotor(plugboard)
+
+        decryption_plugboard = self.reverse_rotor(plugboard)
+        # print("plug_d dtype: ", decryption_plugboard.dtype)
+        return plugboard, decryption_plugboard
 
     def reverse_rotor(self, rotor: np.array) -> np.array:
-        return np.vectorize(lambda x: np.where(rotor == x)[0][0])(np.arange(self.config.btype, dtype=self.config.dtype))
+        # print(self.config.dtype)
+        # esta expresion retorna un array de tipo np.int64 lo cual no nos vale
+        # return np.vectorize(lambda x: np.where(rotor == x)[0][0])(np.arange(self.config.btype, dtype=self.config.dtype))
+
+        # esta expresion tampoco vale nse pq
+        # reversed_rotor = np.zeros_like(rotor, dtype=self.config.dtype)
+        # for c, i in enumerate(range(self.config.btype)):
+        #     reversed_rotor[i] = c
+        # return reversed_rotor
+
+        # TODO: esto es un apaño que debe ser solucionado
+        reversed_rotor = np.vectorize(lambda x: np.where(rotor == x)[0][0])(np.arange(self.config.btype, dtype=self.config.dtype))
+        return np.array([int(i) for i in reversed_rotor], dtype=self.config.dtype)
+        
 
     def __repr__(self):
         print(f"E2Gernerator: {self.__dict__}")

@@ -1,24 +1,26 @@
 import numpy as np
-import hashlib
+import os
 from typing import Union
 from pathlib import Path
 from encodings_getter import encoding_dtype_map, find_encoding
 import chardet
 import time
 import logging
-from enigma2.e2_config import E2Config, E2Generator
+from e2_config import E2Config, E2Generator
 # from dataclasses import dataclass
 
 logging.Logger(__name__).addHandler(logging.NullHandler())
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
+# See how to manage verbose mode
 def timed(func):
     def wrapper(*args, **kwargs):
         start = time.perf_counter()
         result = func(*args, **kwargs)
         end = time.perf_counter()
-        print(f"{func.__name__} took {end - start:.4f} seconds")
+        if kwargs.get("verbose", False):
+            print(f"{func.__name__} took {end - start:.4f} seconds")
         return result
     return wrapper
 
@@ -49,9 +51,9 @@ class E2:
 
 
         # rotors creation (2d arrays)
-        self.encryption_rotors, self.decryption_rotors = self.generator.generate_rotors(self.config.number_rotors, self.config.btype)
+        self.encryption_rotors, self.decryption_rotors = self.generator.generate_rotors()
         # plugboard (1d array)
-        self.encryption_plugboard, self.decryption_plugboard = self.generator.generate_plugboard()
+        self.encryption_plugboard, self.decryption_plugboard = self.generator.generate_plugboards()
         
         # logging.info(self.encryption_rotors)
         # logging.info(self.decryption_rotors)
@@ -77,6 +79,10 @@ class E2:
             """
         )
 
+    @classmethod
+    def gen_key(cls, len_bytes: int) -> bytes:
+        return os.urandom(len_bytes)
+    
     def reset_rng(self, start_index: int = 0):
         self.generator.reset_rng(start_index)
 
@@ -96,6 +102,8 @@ class E2:
     def encrypt(self, 
                 data_array: Union[np.array, bytes], 
                 start_op_index: int=0) -> np.array:
+        
+        assert start_op_index>=0, "start_op_index must be >= 0"
         # convert bytes to numpy array if necessary
         if isinstance(data_array, bytes):
             data_array = np.frombuffer(data_array, dtype=self.config.dtype)
@@ -103,7 +111,7 @@ class E2:
         if self.config.dtype is None:
             self.config.dtype = data_array.dtype
 
-        if start_op_index:
+        if start_op_index is not None:
             self.generator.reset_rng(start_op_index)
         # create rotations
         rotations_array = self.generator.generate_rotations(data_array.size, 
@@ -126,8 +134,9 @@ class E2:
                      file_path: Union[str, Path], 
                      output_path: Union[str, Path]=None,
                      detect_encoding: bool=False,
-                     start_op_index: int=0) -> str:
-
+                     start_op_index: int=0) -> Path:
+        
+        assert start_op_index>=0, "start_op_index must be >= 0"
         if isinstance(file_path, str):
             file_path = Path(file_path)
         if not file_path.exists():
@@ -144,7 +153,7 @@ class E2:
         # output_path: Path
         if output_path.is_dir():
             output_path = Path(output_path).joinpath(file_path.name)
-            print("Output path:", output_path.as_posix()+".npy")
+            logging.info(f"Output path: {output_path.as_posix()+'.npy'}")
 
         if detect_encoding:
             with open(file_path.as_posix(), "rb") as f:
@@ -152,27 +161,30 @@ class E2:
             file_encoding = chardet.detect(file_data)["encoding"]
             if file_encoding is None:
                 file_encoding = find_encoding(file_data)
-            print("File encoding:", file_encoding)
+            logging.info(f"File encoding: {file_encoding}")
             data = np.fromfile(file_path.as_posix(), dtype=encoding_dtype_map[file_encoding])
         else:
             data = np.fromfile(file_path.as_posix(), dtype=self.config.dtype)
         encrypted_data = self.encrypt(data, start_op_index)
+        # print("Encrypted dtype:", encrypted_data.dtype)
         np.save(output_path.as_posix(), encrypted_data)
         
-        return output_path.as_posix()+".npy"
+        return output_path.with_name(output_path.name + ".npy")
 
     @timed
     def decrypt(self, 
                 data_array: Union[np.array, bytes],
                 start_op_index: int=0) -> np.array:
-        # convert bytes to numpy array if necessary
+        
+        assert start_op_index>=0, "start_op_index must be >= 0"
+        # transform bytes to numpy array if necessary
         if isinstance(data_array, bytes):
             data_array = np.frombuffer(data_array, dtype=self.config.dtype)
 
         if self.config.dtype is None:
             self.config.dtype = data_array.dtype
 
-        if start_op_index:
+        if start_op_index is not None:
             self.reset_rng(start_op_index)
 
         rotations_array = self.generator.generate_rotations(data_array.size, 
@@ -185,7 +197,7 @@ class E2:
         data_array = data_array - noise_array
 
         # apply rotations
-        for i in reversed(range(self.config.number_rotors)):
+        for i in reversed(range(self.config.number_rotors)): # range(self.config.number_rotors-1, -1, -1):
             data_array = self.rotor_decryption(data_array, self.decryption_rotors[i], rotations_array[i])
         
         # apply plugboard
@@ -195,8 +207,9 @@ class E2:
     def decrypt_file(self, 
                      file_path: Union[str, Path], 
                      output_path: Union[str, Path]=None,
-                     start_op_index: int=0) -> str:
+                     start_op_index: int=0) -> Path:
         
+        assert start_op_index>=0, "start_op_index must be >= 0"
         if isinstance(file_path, str):
             file_path = Path(file_path)
         if not file_path.exists():
@@ -213,18 +226,20 @@ class E2:
         # output_path: Path
         if output_path.is_dir():
             output_path = Path(output_path).joinpath(file_path.name.replace(".npy", ""))
-            print("Output path:", output_path.as_posix())
+            logging.info(f"Output path: {output_path.as_posix()}")
 
-        data = np.load(file_path.as_posix())
+        data = np.load(file_path.as_posix()) # aca especificar encoding de config
+        # print(self.config.dtype)
+        # print("Loaded dtype:", data.dtype)
         decrypted_data = self.decrypt(data, start_op_index)
+        # print("Decrypted dtype:", decrypted_data.dtype)
         with open(output_path.as_posix(), "wb") as f:
             f.write(decrypted_data.tobytes())
 
-        return output_path.as_posix()
+        return output_path
 
 if __name__ == "__main__":
     import argparse
-    import os
 
     dtype_dict = {
         "None": None,
