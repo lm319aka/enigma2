@@ -6,7 +6,7 @@ from encodings_getter import encoding_dtype_map, find_encoding
 import chardet
 import time
 import logging
-from enigma2.enigma2_config import E2Config, E2Generator
+from enigma2._e2_config import _E2Config, _E2Generator
 # from dataclasses import dataclass
 
 logging.Logger(__name__).addHandler(logging.NullHandler())
@@ -25,10 +25,10 @@ def timed(func):
     return wrapper
 
 
-class E2:
+class _E2:
 
     def __init__(self, 
-                 config: E2Config
+                 config: _E2Config
                 ):
         """
         initialize E2
@@ -37,10 +37,10 @@ class E2:
         
         """
 
-        if not isinstance(config, E2Config):
-            raise TypeError(f"config must be an instance of E2Config, not {type(config)}")
+        if not isinstance(config, _E2Config):
+            raise TypeError(f"config must be an instance of _E2Config, not {type(config)}")
         self.config = config
-        self.generator = E2Generator(self.config.pwd, self.config, hash_alg=self.config.hash_alg)
+        self.generator = _E2Generator(self.config.pwd, self.config, hash_alg=self.config.hash_alg)
         if config.verbose:
             logging.basicConfig(
                 level=logging.INFO,
@@ -240,108 +240,108 @@ class E2:
 
         return output_path
 
-if __name__ == "__main__":
-    import argparse
+# if __name__ == "__main__":
+#     import argparse
 
-    dtype_dict = {
-        "None": None,
-        "utf-8": np.uint8,
-        "utf-16": np.uint16,
-        "utf-32": np.uint32,
-        "utf-64": np.uint64
-    }
+#     dtype_dict = {
+#         "None": None,
+#         "utf-8": np.uint8,
+#         "utf-16": np.uint16,
+#         "utf-32": np.uint32,
+#         "utf-64": np.uint64
+#     }
 
-    # import json
-    in_path = False
-    parser = argparse.ArgumentParser(description="Enigma2 Encryption/Decryption of files")
-    parser.add_argument("--data", type=str, help="Data to encrypt/decrypt")
-    # parser.add_argument("--hash_alg", default="sha256", type=str, help="Hash algorithm to use for password hashing")
-    parser.add_argument("--fpath", type=str, help="path of File to encrypt/decrypt (if --data was provided --fpath will be ignored)")
-    parser.add_argument("--out_path", type=str, help="path of output File")
-    parser.add_argument("--pwd", required=True, type=str, help="Password for encryption/decryption")
-    parser.add_argument("--op", type=str, default="E", choices=["E", "D"], help="Operation to perform (E for encrypt, D for decrypt)")
-    parser.add_argument("--encoding", type=str, default="None", choices=encoding_dtype_map.keys(), help="Encoding to use for input/output")
-    parser.add_argument("--orig_rot", action="store_true", help="Detect if the original rotations should be used")
-    parser.add_argument("--start_op_index", type=int, default=0, help="Starting index for rotations")
-    args = parser.parse_args()
+#     # import json
+#     in_path = False
+#     parser = argparse.ArgumentParser(description="Enigma2 Encryption/Decryption of files")
+#     parser.add_argument("--data", type=str, help="Data to encrypt/decrypt")
+#     # parser.add_argument("--hash_alg", default="sha256", type=str, help="Hash algorithm to use for password hashing")
+#     parser.add_argument("--fpath", type=str, help="path of File to encrypt/decrypt (if --data was provided --fpath will be ignored)")
+#     parser.add_argument("--out_path", type=str, help="path of output File")
+#     parser.add_argument("--pwd", required=True, type=str, help="Password for encryption/decryption")
+#     parser.add_argument("--op", type=str, default="E", choices=["E", "D"], help="Operation to perform (E for encrypt, D for decrypt)")
+#     parser.add_argument("--encoding", type=str, default="None", choices=encoding_dtype_map.keys(), help="Encoding to use for input/output")
+#     parser.add_argument("--orig_rot", action="store_true", help="Detect if the original rotations should be used")
+#     parser.add_argument("--start_op_index", type=int, default=0, help="Starting index for rotations")
+#     args = parser.parse_args()
     
-    # TODO: btype should be deleted from config and be processed later inside object
-    if args.encoding == "None":
-        default_encoding = "utf-8"
-        config_dtype = np.uint8
-        config_btype = 256
-    else:
-        default_encoding = args.encoding
-        config_dtype = dtype_dict[args.encoding]
-        config_btype = encoding_dtype_map[args.encoding]
+#     # TODO: btype should be deleted from config and be processed later inside object
+#     if args.encoding == "None":
+#         default_encoding = "utf-8"
+#         config_dtype = np.uint8
+#         config_btype = 256
+#     else:
+#         default_encoding = args.encoding
+#         config_dtype = dtype_dict[args.encoding]
+#         config_btype = encoding_dtype_map[args.encoding]
 
-    config_data = {
-        "btype": config_btype,
-        "dtype": config_dtype,
+#     config_data = {
+#         "btype": config_btype,
+#         "dtype": config_dtype,
 
-        "rotations_seed": None,
+#         "rotations_seed": None,
 
-        "number_rotors": None,
-        "rotors_seed": None,
+#         "number_rotors": None,
+#         "rotors_seed": None,
 
-        "noise_size": None,
-        "noise_seed": None,
+#         "noise_size": None,
+#         "noise_seed": None,
 
-        "original_rotations": args.orig_rot,
-    }
+#         "original_rotations": args.orig_rot,
+#     }
 
-    codec = E2(E2Config(pwd=args.pwd.encode("utf-8")))
+#     codec = E2(_E2Config(pwd=args.pwd.encode("utf-8")))
 
-    if not args.data and not args.fpath:
-        parser.print_help()
-        exit(1)
+#     if not args.data and not args.fpath:
+#         parser.print_help()
+#         exit(1)
 
-    elif args.data:
-        # If you expect a string representing a numpy array, parse it
-        try:
-            # Try to parse as a numpy array string
-            if not "[" in args.data or not "]" in args.data:
-                raise Exception("Not a numpy array string")
-            data = np.fromstring(args.data.replace('[','').replace(']',''), sep=' ', dtype=dtype_dict[default_encoding])
-        except Exception:
-            # Otherwise, treat as text and encode
-            data = np.frombuffer(args.data.encode(default_encoding), dtype=dtype_dict[default_encoding])
+#     elif args.data:
+#         # If you expect a string representing a numpy array, parse it
+#         try:
+#             # Try to parse as a numpy array string
+#             if not "[" in args.data or not "]" in args.data:
+#                 raise Exception("Not a numpy array string")
+#             data = np.fromstring(args.data.replace('[','').replace(']',''), sep=' ', dtype=dtype_dict[default_encoding])
+#         except Exception:
+#             # Otherwise, treat as text and encode
+#             data = np.frombuffer(args.data.encode(default_encoding), dtype=dtype_dict[default_encoding])
             
-        if args.op == "E":
-            transformed_data: np.array = codec.encrypt(data, start_op_index=args.start_op_index)
-            print("encrypted data:")
-            print(transformed_data)
-            if args.out_path is not None:
-                out_path = Path(args.out_path)
-                if not out_path.parent.exists():
-                    raise FileNotFoundError(f"Output path {args.out_path} does not exist")
-                else:
-                    np.save(out_path.as_posix(), transformed_data)
-        else:
-            transformed_data: np.array = codec.decrypt(data, start_op_index=args.start_op_index)
-            print("decrypted data:")
-            print(transformed_data.tobytes().decode(default_encoding))
-            if args.out_path is not None:
-                if not os.path.exists(args.out_path):
-                    # raise FileNotFoundError(f"Output path {args.out_path} does not exist")
-                    try:
-                        with open(args.out_path, "wb") as f:
-                            f.write(
-                                b""
-                            )
-                    except Exception:
-                        raise FileNotFoundError(f"Output path {args.out_path} does not exist")
+#         if args.op == "E":
+#             transformed_data: np.array = codec.encrypt(data, start_op_index=args.start_op_index)
+#             print("encrypted data:")
+#             print(transformed_data)
+#             if args.out_path is not None:
+#                 out_path = Path(args.out_path)
+#                 if not out_path.parent.exists():
+#                     raise FileNotFoundError(f"Output path {args.out_path} does not exist")
+#                 else:
+#                     np.save(out_path.as_posix(), transformed_data)
+#         else:
+#             transformed_data: np.array = codec.decrypt(data, start_op_index=args.start_op_index)
+#             print("decrypted data:")
+#             print(transformed_data.tobytes().decode(default_encoding))
+#             if args.out_path is not None:
+#                 if not os.path.exists(args.out_path):
+#                     # raise FileNotFoundError(f"Output path {args.out_path} does not exist")
+#                     try:
+#                         with open(args.out_path, "wb") as f:
+#                             f.write(
+#                                 b""
+#                             )
+#                     except Exception:
+#                         raise FileNotFoundError(f"Output path {args.out_path} does not exist")
 
-                with open(args.out_path, "wb") as f:
-                    f.write(transformed_data.tobytes())
+#                 with open(args.out_path, "wb") as f:
+#                     f.write(transformed_data.tobytes())
 
-    elif args.fpath:
-        if args.op == "E":
-            codec.encrypt_file(args.fpath, 
-                               args.out_path, 
-                               detect_encoding=True if args.encoding == "None" else False, 
-                               start_op_index=args.start_op_index)
-        else:
-            codec.decrypt_file(args.fpath,
-                               args.out_path,
-                               start_op_index=args.start_op_index)
+#     elif args.fpath:
+#         if args.op == "E":
+#             codec.encrypt_file(args.fpath, 
+#                                args.out_path, 
+#                                detect_encoding=True if args.encoding == "None" else False, 
+#                                start_op_index=args.start_op_index)
+#         else:
+#             codec.decrypt_file(args.fpath,
+#                                args.out_path,
+#                                start_op_index=args.start_op_index)

@@ -25,15 +25,16 @@ class E2Config:
 
             - verbose: bool
             - log_path: Path | str
+            - encoding: str
         """
         # private params
         self.__main_seeds_len: int = 24
         self.__seeds_number: int = 5
-        self.hash_alg: str = "sha3_512" # Hash len must be always >=64
+        self.__hash_alg: str = "sha3_512" # Hash len must be always >=64
 
         # Initialize pwd and pwd hash
         self.pwd: bytes = pwd
-        self.hash_pwd: str = hashlib.new(self.hash_alg).hexdigest()
+        self.hash_pwd: str = hashlib.new(self.__hash_alg, self.pwd).hexdigest()
 
         self.dtype2btype: dict = {
             np.uint8: 2**8,
@@ -79,13 +80,16 @@ class E2Config:
 
         # Defines seeds and number of rotors based on the password hash
         assert len(self.hash_pwd)>=self.__main_seeds_len*self.__seeds_number, "Password hash is too short"
-        hex_chains = [self.hash_pwd[
-            i*self.__main_seeds_len:(i+1)*self.__main_seeds_len if (i+1) < self.__seeds_number else -1
-            ] for i in range(0, self.__seeds_number)]
+        hex_chains = []
+        for i in range(self.__seeds_number):
+            start = i*self.__main_seeds_len
+            end = (i+1)*self.__main_seeds_len if (i+1) < self.__seeds_number else len(self.hash_pwd)
+            hex_chains.append(self.hash_pwd[start:end])
         
         # Make sure we have the right number of seeds
         if len(hex_chains) < self.__seeds_number: raise IndexError("Password hash has not appropriate length")
-        
+        if min([len(i) for i in hex_chains]) < self.__main_seeds_len: raise IndexError("Password hash chains have not appropriate length")
+
         if self.rotations_seed is None:
             self.rotations_seed = int(hex_chains[0], 16)
         if self.rotors_seed is None:
@@ -100,7 +104,7 @@ class E2Config:
         if self.plugboard_size is None:
             self.plugboard_size = int(hex_chains[4][1], 16) + 1 # 1-16 -> 2-32 chars swapped
         if self.noise_size is None:
-            self.noise_size = int(hex_chains[4][2:], 16) #
+            self.noise_size = int(hex_chains[4][2:], 16)
 
         if not self.avoid_validation:
             # TODO: Create a validator/serializer class to make all the assertions and other checks
@@ -116,7 +120,19 @@ class E2Config:
             len_noise_size_hash_part = len(hex_chains[4][2:])
             assert 16**len_noise_size_hash_part>self.noise_size>=0, f"Noise size must be in range [0, {16**len_noise_size_hash_part}-1]: {self.noise_size}"
         self.number_rotations: int = self.number_rotors
-
+    
+     @property
+     def hash_alg(self) -> str:
+        return self.__hash_alg
+     
+     @property
+     def main_seeds_len(self) -> int:
+        return self.__main_seeds_len
+     
+     @property
+     def seeds_number(self) -> int:
+        return self.__seeds_number
+     
      def __repr__(self) -> str:
         return f"E2Config({self.__dict__})"
      

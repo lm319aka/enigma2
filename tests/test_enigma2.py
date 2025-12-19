@@ -153,6 +153,17 @@ class TestE2(unittest.TestCase):
                 np.testing.assert_array_equal(decrypted, data)
 
     def test_encrypt_decrypt_identity_for_files_with_different_dtypes(self):
+        """
+        Test the encryption and decryption of files with different dtypes and their corresponding encodings.
+
+        It uses the same logic as test_encrypt_decrypt_identity_for_files but with different dtypes and their corresponding encodings.
+
+        This test is useful to check if the encryption and decryption process works correctly for different dtypes and their corresponding encodings.
+        
+        It is commented beacuse i need to apply the multithreading to the encryption and decryption process to make it faster and lighter.
+        In current version we create objects that consume a lot of memory
+        """        
+
         # all_valid_dtypes = [np.uint8, np.uint16, np.uint32]
         # dtypes_valid_encodings = ["utf-8", "utf-16", "utf-32"]
         # for uint_dtype, encoding in zip(all_valid_dtypes, dtypes_valid_encodings):

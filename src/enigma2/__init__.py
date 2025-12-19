@@ -12,8 +12,8 @@ __all__ = ["E2", "E2Config", "E2Generator", "encoding_dtype_map", "find_encoding
 
 from .enigma2 import E2
 from .encodings_getter import encoding_dtype_map, find_encoding
-from .e2_config import E2Config, E2Generator
+from .enigma2_config import E2Config, E2Generator
 
 E2, E2Config, E2Generator
 
-__version__ = "2.1.0"
+__version__ = "2.3.0"

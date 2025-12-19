@@ -30,9 +30,7 @@ On this document you will find the different features of past, present and futur
 - [x] selection of starting index for rotations (via config or via terminal as argument)
 
 - [X] Add timer to time the encryption/decryption process and much more (or use logging)
-- [ ] Add some metadata to encrypted files **(like file type, encryption time, doc hash[to verify if file will be successfully decrypted], starting rotations index, original rotations used bool, etc...)**
 - [X] TODO: Automatically detect when to encrypt/decrypt file on terminal if no flag is given
-- [ ] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
 - [X] use kwargs instead of passing config dict
 
 - [X] try to change hash function to another one much more bigger and secure -> maybe an plausible option could be to generate a random chain of bytes of the desired length out of pc memory and optionally mix it with random data from np.random **it would treat the password as a fixed length chain of bytes (if len is less than standard complete with extra 0x00 bytes) and return the nth iteration of the possible ones for an element (rotor, noise, rotation, plugboard) -> this also creates a vulnerability issue because we are filling the len gap with known characters, this could be use to attack the cipher and break it more easily using brute-force**
@@ -40,13 +38,24 @@ On this document you will find the different features of past, present and futur
 - [X] increase seed size -> modify parser
 - [X] create class that handles rotors, rotations, noise, etc... their creation and properties
 - [X] avoid duplicated rotors **(it is so unlikely for this scenario to happen that I do not consider spending any time on it)**
-- [ ] modify code to allow passing rotors and other static elements/arrays directly in config **(maybe implementing it is a waste of time)**
 - [X] create a layer on cipher that works as the original enigma plugboard, but it can have from 1 up to 16 plugs (connecting from 2 up to 32 chars)
 - [X] auto-reset ranges to default values (0 -> beginning)
 - [X] write tests for E2, E2Config and E2Generator
 - [X] create new class method that generates random password (E2Generator)
+
+### new tasks for e2v2.3.0
+
+- [ ] Fix stat class
+- [ ] Finish and check enigma tests
+- [X] Finish and check enigma2 config/generator tests
+- [ ] Finish plots/plot maker jupyter notebook
+- [ ] Write broader enigma class with less restrictions to use it for lab testing (it will be able to use odd rotor aranges, noise sizes, etc...) -> _E2 ??
+- [ ] modify code to allow passing rotors and other static elements/arrays directly in config **(maybe implementing it is a waste of time)**
+- [ ] Add some metadata to encrypted files **(like file type, encryption time, doc hash[to verify if file will be successfully decrypted], starting rotations index, original rotations used bool, etc...)**
+- [ ] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
+- [ ] separate random creation of cipher elements from proper functions that depend on variable params
 - [ ] pass config as json in terminal **(well, you pass the path but nevermind)**
 - [ ] modify README.md to include all the new features
 - [ ] TODO: improve speed using multi-threading and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**
+- [ ] review code and implement better comments and logical structure if possible
 - [ ] TODO: create installable enigma.exe (it can be executed everywhere on windows pc)
-- [ ] calculate difficulty of breaking e2v1 compared with e2v2
