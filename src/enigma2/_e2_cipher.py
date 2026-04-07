@@ -31,7 +31,7 @@ class _E2:
                  config: _E2Config
                 ):
         """
-        initialize E2
+        initialize _E2 (btype mst be non negative, but no restrictions at all --> E2 is son of _E2 so as Config)
 
         :param config: a config class that handles all the parameters, seeds, etc...
         

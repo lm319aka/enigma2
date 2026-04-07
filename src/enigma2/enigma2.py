@@ -6,7 +6,7 @@ from encodings_getter import encoding_dtype_map, find_encoding
 import chardet
 import time
 import logging
-from enigma2.enigma2_config import E2Config, E2Generator
+from enigma2_config import E2Config, E2Generator
 # from dataclasses import dataclass
 
 logging.Logger(__name__).addHandler(logging.NullHandler())

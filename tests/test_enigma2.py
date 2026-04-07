@@ -111,7 +111,7 @@ class TestE2(unittest.TestCase):
         data = np.arange(20, dtype=e2_original.config.dtype)
         encrypted_original = e2_original.encrypt(data.copy())
         decrypted_original = e2_original.decrypt(encrypted_original.copy())
-        np.testing.assert_array_equal(decrypted_original, data)
+        self.assertEqual(np.array_equal(decrypted_original, data), True)
     
     def test_encrypt_decrypt_identity_for_files(self):
         e2 = E2(config=self.config)

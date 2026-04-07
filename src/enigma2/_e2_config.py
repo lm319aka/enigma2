@@ -9,7 +9,7 @@ class _E2Config:
                   pwd: bytes, 
                   **kwargs) -> None:
         """
-        initialize E2Config
+        initialize _E2Config
         :param pwd: password in bytes
         :param kwargs: optional parameters
         :Keyword Arguments:
@@ -46,11 +46,20 @@ class _E2Config:
         # Initialize config, where all important params are stored when first initialized the class object
         self.dtype: np.dtype = kwargs.get("dtype", np.uint8)
         
-        assert self.dtype in [np.uint8, np.uint16, np.uint32, np.uint64], "Unsupported dtype"
+        assert self.dtype in self.dtype2btype.keys(), "Unsupported dtype"
 
         self.btype: int = kwargs.get("btype", self.dtype2btype[self.dtype])
 
-        assert self.dtype2btype[self.dtype] == self.btype, f"dtype and btype mismatch: {self.dtype} != {self.btype}"
+        if self.btype > max(self.dtype2btype.values()):
+            raise ValueError(f"Unsupported btype: {self.btype}")
+
+        if self.btype < 1:
+            raise ValueError(f"Unsupported btype: {self.btype}")
+        
+        for dtype, btype in self.dtype2btype.items():
+            if self.btype <= btype:
+                self.dtype = dtype
+                break
         
         self.rotations_seed: int = kwargs.get("rotations_seed", None)
 
@@ -146,7 +155,6 @@ class _E2Config:
 
 
 class _E2Generator:
-    # TODO: Make functions able to use config data or user passed data for generation of elements
     def __init__(self, pwd: bytes, config: _E2Config, hash_alg: str="sha3_512", **kwargs):
         self.pwd: bytes = pwd
         self.hash_pwd: str = hashlib.new(hash_alg, pwd).hexdigest()
@@ -193,10 +201,10 @@ class _E2Generator:
         if original_type:
             # rotations like original enigma (easy way)
             indexes = np.arange(rotations_size, dtype=np.uint64) + initial_rotations_index
-            for rotation_index in range(self.config.number_rotors):
+            for rotation_block_index in range(self.config.number_rotors):
                 # most proximal distance btwn two identical nums
-                chunk_size = self.config.btype**rotation_index
-                rotations_array[rotation_index] = (indexes.copy()//chunk_size)%self.config.btype
+                chunk_size = self.config.btype**rotation_block_index
+                rotations_array[rotation_block_index] = (indexes.copy()//chunk_size)%self.config.btype
 
         else:
             # rotations like enigma2: random rotations
