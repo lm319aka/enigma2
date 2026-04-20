@@ -135,7 +135,7 @@ This means that in order to crack the password you'd only need to brute-force $1
 Enigma2 can be used from the terminal to encrypt or decrypt data of various types. This makes it fast and easy to use it for general purposes that require the tool immediately. Using --help argument will show all the available options and its usage.
 
 ```bash
-python3 enigma2.py --help
+python -m enigma2.enigma2 --help
 ```
 
 After pressing enter this message will pop up:
@@ -146,19 +146,7 @@ usage: enigma2.py [-h] [--data DATA] [--fpath FPATH] [--out_path OUT_PATH] --pwd
                   [--orig_rot] [--start_op_index START_OP_INDEX]
 
 Enigma2 Encryption/Decryption of files
-
-options:
-  -h, --help            show this help message and exit
-  --data DATA           Data to encrypt/decrypt
-  --fpath FPATH         path of File to encrypt/decrypt (if --data was provided --fpath will be ignored)
-  --out_path OUT_PATH   path of output File
-  --pwd PWD             Password for encryption/decryption
-  --op {E,D}            Operation to perform (E for encrypt, D for decrypt)
-  --encoding {utf-8,utf-16,utf-32,ascii,utf-7,base64-codec,big5,big5hkscs,bz2-codec,cp037,cp1026,cp1125,cp1140,cp1250,cp1251,cp1252,cp1253,cp1254,cp1255,cp1256,cp1257,cp1258,cp273,cp424,cp437,cp500,cp720,cp737,cp775,cp850,cp852,cp855,cp856,cp857,cp858,cp860,cp861,cp862,cp863,cp864,cp865,cp866,cp869,cp874,cp875,cp932,cp949,cp950,euc-jis-2004,euc-jisx0213,euc-jp,euc-kr,gb18030,gb2312,gbk,hex-codec,hp-roman8,hz,idna,iso2022-jp,iso2022-jp-1,iso2022-jp-2,iso2022-jp-2004,iso2022-jp-3,iso2022-jp-ext,iso2022-kr,iso8859-1,iso8859-10,iso8859-11,iso8859-13,iso8859-14,iso8859-15,iso8859-16,iso8859-2,iso8859-3,iso8859-4,iso8859-5,iso8859-6,iso8859-7,iso8859-8,iso8859-9,johab,koi8-r,koi8-t,koi8-u,kz1048,mac-cyrillic,mac-greek,mac-iceland,mac-latin2,mac-roman,mac-turkish,ptcp154,quopri-codec,raw-unicode-escape,rot-13,shift-jis,shift-jis-2004,shift-jisx0213,tis-620,utf-16-be,utf-16-le,utf-32-be,utf-32-le,utf-8-sig,uu-codec,zlib-codec,latin-1}
-                        Encoding to use for input/output
-  --orig_rot            Detect if the original rotations should be used
-  --start_op_index START_OP_INDEX
-                        Starting index for rotations
+...
 ```
 
 Here are some example use cases:
@@ -174,19 +162,19 @@ in console data decryption (you could save the decrypted data to a file by using
 ```bash
 :: decrypting original message -> "Hello, World!"
 
-python enigma2.py --data "[222 185 248  16 171 207 168 167 232 149 192 175 251]" --pwd "my_secret_password" --op D --encoding utf-8
+python -m enigma2.enigma2 --data "[222 185 248  16 171 207 168 167 232 149 192 175 251]" --pwd "my_secret_password" --op D --encoding utf-8
 ```
 
 in console file encryption (--op is Encrypt by default and the encoding can be autodetected):
 
 ```bash
-python enigma2.py --fpath "test.txt" --pwd "my_secret_password"
+python -m enigma2.enigma2 --fpath "test.txt" --pwd "my_secret_password"
 ```
 
 in console file decryption:
 
 ```bash
-python enigma2.py --fpath "test.txt.npy" --pwd "my_secret_password" --op D
+python -m enigma2.enigma2 --fpath "test.txt.npy" --pwd "my_secret_password" --op D
 ```
 
 For future versions an installable enigma.exe will be provided (obviously it is far way easier to download and have an installer that automatically does everything for you than being cloning, creating venv, etc...)
@@ -197,29 +185,36 @@ For future versions an installable enigma.exe will be provided (obviously it is 
 
 ---------------
 
-To use Enigma2, you need to initialize the `E2` class with a password and an optional configuration dictionary(config is only for testing purposes, never use for production). The password is used to generate the encryption keys, and the configuration dictionary can be used to customize the encryption algorithm.
+To use Enigma2, you need to initialize the `E2` class with an `E2Config` object. You can use `E2ConfigParams` to define your custom parameters.
 
 ```python
+import numpy as np
 from enigma2.enigma2 import E2
+from enigma2.enigma2_config import E2Config
+from enigma2.params_models import E2ConfigParams
 
 pwd = b"my_secret_password"
-# config is optional if you already have a password
-config = {
-    "btype": 256,
-    "dtype": np.uint16,
-    "rotations_seed": 1700,
-    "number_rotors": 5,
-    "rotors_seed": 1701,
-    "noise_size": 10000,
-    "noise_seed": 1702
-}
 
-e2 = E2(pwd, config)
+# Define parameters using E2ConfigParams (Pydantic model)
+params = E2ConfigParams(
+    pwd=pwd,
+    dtype=np.uint16,
+    rotations_seed=1700,
+    number_rotors=5,
+    rotors_seed=1701,
+    noise_size=10000,
+    noise_seed=1702,
+    encoding="utf-16"
+)
+
+# Initialize config and E2 object
+config = E2Config(params=params)
+e2 = E2(config=config)
 ```
 
 ### Encryption
 
-To encrypt data, you can use the `encrypt` method of the `E2` class. This method takes a byte string as input and returns the encrypted data as a byte string.
+To encrypt data, you can use the `encrypt` method of the `E2` class. This method takes a byte string (or numpy array) as input and returns the encrypted data.
 
 ```python
 data = b"Hello, World!"
@@ -229,62 +224,60 @@ print(encrypted_data)
 
 ### Decryption
 
-To decrypt data, you can use the `decrypt` method of the `E2` class. This method takes a byte string as input and returns the decrypted data as a byte string.
+To decrypt data, you can use the `decrypt` method of the `E2` class. This method takes the encrypted data and returns the original data.
 
 ```python
-# it is very important to reset all ranges after doing any encryption/decryption operation if the opposite operation is about to be done, otherwise the process won't work
+# it is recommended to reset the rng if you are using the same object for both operations
 e2.reset_rng()
 decrypted_data = e2.decrypt(encrypted_data)
-print(decrypted_data)
+print(decrypted_data.tobytes().decode("utf-16"))
 ```
 
 ### Configuration
 
 ---------------
 
-The `E2` class provides some arguments that can be used to customize the encryption algorithm. These options include:
+The `E2ConfigParams` class provides several arguments that can be used to customize the encryption algorithm:
 
-- `btype`: The base type of the encryption algorithm. Can be 256, 512, or 1024.
-- `dtype`: The data type of the encryption algorithm. Can be `np.uint8`, `np.uint16`, `np.uint32`, or `np.uint64`.
-- `rotations_seed`: The seed value for the rotation algorithm.
-- `number_rotors`: The number of rotors to use in the encryption algorithm.
-- `rotors_seed`: The seed value for the rotor algorithm.
-- `noise_size`: The size of the noise to add to the encrypted data.
-- `noise_seed`: The seed value for the noise algorithm.
-
-These options can be specified in the configuration dictionary when initializing the `E2` class.
+- `pwd`: (Required) The password in bytes.
+- `dtype`: The data type of the encryption algorithm (e.g., `np.uint8`, `np.uint16`).
+- `btype`: The base type (automatically calculated from `dtype` if not provided).
+- `number_rotors`: Number of rotors (1-16).
+- `noise_size`: Length of the noise to add.
+- `encoding`: String encoding to use (must match `dtype`).
 
 ### Example Use Case
 
 ---------------
 
-Here is an example use case for Enigma2:
+Here is a complete example of file encryption and decryption:
 
 ```python
-
+import numpy as np
 from enigma2.enigma2 import E2
+from enigma2.enigma2_config import E2Config
+from enigma2.params_models import E2ConfigParams
 
 pwd = b"my_secret_password"
-config = {
-    "btype": 256,
-    "dtype": np.uint16,
-    "rotations_seed": 1700,
-    "number_rotors": 5,
-    "rotors_seed": 1701,
-    "noise_size": 10000,
-    "noise_seed": 1702
-}
+params = E2ConfigParams(
+    pwd=pwd,
+    dtype=np.uint16,
+    number_rotors=5,
+    encoding="utf-16"
+)
 
-e2 = E2(pwd, config)
+config = E2Config(params=params)
+e2 = E2(config=config)
 
-data = b"Hello, World!"
-original_path = "C:/path/to/original/file.pdf"
-encrypted_file_dir = "C:/path/to/encrypted/file/"
-decrypted_file_dir = "C:/path/to/decrypted/file/"
+original_path = "path/to/original/file.pdf"
+encrypted_file_dir = "path/to/encrypted/file/"
+decrypted_file_dir = "path/to/decrypted/file/"
 
+# Encrypt the file (creates a .npy file)
 encrypted_file_path = e2.encrypt_file(original_path, encrypted_file_dir)
-e2.decrypt_file(encrypted_file_path, decrypted_file_dir)
 
+# Decrypt the file back to its original state
+e2.decrypt_file(encrypted_file_path, decrypted_file_dir)
 ```
 
 This example initializes the `E2` class with a password and a configuration dictionary, encrypts a file to then decrypt it.

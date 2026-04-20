@@ -1,5 +1,6 @@
 numpy
 chardet
+pydantic
 
 # In case of using jupyter notebooks uncomment
 # ipython

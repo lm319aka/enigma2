@@ -45,6 +45,7 @@ On this document you will find the different features of past, present and futur
 
 ### new tasks for e2v2.3.0
 
+- [ ] create pydantic model to pass arguments for every config/generator class (E2ConfigParams, E2GeneratorParams, _E2ConfigParams,_E2GeneratorParams) in params_models.py
 - [ ] Fix stat class
 - [ ] Finish and check enigma tests
 - [X] Finish and check enigma2 config/generator tests

@@ -6,11 +6,24 @@ import numpy as np
 import random
 import hashlib
 
-sys.path.append(Path(os.path.dirname(__file__)).parent.joinpath("src\\enigma2").as_posix())
-
-from enigma2 import E2Config, E2Generator
+from enigma2.enigma2_config import E2Config, E2Generator
+from enigma2.params_models import E2ConfigParams, E2GeneratorParams
 
 class testE2Config(unittest.TestCase):
+
+    def test_pydantic_params_integration(self):
+        """
+        Verifies that E2Config and E2Generator can be initialized using Pydantic models.
+        """
+        params = E2ConfigParams(pwd=self.pwd, number_rotors=3)
+        config = E2Config(params=params)
+        self.assertEqual(config.pwd, self.pwd)
+        self.assertEqual(config.number_rotors, 3)
+        
+        gen_params = E2GeneratorParams(pwd=self.pwd, config=config)
+        generator = E2Generator(params=gen_params)
+        self.assertEqual(generator.pwd, self.pwd)
+        self.assertEqual(generator.config, config)
 
     def setUp(self):
         """

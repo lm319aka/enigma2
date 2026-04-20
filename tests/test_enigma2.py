@@ -3,9 +3,9 @@ import numpy as np
 import os
 from pathlib import Path
 import sys
-sys.path.append(Path(os.path.dirname(__file__)).parent.joinpath("src\\enigma2").as_posix())
 
-from enigma2 import E2, E2Config
+from enigma2.enigma2 import E2
+from enigma2.enigma2_config import E2Config
 import random
 
 class TestE2(unittest.TestCase):

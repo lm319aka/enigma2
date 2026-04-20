@@ -2,7 +2,7 @@ import numpy as np
 import os
 from typing import Union
 from pathlib import Path
-from encodings_getter import encoding_dtype_map, find_encoding
+from enigma2.encodings_getter import encoding_dtype_map, find_encoding
 import chardet
 import time
 import logging

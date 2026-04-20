@@ -2,15 +2,19 @@ import hashlib
 import numpy as np
 import json
 from pathlib import Path
-from encodings_getter import encoding_dtype_map
+from enigma2.encodings_getter import encoding_dtype_map
+
+from enigma2.params_models import E2ConfigParams, E2GeneratorParams
 
 class E2Config:
      def __init__(self, 
-                  pwd: bytes, 
+                  pwd: bytes = None, 
+                  params: E2ConfigParams = None,
                   **kwargs) -> None:
         """
         initialize E2Config
         :param pwd: password in bytes
+        :param params: E2ConfigParams object
         :param kwargs: optional parameters
         :Keyword Arguments:
             - dtype: np.dtype -- supported data type
@@ -27,13 +31,18 @@ class E2Config:
             - log_path: Path | str
             - encoding: str
         """
+        if params is None:
+            if pwd is None:
+                raise ValueError("Either pwd or params must be provided")
+            params = E2ConfigParams(pwd=pwd, **kwargs)
+            
         # private params
         self.__main_seeds_len: int = 24
         self.__seeds_number: int = 5
         self.__hash_alg: str = "sha3_512" # Hash len must be always >=64
 
         # Initialize pwd and pwd hash
-        self.pwd: bytes = pwd
+        self.pwd: bytes = params.pwd
         self.hash_pwd: str = hashlib.new(self.__hash_alg, self.pwd).hexdigest()
 
         self.dtype2btype: dict = {
@@ -44,36 +53,36 @@ class E2Config:
         }
 
         # Initialize config, where all important params are stored when first initialized the class object
-        self.dtype: np.dtype = kwargs.get("dtype", np.uint8)
+        self.dtype: np.dtype = params.dtype
         
         assert self.dtype in [np.uint8, np.uint16, np.uint32, np.uint64], "Unsupported dtype"
 
-        self.btype: int = kwargs.get("btype", self.dtype2btype[self.dtype])
+        self.btype: int = params.btype if params.btype is not None else self.dtype2btype[self.dtype]
 
         assert self.dtype2btype[self.dtype] == self.btype, f"dtype and btype mismatch: {self.dtype} != {self.btype}"
         
-        self.rotations_seed: int = kwargs.get("rotations_seed", None)
+        self.rotations_seed: int = params.rotations_seed
 
-        self.number_rotors: int = kwargs.get("number_rotors", None)
+        self.number_rotors: int = params.number_rotors
         self.number_rotations: int = self.number_rotors
-        self.rotors_seed: int = kwargs.get("rotors_seed", None)
+        self.rotors_seed: int = params.rotors_seed
 
-        self.plugboard_seed: int = kwargs.get("plugboard_seed", None)
-        self.plugboard_size: int = kwargs.get("plugboard_size", None)
+        self.plugboard_seed: int = params.plugboard_seed
+        self.plugboard_size: int = params.plugboard_size
 
-        self.noise_size: int = kwargs.get("noise_size", None)
-        self.noise_seed: int = kwargs.get("noise_seed", None)
+        self.noise_size: int = params.noise_size
+        self.noise_seed: int = params.noise_seed
 
-        self.original_rotations: bool = kwargs.get("original_rotations", False)
-        self.start_op_index: int = kwargs.get("start_op_index", 0)
+        self.original_rotations: bool = params.original_rotations
+        self.start_op_index: int = params.start_op_index
 
         # erase later: it is used for testing
-        self.avoid_validation = kwargs.get("avoid_validation", False)
+        self.avoid_validation = params.avoid_validation
 
         # other optional params
-        self.verbose: bool = kwargs.get("verbose", False)
-        self.log_path: Path | str = kwargs.get("log_path", None)
-        self.encoding: str = kwargs.get("encoding", "utf-8")
+        self.verbose: bool = params.verbose
+        self.log_path: Path | str = params.log_path
+        self.encoding: str = params.encoding
 
         if self.dtype != encoding_dtype_map[self.encoding]: 
             raise ValueError(f"Encoding does not match dtype: {self.dtype} != {encoding_dtype_map[self.encoding]}")
@@ -147,11 +156,21 @@ class E2Config:
 
 class E2Generator:
     # TODO: Make functions able to use config data or user passed data for generation of elements
-    def __init__(self, pwd: bytes, config: E2Config, hash_alg: str="sha3_512", **kwargs):
-        self.pwd: bytes = pwd
-        self.hash_pwd: str = hashlib.new(hash_alg, pwd).hexdigest()
+    def __init__(self, 
+                 pwd: bytes = None, 
+                 config: E2Config = None, 
+                 hash_alg: str = None, 
+                 params: E2GeneratorParams = None,
+                 **kwargs):
+        if params is None:
+            if pwd is None or config is None:
+                raise ValueError("Either (pwd and config) or params must be provided")
+            params = E2GeneratorParams(pwd=pwd, config=config, hash_alg=hash_alg or "sha3_512")
+            
+        self.pwd: bytes = params.pwd
+        self.hash_pwd: str = hashlib.new(params.hash_alg, self.pwd).hexdigest()
         self.hash_pwd_bytes: bytes = bytes.fromhex(self.hash_pwd)
-        self.config: E2Config = config
+        self.config: E2Config = params.config
 
         self.rotations_rng = np.random.default_rng(self.config.rotations_seed)
         self.rotors_rng = np.random.default_rng(self.config.rotors_seed)
