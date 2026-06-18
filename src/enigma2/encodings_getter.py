@@ -158,6 +158,7 @@ def find_encoding(obj: Union[str, bytes, Path]) -> str:
     
     raise ValueError(f"Could not find encoding for data: {data}")
 
+# DEPRECATED
 def file2array_bits(path, bit_unit):
     # 1. Leer archivo como uint8 (bytes crudos)
     with open(path, "rb") as f:

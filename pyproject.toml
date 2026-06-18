@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "enigma2"
-version = "2.3.0"
+version = "2.3.1"
 description = "Enigma2 encryption and decryption module"
 authors = [
     { name="r00st3r", email="s1llyr00st3r@gmail.com" }
@@ -23,3 +23,6 @@ packages = ["enigma2"]
 
 [tool.setuptools.package-data]
 "*" = ["LICENSE.txt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

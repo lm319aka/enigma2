@@ -4,7 +4,7 @@
 
 Enigma2 is a Python package that provides a simple and efficient way to encrypt and decrypt data using a custom encryption algorithm. The package is designed to be easy to use and provides a range of features to make it suitable for a variety of applications.
 
-Disclaimer: This is an educational open-source project intended for personal use, not for a commercial one. Also, **enigma2 has not been proven to be a fully secure encryption algorithm yet and should not be used for sensitive data, maybe there are some clever ways to break it**. Feel free to test it and try to break it.
+Disclaimer: This is an educational open-source project intended for personal use, not for a commercial one. Also, **enigma2 has not been proven to be a fully secure encryption algorithm yet and should not be used with sensitive data, maybe there are some clever ways to break it**. Feel free to test it and try to break it.
 
 ## Installation
 
@@ -51,21 +51,21 @@ The main reason for Enigma's success was its complexity and the great amount of 
 
 Enigma2 uses the same basic idea as the original Enigma: A series of rotating rotors are the ones that encrypt the data, but with a few differences and some new elements.
 
-- The rotors and rotations are totally randomized and can vary its range depending of the selected encoding (0-255; 0-65535; ...).
+- The rotors and rotations are totally randomized and can vary the characters range depending of the selected encoding (0-255; 0-65535; ...).
 - Instead of an initial and final layer that swap some characters (like original Enigma), Enigma2 creates a random noise layer that is added to the data as a last partial rotation (because not all data block receives it).
-- Number of rotors is totally aleatory and can go from 1 up to 16 (This could be changed to be bigger but is a waste of resources and time, it slows the process down dramatically).
+- Number of rotors is totally aleatory and can go from 1 up to 16 (This could be changed to be bigger but is a waste of resources and time, it slows the process down dramatically, for the best best ratio time/performance should be used 2 to 4 rotors).
 
 This also means the more secure the elements are, the more time it will take to encrypt/decrypt data.
 
 ### PROCESS STEP BY STEP (for encryption)
 
-1. The password is hashed and divided in chunks then used to create the seeds for aleatory number generators for each part (the rotors, rotations and noise)
-2. Create the rotors, rotations and noise using the generators
-3. Get encoding automatically or manually
-4. start encrypting data by adding each rotation to data and then passing result as indexes to its corresponding rotor.
-5. repeat step 4 until all rotations are applied
-6. add noise to data
-7. return encrypted data
+1. The password is hashed and divided in chunks then used to create the seeds for aleatory number generators for each part (the rotors, rotations and noise). This proccesses are packed in a Generator class.
+2. Create the rotors, rotations and noise using the Generator class.
+3. Get encoding automatically or manually (depending of the desired level of security or time performance: if we want high security, we should use utf-16, but if we want high performance we should use utf-8)
+4. start encrypting data by adding to each element of data its corresponding element on the actual rotation layer and then output result as indexes to its corresponding rotor layer (not the same as a rotation layer: a rotation layer is the one that is summed to the data and simulates the rotation of the rotors while a rotor acts like the rotors themselves but they are codified like pyhton dicts but in array form for more efficiency).
+5. repeat step 4 until all rotations are applied and new modified data is passed through every rotor.
+6. add noise to data (its a simple sum of 1d arrays).
+7. return encrypted data.
 
 ### PROCESS STEP BY STEP (for decryption)
 
@@ -77,7 +77,9 @@ This also means the more secure the elements are, the more time it will take to 
 6. repeat step 5 until all rotations are removed
 7. return decrypted data
 
-**Note: For small amounts of data, E2 could provoke some collisions (same input, same output, different passwords for each cipher process). For big amounts of data, the chance of collisions is very low, near to 0%.**
+Because it is a simetric cipher, the decryption process is the same as the encryption but reversed.
+
+**Note: For small amounts of data, E2 could provoke some collisions (same input, same output, different passwords for each cipher process --> pigeonhole principle). For big amounts of data, the chance of collisions is very low, near to 0%.**
 
 ### IS E2 SECURE?
 
@@ -100,7 +102,7 @@ Total possible states: $256!^r \cdot p= \frac{256!^r \cdot s!}{(s-n)!}$
 
 Also, if the encryption is linear and we could start the operation on any possible rotation index, the possible states to crack would be $\frac{s! \cdot c!^r \cdot c^r}{(s-n)!}$.
 
-You can use this lambda function to calculate the possible states (2**result):
+You can use this lambda function to calculate the possible states (2^result):
 
 ```python
 from math import factorial, log2
@@ -110,19 +112,19 @@ lambda s, r, n : log2(factorial(256)**r * factorial(s)) - log2(factorial(s-n))
 
 ```
 
-Using the first expression and substituting the values we can guess how hard it would be to crack this algorithm. 
+Using the first expression and substituting the values we can guess how hard it would be to crack this algorithm.
 
-In the worst case scenario, where we only have one rotor, no noise and linear rotations, the possible states to crack would be $256! \approx 10^{507} \approx 2^{1684}$. This means that in order to crack the cipher we need to try $2^{1684}$ different rotor combinations, in comparison, the difficulty of brute-forcing a 256 bit key on the symmetric cipher AES is $2^{256}$. It is not that bad, we are thinking about the worst case scenario and we also won't add the random rotations that make it harder to crack on any case. The bad news are that this approach could be easily cracked in a matter of hours using some IoC focused on file metadata by knowing the file type and some other fixed data on the encrypted content and metadata.
+In the worst case scenario, where we only have one rotor, no noise and linear rotations, the possible states to crack would be $256! \approx 10^{507} \approx 2^{1684}$. This means that in order to crack the cipher we need to try $2^{1684}$ different rotor combinations, in comparison, the difficulty of brute-forcing a 256 bit key on the symmetric cipher AES is $2^{256}$. It is not that bad, we are thinking about the worst case scenario and we also won't add the random rotations that make it harder to crack on any case. The bad news is that this approach could be easily cracked in a matter of hours using some IoC focused on file metadata by knowing the file type and some other known information on the encrypted content and/or metadata.
 
-In a standard setup (4 rotors, 8192 bytes noise length array, linear rotations, for a file of let's say 65536 bytes), substituting terms, the possible combinations are about $2^{137036}$, supering by far the difficulty of brute-forcing an AES 256 bit key ($2^{256}$).
+In a standard setup (4 rotors, 8192 bytes noise length array, linear rotations, for a file of let's say 65536 bytes), by substituting terms, the possible combinations are about $2^{137036}$, overcoming by far the difficulty of brute-forcing an AES 256 bit key ($2^{256}$).
 
 Finally, for the most secure setup (16 rotors, half the file size of noise, linear rotations, for a file of let's say 65536 bytes), the possible combinations are about $2^{536726}$, which is an insane number.
 
-Considering that an actual top-tier supercomputer can compute $10^{18}flops$ (flops: floating point operations per second), the time it would take to break E2 by brute force would be $2^{536726}/10^{18} = 10^{161552} seconds = 10^{161545} years$. To put this into perspective, the actual age of the universe is around $1.38^{10}years$. Maybe using some clever math tricks this number could be reduced, but I don't know how much of a difference it would make due to the complexity of the problem.
+Considering that an actual top-tier supercomputer can compute $10^{18}flops$ (flops: floating point operations per second), the time it would take to break E2 by brute force would be $2^{536726}/10^{18} = 10^{161552} seconds = 10^{161545} years$. To put this into perspective, the actual age of the universe is around $1.38^{10}years$. (Maybe using some clever math tricks this number could be reduced, but I don't know how much of a difference it would make due to the complexity of the problem)
 
 #### elements created using a password
 
-Using a password could be beneficial because it makes all the process of creating the elements for the cipher easier and automatically, and you only have to worry about the password and not about memorizing all the elements or keeping a config file with all of it.
+Using a password could be beneficial because it makes all the process of creating the elements for the cipher easier and automatically, and the user only has to worry about the password and not about memorizing all the elements or keeping a config file with all of it.
 
 The issue with this approach is that makes the user and its data more vulnerable, this is because the password is transformed into a hash then parsed to obtain the seeds for the generators for each part (rotors, rotations and noise), the number of rotors... This hash is generated in v2.0 using sha3_256, that returns a string with 64 hex chars from which we will use all.
 

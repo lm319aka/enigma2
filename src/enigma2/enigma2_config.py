@@ -2,9 +2,9 @@ import hashlib
 import numpy as np
 import json
 from pathlib import Path
-from enigma2.encodings_getter import encoding_dtype_map
+from .encodings_getter import encoding_dtype_map
 
-from enigma2.params_models import E2ConfigParams, E2GeneratorParams
+from .model_params import E2ConfigParams, E2GeneratorParams
 
 class E2Config:
      def __init__(self, 

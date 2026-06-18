@@ -4,8 +4,7 @@ import os
 from pathlib import Path
 import sys
 
-from enigma2.enigma2 import E2
-from enigma2.enigma2_config import E2Config
+from enigma2.enigma2_cipher import E2, E2Config
 import random
 
 class TestE2(unittest.TestCase):
@@ -164,28 +163,28 @@ class TestE2(unittest.TestCase):
         In current version we create objects that consume a lot of memory
         """        
 
-        # all_valid_dtypes = [np.uint8, np.uint16, np.uint32]
-        # dtypes_valid_encodings = ["utf-8", "utf-16", "utf-32"]
-        # for uint_dtype, encoding in zip(all_valid_dtypes, dtypes_valid_encodings):
-        #     config_data = {
-        #         "dtype": uint_dtype,
-        #         "rotations_seed": 1700,
-        #         "number_rotors": 1, # if too much rotors are generated with high dtype (uint32) it will overcome ram capacity
-        #         "rotors_seed": 1701,
-        #         "noise_size": 10000,
-        #         "noise_seed": 1702,
-        #         "plugboard_size": 2,
-        #         "plugboard_seed": 1703,
-        #         "encoding": encoding
-        #     }
-        #     config = E2Config(self.pwd, **config_data)    
-        #     e2 = E2(config=config)
-        #     for i in range(10):
-        #         random_rng = np.random.default_rng(i)
-        #         data = random_rng.integers(0, self.config.btype, size=20, dtype=self.config.dtype)
-        #         encrypted = e2.encrypt(data)
-        #         decrypted = e2.decrypt(encrypted)
-        #         np.testing.assert_array_equal(decrypted, data)
+        all_valid_dtypes = [np.uint8, np.uint16, np.uint32]
+        dtypes_valid_encodings = ["utf-8", "utf-16", "utf-32"]
+        for uint_dtype, encoding in zip(all_valid_dtypes, dtypes_valid_encodings):
+            config_data = {
+                "dtype": uint_dtype,
+                "rotations_seed": 1700,
+                "number_rotors": 1, # if too much rotors are generated with high dtype (uint32) it will overcome ram capacity
+                "rotors_seed": 1701,
+                "noise_size": 10000,
+                "noise_seed": 1702,
+                "plugboard_size": 2,
+                "plugboard_seed": 1703,
+                "encoding": encoding
+            }
+            config = E2Config(self.pwd, **config_data)    
+            e2 = E2(config=config)
+            for i in range(10):
+                random_rng = np.random.default_rng(i)
+                data = random_rng.integers(0, self.config.btype, size=20, dtype=self.config.dtype)
+                encrypted = e2.encrypt(data)
+                decrypted = e2.decrypt(encrypted)
+                np.testing.assert_array_equal(decrypted, data)
         pass
 
 if __name__ == "__main__":

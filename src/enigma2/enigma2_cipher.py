@@ -2,11 +2,12 @@ import numpy as np
 import os
 from typing import Union
 from pathlib import Path
-from enigma2.encodings_getter import encoding_dtype_map, find_encoding
+from .encodings_getter import encoding_dtype_map, find_encoding
 import chardet
 import time
 import logging
-from enigma2.enigma2_config import E2Config, E2Generator
+from .enigma2_config import E2Config, E2Generator
+from .model_params import E2ConfigParams
 # from dataclasses import dataclass
 
 logging.Logger(__name__).addHandler(logging.NullHandler())
@@ -23,7 +24,6 @@ def timed(func):
             print(f"{func.__name__} took {end - start:.4f} seconds")
         return result
     return wrapper
-
 
 class E2:
 
@@ -251,6 +251,13 @@ if __name__ == "__main__":
         "utf-64": np.uint64
     }
 
+    btype_dict = {
+         np.uint8: 2**8,
+         np.uint16: 2**16,
+         np.uint32: 2**32,
+         np.uint64: 2**64
+     }
+
     # import json
     in_path = False
     parser = argparse.ArgumentParser(description="Enigma2 Encryption/Decryption of files")
@@ -272,10 +279,11 @@ if __name__ == "__main__":
         config_btype = 256
     else:
         default_encoding = args.encoding
-        config_dtype = dtype_dict[args.encoding]
-        config_btype = encoding_dtype_map[args.encoding]
+        config_dtype = encoding_dtype_map[args.encoding]
+        config_btype = btype_dict[config_dtype]
 
     config_data = {
+        "pwd": args.pwd.encode(args.encoding),
         "btype": config_btype,
         "dtype": config_dtype,
 
@@ -290,7 +298,10 @@ if __name__ == "__main__":
         "original_rotations": args.orig_rot,
     }
 
-    codec = E2(E2Config(pwd=args.pwd.encode("utf-8")))
+    codec = E2(E2Config(
+        pwd=args.pwd.encode(args.encoding),
+        params=E2ConfigParams(**config_data)
+    ))
 
     if not args.data and not args.fpath:
         parser.print_help()
@@ -320,6 +331,7 @@ if __name__ == "__main__":
         else:
             transformed_data: np.array = codec.decrypt(data, start_op_index=args.start_op_index)
             print("decrypted data:")
+            print(transformed_data.tobytes())
             print(transformed_data.tobytes().decode(default_encoding))
             if args.out_path is not None:
                 if not os.path.exists(args.out_path):

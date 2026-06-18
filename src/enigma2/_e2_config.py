@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from encodings_getter import encoding_dtype_map
 
-from enigma2.params_models import _E2ConfigParams, _E2GeneratorParams
+from enigma2.model_params import _E2ConfigParams, _E2GeneratorParams
 
 class _E2Config:
      def __init__(self, 

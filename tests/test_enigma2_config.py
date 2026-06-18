@@ -7,7 +7,7 @@ import random
 import hashlib
 
 from enigma2.enigma2_config import E2Config, E2Generator
-from enigma2.params_models import E2ConfigParams, E2GeneratorParams
+from enigma2.model_params import E2ConfigParams, E2GeneratorParams
 
 class testE2Config(unittest.TestCase):
 
