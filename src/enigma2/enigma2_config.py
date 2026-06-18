@@ -2,103 +2,83 @@ import hashlib
 import numpy as np
 import json
 from pathlib import Path
-from .encodings_getter import encoding_dtype_map
+from typing import Optional, Tuple, Dict, Any
 
-from .model_params import E2ConfigParams, E2GeneratorParams
+from .encodings_getter import encoding_dtype_map
+from .model_params import E2Params, E2TypesConversion
 
 class E2Config:
-     def __init__(self, 
-                  pwd: bytes = None, 
-                  params: E2ConfigParams = None,
-                  **kwargs) -> None:
-        """
-        initialize E2Config
-        :param pwd: password in bytes
-        :param params: E2ConfigParams object
-        :param kwargs: optional parameters
-        :Keyword Arguments:
-            - dtype: np.dtype -- supported data type
-            - rotations_seed: int
-            - number_rotors: int
-            - original_rotations: bool -- if True, rotations are like original enigma
-            - rotors_seed: int
-            - noise_size: int -- length of noise
-            - noise_seed: int
-            - plugboard_size: int
-            - plugboard_seed: int
+    """
+    Handles the configuration for Enigma2, including password hashing,
+    seed derivation, and parameter validation.
+    """
 
-            - verbose: bool
-            - log_path: Path | str
-            - encoding: str
+    def __init__(self, params: E2Params) -> None:
         """
-        if params is None:
-            if pwd is None:
-                raise ValueError("Either pwd or params must be provided")
-            params = E2ConfigParams(pwd=pwd, **kwargs)
-            
-        # private params
+        Initialize E2Config with parameters.
+
+        :param params: E2Params object containing all configuration settings.
+        """
+        # Internal configuration for seed derivation
         self.__main_seeds_len: int = 24
         self.__seeds_number: int = 5
         self.__hash_alg: str = "sha3_512" # Hash len must be always >=64
 
-        # Initialize pwd and pwd hash
+        self.params = params
+        
+        # Initialize password and its hash
         self.pwd: bytes = params.pwd
         self.hash_pwd: str = hashlib.new(self.__hash_alg, self.pwd).hexdigest()
 
-        self.dtype2btype: dict = {
-            np.uint8: 2**8,
-            np.uint16: 2**16,
-            np.uint32: 2**32,
-            np.uint64: 2**64
-        }
-
-        # Initialize config, where all important params are stored when first initialized the class object
-        self.dtype: np.dtype = params.dtype
+        # Core encryption parameters derived from params
+        self.dtype: np.dtype = np.dtype(params.dtype)
+        # The None edge-case is managed on the validate_params method on E2Params but is not a bad idea to add it here just in case
+        self.btype: int = params.btype if params.btype is not None else E2TypesConversion.dtype2btype(self.dtype)
         
-        assert self.dtype in [np.uint8, np.uint16, np.uint32, np.uint64], "Unsupported dtype"
-
-        self.btype: int = params.btype if params.btype is not None else self.dtype2btype[self.dtype]
-
-        assert self.dtype2btype[self.dtype] == self.btype, f"dtype and btype mismatch: {self.dtype} != {self.btype}"
-        
-        self.rotations_seed: int = params.rotations_seed
-
-        self.number_rotors: int = params.number_rotors
-        self.number_rotations: int = self.number_rotors
-        self.rotors_seed: int = params.rotors_seed
-
-        self.plugboard_seed: int = params.plugboard_seed
-        self.plugboard_size: int = params.plugboard_size
-
-        self.noise_size: int = params.noise_size
-        self.noise_seed: int = params.noise_seed
+        # Initialize seeds and other operational parameters
+        self.rotations_seed: Optional[int] = params.elements_creation_params.rotations_seed
+        self.number_rotors: Optional[int] = params.elements_creation_params.number_rotors
+        self.rotors_seed: Optional[int] = params.elements_creation_params.rotors_seed
+        self.plugboard_seed: Optional[int] = params.elements_creation_params.plugboard_seed
+        self.plugboard_size: Optional[int] = params.elements_creation_params.plugboard_size
+        self.noise_size: Optional[int] = params.elements_creation_params.noise_size
+        self.noise_seed: Optional[int] = params.elements_creation_params.noise_seed
 
         self.original_rotations: bool = params.original_rotations
         self.start_op_index: int = params.start_op_index
-
-        # erase later: it is used for testing
-        self.avoid_validation = params.avoid_validation
-
-        # other optional params
+        self.avoid_validation: bool = params.avoid_validation
         self.verbose: bool = params.verbose
-        self.log_path: Path | str = params.log_path
-        self.encoding: str = params.encoding
+        self.log_path: Optional[Path | str] = params.log_path
+        self.encoding: str = params.encoding.encoding
 
-        if self.dtype != encoding_dtype_map[self.encoding]: 
-            raise ValueError(f"Encoding does not match dtype: {self.dtype} != {encoding_dtype_map[self.encoding]}")
+        # Derive seeds and parameters from password hash if not explicitly provided
+        self._derive_params_from_hash()
 
-        # Defines seeds and number of rotors based on the password hash
-        assert len(self.hash_pwd)>=self.__main_seeds_len*self.__seeds_number, "Password hash is too short"
+        # Final validation if not explicitly avoided
+        if not self.avoid_validation:
+            self._validate_derived_params()
+
+        self.number_rotations: int = self.number_rotors
+
+    def _derive_params_from_hash(self) -> None:
+        """
+        Derives seeds and configuration parameters from the password hash.
+        """
+        assert len(self.hash_pwd) >= self.__main_seeds_len * self.__seeds_number, "Password hash is too short"
+        
+        # Split hash into chains for different parameters
         hex_chains = []
         for i in range(self.__seeds_number):
-            start = i*self.__main_seeds_len
-            end = (i+1)*self.__main_seeds_len if (i+1) < self.__seeds_number else len(self.hash_pwd)
+            start = i * self.__main_seeds_len
+            end = (i + 1) * self.__main_seeds_len if (i + 1) < self.__seeds_number else len(self.hash_pwd)
             hex_chains.append(self.hash_pwd[start:end])
         
-        # Make sure we have the right number of seeds
-        if len(hex_chains) < self.__seeds_number: raise IndexError("Password hash has not appropriate length")
-        if min([len(i) for i in hex_chains]) < self.__main_seeds_len: raise IndexError("Password hash chains have not appropriate length")
+        if len(hex_chains) < self.__seeds_number: 
+            raise IndexError("Password hash has not appropriate length")
+        if min([len(i) for i in hex_chains]) < self.__main_seeds_len: 
+            raise IndexError("Password hash chains have not appropriate length")
 
+        # Assign seeds from hash chains if they were not provided in params
         if self.rotations_seed is None:
             self.rotations_seed = int(hex_chains[0], 16)
         if self.rotors_seed is None:
@@ -107,7 +87,8 @@ class E2Config:
             self.plugboard_seed = int(hex_chains[2], 16)
         if self.noise_seed is None:
             self.noise_seed = int(hex_chains[3], 16)
-        # optional parameters to take from last hash part
+        
+        # Optional parameters derived from the last part of the hash
         if self.number_rotors is None:
             self.number_rotors = int(hex_chains[4][0], 16) + 1 # 1-16
         if self.plugboard_size is None:
@@ -115,166 +96,205 @@ class E2Config:
         if self.noise_size is None:
             self.noise_size = int(hex_chains[4][2:], 16)
 
-        if not self.avoid_validation:
-            # TODO: Create a validator/serializer class to make all the assertions and other checks
-            assert self.number_rotors > 0, "Number of rotors must be greater than 0"
-            assert self.dtype in [np.uint8, np.uint16, np.uint32, np.uint64], "Unsupported dtype"
-            # write the complete numbers instead of doing the calculation every time (2**64 -> 18446744073709551616)
-            assert 16**self.__main_seeds_len>self.rotations_seed>=0, f"Rotations seed must be in range [0, {16**self.__main_seeds_len}-1]: {self.rotations_seed}"
-            assert 16**self.__main_seeds_len>self.rotors_seed>=0, f"Rotors seed must be in range [0, {16**self.__main_seeds_len}-1]: {self.rotors_seed}"
-            assert 16**self.__main_seeds_len>self.noise_seed>=0, f"Noise seed must be in range [0, {16**self.__main_seeds_len}-1]: {self.noise_seed}"
-            assert 16**self.__main_seeds_len>self.plugboard_seed>=0, f"Plugboard seed must be in range [0, {16**self.__main_seeds_len}-1]: {self.plugboard_seed}"
-            assert 16>=self.number_rotors>=1, f"Number of rotors must be in range [1, 16]: {self.number_rotors}"
-            assert 16>=self.plugboard_size>=1, f"Plugboard size must be in range [1, 16]: {self.plugboard_size}"
-            len_noise_size_hash_part = len(hex_chains[4][2:])
-            assert 16**len_noise_size_hash_part>self.noise_size>=0, f"Noise size must be in range [0, {16**len_noise_size_hash_part}-1]: {self.noise_size}"
-        self.number_rotations: int = self.number_rotors
-    
-     @property
-     def hash_alg(self) -> str:
+    def _validate_derived_params(self) -> None:
+        """
+        Performs range validation on derived and provided parameters.
+        """
+        assert self.number_rotors > 0, "Number of rotors must be greater than 0"
+        
+        # Seed range checks based on the expected length from hash chains
+        max_seed_val = 16**self.__main_seeds_len
+        assert max_seed_val > self.rotations_seed >= 0, f"Rotations seed out of range: {self.rotations_seed}"
+        assert max_seed_val > self.rotors_seed >= 0, f"Rotors seed out of range: {self.rotors_seed}"
+        assert max_seed_val > self.noise_seed >= 0, f"Noise seed out of range: {self.noise_seed}"
+        assert max_seed_val > self.plugboard_seed >= 0, f"Plugboard seed out of range: {self.plugboard_seed}"
+        
+        assert 16 >= self.number_rotors >= 1, f"Number of rotors must be in range [1, 16]: {self.number_rotors}"
+        assert 16 >= self.plugboard_size >= 1, f"Plugboard size must be in range [1, 16]: {self.plugboard_size}"
+        
+        # Noise size range check
+        len_noise_size_hash_part = len(self.hash_pwd[self.__main_seeds_len*4 + 2:])
+        assert 16**len_noise_size_hash_part > self.noise_size >= 0, f"Noise size out of range: {self.noise_size}"
+
+    @property
+    def hash_alg(self) -> str:
+        """Returns the hash algorithm used for password hashing."""
         return self.__hash_alg
      
-     @property
-     def main_seeds_len(self) -> int:
+    @property
+    def main_seeds_len(self) -> int:
+        """Returns the length of the chains used for seed derivation."""
         return self.__main_seeds_len
      
-     @property
-     def seeds_number(self) -> int:
+    @property
+    def seeds_number(self) -> int:
+        """Returns the number of seeds derived from the hash."""
         return self.__seeds_number
      
-     def __repr__(self) -> str:
-        return f"E2Config({self.__dict__})"
+    def __repr__(self) -> str:
+        return f"E2Config(params={self.params})"
      
-     def json(self, path: str | Path):
-         with open(path, "w") as fp:
-            json.dump(self.__dict__, fp)
+    def dump_json(self, path: str | Path) -> None:
+        """Saves the configuration to a JSON file."""
+        with open(path, "w") as fp:
+            json.dump(self.params.model_dump(mode='json'), fp)
      
-     def load_json(self, path: str | Path):
+    def load_json(self, path: str | Path) -> None:
+        """Loads the configuration from a JSON file."""
         with open(path, "r") as fp:
-            self.__dict__ = json.load(fp)
+            data = json.load(fp)
+            self.params = E2Params(**data)
+            self.__init__(self.params)
 
 
 class E2Generator:
-    # TODO: Make functions able to use config data or user passed data for generation of elements
-    def __init__(self, 
-                 pwd: bytes = None, 
-                 config: E2Config = None, 
-                 hash_alg: str = None, 
-                 params: E2GeneratorParams = None,
-                 **kwargs):
-        if params is None:
-            if pwd is None or config is None:
-                raise ValueError("Either (pwd and config) or params must be provided")
-            params = E2GeneratorParams(pwd=pwd, config=config, hash_alg=hash_alg or "sha3_512")
-            
-        self.pwd: bytes = params.pwd
-        self.hash_pwd: str = hashlib.new(params.hash_alg, self.pwd).hexdigest()
-        self.hash_pwd_bytes: bytes = bytes.fromhex(self.hash_pwd)
-        self.config: E2Config = params.config
+    """
+    Generates operational elements for Enigma2, such as rotors and plugboards,
+    using the provided configuration and random number generators.
+    """
 
-        self.rotations_rng = np.random.default_rng(self.config.rotations_seed)
-        self.rotors_rng = np.random.default_rng(self.config.rotors_seed)
-        self.noise_rng = np.random.default_rng(self.config.noise_seed)
-        self.plugboard_rng = np.random.default_rng(self.config.plugboard_seed)
+    def __init__(self, params: E2Params) -> None:
+        """
+        Initialize E2Generator with parameters.
+
+        :param params: E2Params object containing the configuration.
+        """
+        self.params = params
+        self.config = E2Config(params)
+        
+        self.pwd: bytes = self.config.pwd
+        self.hash_pwd: str = self.config.hash_pwd
+        self.hash_pwd_bytes: bytes = bytes.fromhex(self.hash_pwd)
+
+        # Initialize random number generators with seeds from config
+        self._init_rng()
     
-    def reset_rng(self, start_index: int = 0):
-        # TODO: reset_rng in E2Config??? thus all random generators on config
-        # TODO: should it be activated automatically if cipher operation is changed (from encrypt to decrypt or viceversa)?
+    def _init_rng(self, start_index: int = 0) -> None:
+        """Initializes or resets the random number generators."""
         self.rotations_rng = np.random.default_rng(self.config.rotations_seed)
         self.rotors_rng = np.random.default_rng(self.config.rotors_seed)
         self.noise_rng = np.random.default_rng(self.config.noise_seed)
         self.plugboard_rng = np.random.default_rng(self.config.plugboard_seed)
+        
         if start_index > 0:
             self.rotations_rng.random(start_index)
             self.rotors_rng.random(start_index)
             self.noise_rng.random(start_index)
             self.plugboard_rng.random(start_index)
+
+    def reset_rng(self, start_index: int = 0) -> None:
+        """
+        Resets the random number generators to a specific starting index.
+
+        :param start_index: The index to advance the generators to.
+        """
+        self._init_rng(start_index)
     
-    def create_single_rotor(self) -> np.array:
+    def create_single_rotor(self) -> np.ndarray:
+        """
+        Creates a single randomized rotor based on the configuration's btype.
+
+        :return: A numpy array representing the randomized rotor.
+        """
         new_rotor = np.arange(self.config.btype, dtype=self.config.dtype)
         self.rotors_rng.shuffle(new_rotor)
         return new_rotor
 
-    def generate_rotors(self):
+    def generate_rotors(self) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Generates all encryption and decryption rotors for the system.
+
+        :return: A tuple containing (encryption_rotors, decryption_rotors).
+        """
         encryption_rotors = np.zeros((self.config.number_rotors, self.config.btype), dtype=self.config.dtype)
         decryption_rotors = encryption_rotors.copy()
         for i in range(self.config.number_rotors):
             encr_rotor = self.create_single_rotor()
             encryption_rotors[i] = encr_rotor
-            decryption_rotors[i] = self.reverse_rotor(encr_rotor) # np.vectorize(lambda x: np.where(encr_rotor == x)[0][0])(np.arange(self.config.btype, dtype=self.config.dtype))
+            decryption_rotors[i] = self.reverse_rotor(encr_rotor)
         return encryption_rotors, decryption_rotors
 
     def generate_rotations(self, 
                          rotations_size: int, 
-                         original_type: bool=False, 
-                         initial_rotations_index: int = 0) -> np.array:
+                         original_type: bool = False, 
+                         initial_rotations_index: int = 0) -> np.ndarray:
+        """
+        Generates rotation offsets for each rotor.
+
+        :param rotations_size: The number of rotations to generate (usually data size).
+        :param original_type: If True, uses Enigma-style deterministic rotations.
+        :param initial_rotations_index: Starting index for the rotations.
+        :return: A 2D numpy array of rotations.
+        """
         rotations_array = np.empty(shape=(self.config.number_rotors, rotations_size), dtype=self.config.dtype)
         if original_type:
-            # rotations like original enigma (easy way)
+            # Deterministic rotations like original Enigma
             indexes = np.arange(rotations_size, dtype=np.uint64) + initial_rotations_index
             for rotation_index in range(self.config.number_rotors):
-                # most proximal distance btwn two identical nums
                 chunk_size = self.config.btype**rotation_index
-                rotations_array[rotation_index] = (indexes.copy()//chunk_size)%self.config.btype
-
+                rotations_array[rotation_index] = (indexes // chunk_size) % self.config.btype
         else:
-            # rotations like enigma2: random rotations
-            # self.rotations_rng = np.random.default_rng(self.config.rotations_seed)
+            # Randomized rotations like Enigma2
             for rotation_num in range(self.config.number_rotors):
-                rotations_array[rotation_num] = self.rotations_rng.integers(low=0, high=self.config.btype, size=rotations_size, dtype=self.config.dtype)
-        
+                rotations_array[rotation_num] = self.rotations_rng.integers(
+                    low=0, high=self.config.btype, size=rotations_size, dtype=self.config.dtype
+                )
         return rotations_array
 
-    def generate_noise(self, size: int) -> np.array:
-        # assert size > 0, "Size must be greater than 0"
+    def generate_noise(self, size: int) -> np.ndarray:
+        """
+        Generates a sparse noise array to be added to the data.
 
+        :param size: Total size of the data array.
+        :return: A numpy array containing noise at random positions.
+        """
         if self.config.noise_size == 0:
             return np.zeros(size, dtype=self.config.dtype)
         
-        if self.config.noise_size > size:
-            self.config.noise_size = self.config.noise_size % size
-            # raise ValueError("Noise size cannot be greater than the data size")
-        # create noise array
-        self.noise_values = self.noise_rng.integers(low=0, 
-                                                    high=self.config.btype, 
-                                                    size=self.config.noise_size, 
-                                                    dtype=self.config.dtype)
+        actual_noise_size = self.config.noise_size % size if self.config.noise_size > size else self.config.noise_size
         
-        noise_indexes = self.noise_rng.choice(np.arange(size), size=self.config.noise_size, replace=True)
+        # Create noise values and random indexes
+        noise_values = self.noise_rng.integers(low=0, 
+                                                high=self.config.btype, 
+                                                size=actual_noise_size, 
+                                                dtype=self.config.dtype)
+        
+        noise_indexes = self.noise_rng.choice(np.arange(size), size=actual_noise_size, replace=True)
         noise_array = np.zeros(size, dtype=self.config.dtype)
-        noise_array[noise_indexes] = self.noise_values
+        noise_array[noise_indexes] = noise_values
         return noise_array
 
-    def generate_plugboards(self) -> np.array:
-        assert 1<=self.config.plugboard_size<=16, f"Plugboard seed must be in range [1, 16]: {self.config.plugboard_size}"
+    def generate_plugboards(self) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Generates the plugboard swap configuration.
+
+        :return: A tuple containing (encryption_plugboard, decryption_plugboard).
+        """
+        assert 1 <= self.config.plugboard_size <= 16, f"Plugboard size out of range: {self.config.plugboard_size}"
 
         plugboard = np.arange(self.config.btype, dtype=self.config.dtype)
         places_swap = np.arange(self.config.btype, dtype=self.config.dtype)
         self.plugboard_rng.shuffle(places_swap)
-        places_swap = places_swap.reshape(-1, 2)[:self.config.plugboard_size, :]
+        # Select pairs to swap
+        swaps = places_swap.reshape(-1, 2)[:self.config.plugboard_size, :]
 
-        for place_1, place_2 in places_swap:
+        for place_1, place_2 in swaps:
             plugboard[place_1], plugboard[place_2] = plugboard[place_2], plugboard[place_1]
 
         decryption_plugboard = self.reverse_rotor(plugboard)
-        # print("plug_d dtype: ", decryption_plugboard.dtype)
         return plugboard, decryption_plugboard
 
-    def reverse_rotor(self, rotor: np.array) -> np.array:
-        # print(self.config.dtype)
-        # esta expresion retorna un array de tipo np.int64 lo cual no nos vale
-        # return np.vectorize(lambda x: np.where(rotor == x)[0][0])(np.arange(self.config.btype, dtype=self.config.dtype))
+    def reverse_rotor(self, rotor: np.ndarray) -> np.ndarray:
+        """
+        Creates the inverse mapping for a rotor or plugboard.
 
-        # esta expresion tampoco vale nse pq
-        # reversed_rotor = np.zeros_like(rotor, dtype=self.config.dtype)
-        # for c, i in enumerate(range(self.config.btype)):
-        #     reversed_rotor[i] = c
-        # return reversed_rotor
-
-        # TODO: esto es un apaño que debe ser solucionado
-        reversed_rotor = np.vectorize(lambda x: np.where(rotor == x)[0][0])(np.arange(self.config.btype, dtype=self.config.dtype))
-        return np.array([int(i) for i in reversed_rotor], dtype=self.config.dtype)
+        :param rotor: The mapping array to reverse.
+        :return: The reversed mapping array.
+        """
+        # Optimized reversal using numpy indexing
+        reversed_rotor = np.empty_like(rotor)
+        reversed_rotor[rotor] = np.arange(len(rotor), dtype=rotor.dtype)
+        return reversed_rotor
         
-
-    def __repr__(self):
-        print(f"E2Gernerator: {self.__dict__}")
+    def __repr__(self) -> str:
+        return f"E2Generator(params: {self.params.model_dump_json()})"

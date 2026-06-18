@@ -2,7 +2,7 @@ import numpy as np
 from typing import Union
 from pathlib import Path
 import os
-from _e2_exceptions import EncodingNotFoundError
+from ._e2_exceptions import EncodingNotFoundError
 
 encoding_dtype_map = {
     # canonical encodings
@@ -124,9 +124,9 @@ class E2Encoding:
 
     def __init__(self, encoding: str):
         self.encoding = encoding
-        self.dtype_for_encoding = self.encoding_dtype()
+        self.dtype_for_encoding = self.__encoding_dtype()
 
-    def encoding_dtype(self):
+    def __encoding_dtype(self):
         try:
             return encoding_dtype_map[self.encoding]
         except KeyError:

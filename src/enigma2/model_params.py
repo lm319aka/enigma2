@@ -1,12 +1,12 @@
 from __future__ import annotations
-from pydantic import BaseModel, ConfigDict, field_validator, PositiveInt
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator, PositiveInt, ValidationInfo
 from typing import Optional, Union, Any
 from pathlib import Path
 import numpy as np
-from math import log, ceil
+from typing import get_args
 
-from encodings_getter import E2Encoding
-from e2_exceptions import *
+from .encodings_getter import E2Encoding
+from .e2_exceptions import *
 
 standard_model_config = ConfigDict(
     extra="forbid", # fields passed that are not in the model will raise error
@@ -15,14 +15,18 @@ standard_model_config = ConfigDict(
     validate_assignment=True, # validate new var assignment
     # validate_default=True, # validate default values
     arbitrary_types_allowed=True,
-
 )
 
 Dtype = Union[np.uint8, np.uint16, np.uint32, np.uint64]
+ALLOWED_DTYPES = [np.uint8, np.uint16, np.uint32, np.uint64] # get_args(Dtype)
 
 class E2TypesConversion:
 
     dtype2btype_dict = {
+        np.dtype(np.uint8): 2**8,
+        np.dtype(np.uint16): 2**16,
+        np.dtype(np.uint32): 2**32,
+        np.dtype(np.uint64): 2**64,
         np.uint8: 2**8,
         np.uint16: 2**16,
         np.uint32: 2**32,
@@ -30,7 +34,10 @@ class E2TypesConversion:
     }
 
     btype2dtype_dict = {
-        j: i for i, j in dtype2btype_dict.items()
+        2**8: np.uint8,
+        2**16: np.uint16,
+        2**32: np.uint32,
+        2**64: np.uint64
     }
 
     @classmethod
@@ -42,16 +49,23 @@ class E2TypesConversion:
 
     @classmethod
     def btype2dtype_ceil(cls, btype: int) -> Dtype:
-        exact_btype_exp = ceil(log(btype, 2**8))
-        if exact_btype_exp>4:
-            raise Btype2DtypeCeilingConversionError(btype)
+        if btype <= 2**8: return np.uint8
+        if btype <= 2**16: return np.uint16
+        if btype <= 2**32: return np.uint32
+        if btype <= 2**64: return np.uint64
+        raise Btype2DtypeCeilingConversionError(btype)
 
     @classmethod
-    def dtype2btype(cls, dtype: Dtype) -> int:
-        return cls.dtype2btype_dict[dtype]
-    
-class _E2ElementsCreationParams(BaseModel):
+    def dtype2btype(cls, dtype: Any) -> int:
+        try:
+            return cls.dtype2btype_dict[dtype]
+        except KeyError:
+            raise Dtype2BtypeConversionError(dtype)
 
+class _E2ElementsCreationParams(BaseModel):
+    """
+    Parameters for creating E2 elements like rotors, plugboard, and noise.
+    """
     model_config = standard_model_config
 
     rotations_seed: Optional[PositiveInt] = None
@@ -62,87 +76,80 @@ class _E2ElementsCreationParams(BaseModel):
     noise_size: Optional[PositiveInt] = None
     noise_seed: Optional[PositiveInt] = None
 
-class _E2ConfigParams(BaseModel):
-
+class _E2Params(BaseModel):
+    """
+    Base configuration parameters for Enigma2.
+    """
     model_config = standard_model_config
 
     pwd: bytes
-    encoding: E2Encoding = None # utf-8 by default
-    dtype: Any = np.uint8
+    encoding: E2Encoding = E2Encoding("utf-8")
+    dtype: Any = None
     btype: Optional[PositiveInt] = None
     elements_creation_params: _E2ElementsCreationParams = _E2ElementsCreationParams()
     original_rotations: bool = False
-    start_op_index: int = 0 # could be negative??
+    start_op_index: int = 0
     avoid_validation: bool = False
     verbose: bool = False
     log_path: Optional[Union[Path, str]] = None
 
-    @field_validator("encoding")
+    @field_validator("encoding", mode="before")
     @classmethod
     def check_encoding(cls, value: Any):
         if isinstance(value, E2Encoding):
             return value
-        elif value is None:
+        if value is None:
             return E2Encoding("utf-8")
-        else:
-            raise EncodingError(f"Invalid datatype for encoding: {value} -> {type(value)}")
-        
+        if isinstance(value, str):
+            return E2Encoding(value)
+        raise EncodingError(f"Invalid datatype for encoding: {value} -> {type(value)}")
 
-    @field_validator("dtype", mode="after")
+    @field_validator("dtype", mode="before")
     @classmethod
-    def check_dtype(cls, value: Any):
-        if isinstance(value, np.dtype):
-            v = value
-        elif isinstance(value, str):
-            v = np.dtype(value)
-        else:
-            raise E2Error(f"Invalid datatype for dtype: {value} -> {type(value)}")
+    def check_dtype_type(cls, value: Any):
+        if value not in ALLOWED_DTYPES:
+            raise ValueError(f"dtype {value} is not allowed. Must be one of {ALLOWED_DTYPES}")
+        return value
+
+    @model_validator(mode="after")
+    def validate_params(self) -> _E2Params:
+        # # Ensure dtype is np.dtype for attribute access
+        # dtype_obj = np.dtype(self.dtype)
         
-        if v.kind == "u":
-            if cls.encoding.dtype_for_encoding == v:
-                return v
-            else:
-                raise EncodingDtypeMismatchError(
-                    str(cls.encoding.dtype_for_encoding), 
-                    str(v)
-                    )
-        else:
-            raise E2Error(f"Invalid datatype for dtype: {value} -> {type(value)}")
+        # Validate dtype matches encoding
+        if self.dtype is None:
+            self.dtype = self.encoding.dtype_for_encoding
+        # elif not isinstance(self.dtype, np.dtype) or self.dtype.kind != "u":
+        #     raise E2Error(f"Invalid datatype for dtype: {self.dtype} -> must be unsigned integer")
+
+        if self.btype is None:
+            self.btype = E2TypesConversion.dtype2btype(self.dtype)
         
-    @field_validator("btype", mode="after")
-    @classmethod
-    def check_btype(cls, value: Any):
-        if not isinstance(value, int):
-            raise E2TypeError(f"Invalid datatype for btype: {value} -> {type(value)}")
-        elif E2TypesConversion.dtype2btype(cls.dtype) < value:
-            # create custom error for this edge case
-            raise E2ValueError(f"btype exceeds maximum value using actual dtype ({type(cls.dtype)}): {value} > {E2TypesConversion.dtype2btype(cls.dtype)}")
-        else:
-            return value
-        
-class E2ConfigParams(_E2ConfigParams):
-    
-    @field_validator("btype", mode="after")
-    @classmethod
-    def check_btype(cls, value: Any):
-        if not isinstance(value, int):
-            raise E2TypeError(f"Invalid datatype for btype: {value} -> {type(value)}")
-        elif E2TypesConversion.dtype2btype(cls.dtype) != value:
-            raise BtypeDtypeMismatchError(
-                btype=value, 
-                dtype_base=E2TypesConversion.dtype2btype(cls.dtype)
+        expected_dtype = E2TypesConversion.btype2dtype_ceil(self.btype)
+        if expected_dtype != self.dtype:
+            raise EncodingDtypeMismatchError(
+                str(expected_dtype), 
+                str(self.dtype)
             )
-        else:
-            return value
+        
+        # Validate btype
+        if self.btype is not None:
+            max_btype = E2TypesConversion.dtype2btype(self.dtype)
+            if max_btype < self.btype:
+                raise E2ValueError(f"btype exceeds maximum value using actual dtype ({self.dtype}): {self.btype} > {max_btype}")
+        
+        return self
 
-class _E2GeneratorParams(BaseModel):
-
-    model_config = standard_model_config
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    config: _E2ConfigParams  # Should be _E2Config or E2Config
-    hash_alg: str = "sha3_512"
-
-class E2GeneratorParams(_E2GeneratorParams):
-    
-    config: E2ConfigParams
+class E2Params(_E2Params):
+    """
+    Strict configuration parameters for Enigma2, requiring exact btype/dtype match.
+    """
+    @model_validator(mode="after")
+    def validate_strict_params(self) -> E2Params:
+        expected_btype = E2TypesConversion.dtype2btype(self.dtype)
+        if self.btype is not None and expected_btype != self.btype:
+            raise BtypeDtypeMismatchError(
+                btype=self.btype, 
+                dtype_base=expected_btype
+            )
+        return self

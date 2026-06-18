@@ -1,4 +1,4 @@
-from _e2_exceptions import *
+from ._e2_exceptions import *
 
 
 class BtypeDtypeMismatchError(MismatchError): 

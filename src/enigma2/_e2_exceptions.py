@@ -1,3 +1,5 @@
+import chardet
+
 class E2Error(Exception):
     pass
 
@@ -8,6 +10,13 @@ class E2Warning(Warning):
 class E2ValueError(E2Error):
     pass
 
+class NoPasswordFoundError(E2Error):
+    def __init__(self):
+        super().__init__(self._build_message())
+
+    def _build_message(self):
+        return f"No password found in config file"
+    
 # ENCODING ERRORS
 class EncodingError(E2Error):
     pass
@@ -36,6 +45,16 @@ class EncodingDtypeMismatchError(MismatchError):
 
     def _build_message(self):
         return f"Mismatch between encoding dtype and main dtype: {self.encoding_dtype_str} != {self.dtype_str}"
+    
+class PasswordEncodingMismatchError(MismatchError):
+    def __init__(self, encoding: str, pwd: bytes):
+        self.encoding_str = encoding
+        self.pwd_bytes: bytes = pwd
+        super().__init__(self._build_message())
+
+    def _build_message(self):
+        pwd_encoding_res = chardet.detect(self.encoding_str)
+        return f"Mismatch between encoding and password: {self.encoding_str} != {pwd_encoding_res['encoding']}. Confidence: {pwd_encoding_res['confidence']}"
     
 # TYPE ERRORS
 class E2TypeError(E2Error):
@@ -68,6 +87,14 @@ class Btype2DtypeConversionError(ConversionError):
 
     def _build_message(self):
         return f"No exact conversion for btype found: {self.btype}"
+    
+class Dtype2BtypeConversionError(ConversionError):
+    def __init__(self, dtype: str):
+        self.dtype = dtype
+        super().__init__(self._build_message())
+
+    def _build_message(self):
+        return f"No exact conversion for dtype found: {self.dtype}"
     
 class Btype2DtypeCeilingConversionError(ConversionError):
     def __init__(self, btype: int):

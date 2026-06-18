@@ -45,9 +45,10 @@ On this document you will find the different features of past, present and futur
 
 ### new tasks for e2v2.3.2
 
-- [ ] create pydantic model to pass arguments for every config/generator class (E2ConfigParams, E2GeneratorParams, _E2ConfigParams,_E2GeneratorParams) in params_models.py
+- [X] create pydantic model to pass arguments for every config/generator class (E2ConfigParams, E2Params, _E2ConfigParams,_E2Params) in params_models.py
 - [ ] Fix stat class
-- [ ] Finish and check enigma tests
+- [ ] Add pwd error handling on E2Params
+- [X] Finish and check enigma tests
 - [X] Finish and check enigma2 config/generator tests
 - [ ] Finish plots/plot maker jupyter notebook
 - [ ] Write broader enigma class with less restrictions to use it for lab testing (it will be able to use odd rotor aranges, noise sizes, etc...) -> _E2 ??
@@ -58,5 +59,5 @@ On this document you will find the different features of past, present and futur
 - [ ] pass config as json in terminal **(well, you pass the path but nevermind)**
 - [ ] modify README.md to include all the new features
 - [ ] TODO: improve speed using multi-threading and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**
-- [ ] review code and implement better comments and logical structure if possible
+- [X] review code and implement better comments and logical structure if possible
 - [ ] TODO: create installable enigma.exe (it can be executed everywhere on windows pc)

@@ -1,6 +1,6 @@
 # ENIGMA2
 
-================ done by lm319aka ================ (Must be updated for v2)
+================ done by lm319aka ================ (Updated for v2.3.2)
 
 Enigma2 is a Python package that provides a simple and efficient way to encrypt and decrypt data using a custom encryption algorithm. The package is designed to be easy to use and provides a range of features to make it suitable for a variety of applications.
 
@@ -18,8 +18,9 @@ git clone https://github.com/lm319aka/enigma2.git
 
 :: go to repo, create and activate venv
 cd enigma2
-python3 -m venv .venv
-.venv/bin/activate
+python -m venv .venv
+.venv\Scripts\activate  :: On Windows
+source .venv/bin/activate :: On Linux/Mac
 
 :: install requirements
 pip install -r requirements.txt
@@ -59,154 +60,92 @@ This also means the more secure the elements are, the more time it will take to 
 
 ### PROCESS STEP BY STEP (for encryption)
 
-1. The password is hashed and divided in chunks then used to create the seeds for aleatory number generators for each part (the rotors, rotations and noise). This proccesses are packed in a Generator class.
+1. The password is hashed (using sha3_512) and divided in chunks then used to create the seeds for random number generators for each part (the rotors, rotations and noise). These processes are packed in a Generator class.
 2. Create the rotors, rotations and noise using the Generator class.
-3. Get encoding automatically or manually (depending of the desired level of security or time performance: if we want high security, we should use utf-16, but if we want high performance we should use utf-8)
-4. start encrypting data by adding to each element of data its corresponding element on the actual rotation layer and then output result as indexes to its corresponding rotor layer (not the same as a rotation layer: a rotation layer is the one that is summed to the data and simulates the rotation of the rotors while a rotor acts like the rotors themselves but they are codified like pyhton dicts but in array form for more efficiency).
-5. repeat step 4 until all rotations are applied and new modified data is passed through every rotor.
-6. add noise to data (its a simple sum of 1d arrays).
-7. return encrypted data.
+3. Get encoding automatically or manually.
+4. Start encrypting data by adding to each element of data its corresponding element on the actual rotation layer and then output result as indexes to its corresponding rotor layer.
+5. Repeat step 4 until all rotors are applied.
+6. Add noise to data.
+7. Return encrypted data.
 
 ### PROCESS STEP BY STEP (for decryption)
 
-1. The password is hashed and divided in chunks then used to create the seeds for aleatory number generators for each part (the rotors, rotations and noise)
-2. Create the rotors, rotations and noise using the generators
-3. Get encoding automatically or manually
-4. start by removing noise from data
-5. remove each rotation to data and then pass result as indexes to its corresponding rotor (all in the reversed way it was done in encryption)
-6. repeat step 5 until all rotations are removed
-7. return decrypted data
+1. The password is hashed and divided in chunks then used to create the seeds for random number generators.
+2. Create the rotors, rotations and noise using the generators.
+3. Get encoding automatically or manually.
+4. Start by removing noise from data.
+5. Apply reverse rotor mappings and remove rotations in reverse order.
+6. Return decrypted data.
 
-Because it is a simetric cipher, the decryption process is the same as the encryption but reversed.
-
-**Note: For small amounts of data, E2 could provoke some collisions (same input, same output, different passwords for each cipher process --> pigeonhole principle). For big amounts of data, the chance of collisions is very low, near to 0%.**
+**Note: For small amounts of data, E2 could provoke some collisions. For big amounts of data, the chance of collisions is very low, near to 0%.**
 
 ### IS E2 SECURE?
 
 ---------------
 
-For those of you that want a quick answer, yes. If you want a more elaborated one, the answer is: It depends on the way the main elements of the cipher (rotors, rotations, noise, number of rotors...) are created because if they are created manually and are totally randomized, the cipher is way more secure than if they are generated using a password. To understand this statement let's dive deeper using some logic and simple math.
+For those of you that want a quick answer, yes. If you want a more elaborated one, the answer is: It depends on the way the main elements of the cipher are created. If they are created manually and are totally randomized, the cipher is way more secure than if they are generated using a password.
 
-#### elements created manually (or using a better random generator than the actual one for E2)
+#### Elements created using a password
 
-For this case we are assuming the creation of all elements is totally random, so we are taking into account the totality of the possible states for every element. So first we are going to calculate all the possible states for every element to get the overall possible states for the cipher "main key" (all its elements together) and the time it would take if we'd like to crack it with brute force:
-
-- Data to encrypt/decrypt size $(s)$
-- Number of possible chars $(c)$: 256 (there could be more but we are going to make this simple)
-- Number of possible rotors $(r)$: from 1 up to16
-- Number of possible single rotor states: $c!=256!$
-- Noise size $(n)$: $s \geq n \geq 0$
-- Number of possible noise states $(p)$: $p=n! \cdot \frac{s!}{(s-n)! \cdot n!} = \frac{s!}{(s-n)!}$
-
-Total possible states: $256!^r \cdot p= \frac{256!^r \cdot s!}{(s-n)!}$
-
-Also, if the encryption is linear and we could start the operation on any possible rotation index, the possible states to crack would be $\frac{s! \cdot c!^r \cdot c^r}{(s-n)!}$.
-
-You can use this lambda function to calculate the possible states (2^result):
-
-```python
-from math import factorial, log2
-lambda s, r, n : log2(factorial(256)**r * factorial(s)) - log2(factorial(s-n))
-
-# it returns the log2 of the possible states because it is impossible to calculate the total number of states themselves when numbers go wild ;)
-
-```
-
-Using the first expression and substituting the values we can guess how hard it would be to crack this algorithm.
-
-In the worst case scenario, where we only have one rotor, no noise and linear rotations, the possible states to crack would be $256! \approx 10^{507} \approx 2^{1684}$. This means that in order to crack the cipher we need to try $2^{1684}$ different rotor combinations, in comparison, the difficulty of brute-forcing a 256 bit key on the symmetric cipher AES is $2^{256}$. It is not that bad, we are thinking about the worst case scenario and we also won't add the random rotations that make it harder to crack on any case. The bad news is that this approach could be easily cracked in a matter of hours using some IoC focused on file metadata by knowing the file type and some other known information on the encrypted content and/or metadata.
-
-In a standard setup (4 rotors, 8192 bytes noise length array, linear rotations, for a file of let's say 65536 bytes), by substituting terms, the possible combinations are about $2^{137036}$, overcoming by far the difficulty of brute-forcing an AES 256 bit key ($2^{256}$).
-
-Finally, for the most secure setup (16 rotors, half the file size of noise, linear rotations, for a file of let's say 65536 bytes), the possible combinations are about $2^{536726}$, which is an insane number.
-
-Considering that an actual top-tier supercomputer can compute $10^{18}flops$ (flops: floating point operations per second), the time it would take to break E2 by brute force would be $2^{536726}/10^{18} = 10^{161552} seconds = 10^{161545} years$. To put this into perspective, the actual age of the universe is around $1.38^{10}years$. (Maybe using some clever math tricks this number could be reduced, but I don't know how much of a difference it would make due to the complexity of the problem)
-
-#### elements created using a password
-
-Using a password could be beneficial because it makes all the process of creating the elements for the cipher easier and automatically, and the user only has to worry about the password and not about memorizing all the elements or keeping a config file with all of it.
-
-The issue with this approach is that makes the user and its data more vulnerable, this is because the password is transformed into a hash then parsed to obtain the seeds for the generators for each part (rotors, rotations and noise), the number of rotors... This hash is generated in v2.0 using sha3_256, that returns a string with 64 hex chars from which we will use all.
-
-This means that in order to crack the password you'd only need to brute-force $16^{64} = 2^{256}$ possible combinations. The difficulty is the same as trying to crack with brute force AES cipher with 256 bit key, in both cases it is impossible to crack on a reasonable amount of time, and so E2.
+The password is transformed into a hash (sha3_512) then parsed to obtain the seeds for the generators. This means that in order to crack the password you'd need to brute-force $16^{128} = 2^{512}$ possible combinations. The difficulty is higher than AES-256, making it virtually impossible to crack by brute force.
 
 ## Usage from terminal
 
 ---------------
 
-Enigma2 can be used from the terminal to encrypt or decrypt data of various types. This makes it fast and easy to use it for general purposes that require the tool immediately. Using --help argument will show all the available options and its usage.
+Enigma2 can be used from the terminal to encrypt or decrypt data or files.
 
 ```bash
-python -m enigma2.enigma2 --help
+python -m enigma2.enigma2_cipher --help
 ```
 
-After pressing enter this message will pop up:
+### Examples:
 
+**Encrypting data:**
 ```bash
-usage: enigma2.py [-h] [--data DATA] [--fpath FPATH] [--out_path OUT_PATH] --pwd PWD [--op {E,D}]
-                  [--encoding {utf-8,utf-16,utf-32,ascii,utf-7,base64-codec,big5,big5hkscs,bz2-codec,cp037,cp1026,cp1125,cp1140,cp1250,cp1251,cp1252,cp1253,cp1254,cp1255,cp1256,cp1257,cp1258,cp273,cp424,cp437,cp500,cp720,cp737,cp775,cp850,cp852,cp855,cp856,cp857,cp858,cp860,cp861,cp862,cp863,cp864,cp865,cp866,cp869,cp874,cp875,cp932,cp949,cp950,euc-jis-2004,euc-jisx0213,euc-jp,euc-kr,gb18030,gb2312,gbk,hex-codec,hp-roman8,hz,idna,iso2022-jp,iso2022-jp-1,iso2022-jp-2,iso2022-jp-2004,iso2022-jp-3,iso2022-jp-ext,iso2022-kr,iso8859-1,iso8859-10,iso8859-11,iso8859-13,iso8859-14,iso8859-15,iso8859-16,iso8859-2,iso8859-3,iso8859-4,iso8859-5,iso8859-6,iso8859-7,iso8859-8,iso8859-9,johab,koi8-r,koi8-t,koi8-u,kz1048,mac-cyrillic,mac-greek,mac-iceland,mac-latin2,mac-roman,mac-turkish,ptcp154,quopri-codec,raw-unicode-escape,rot-13,shift-jis,shift-jis-2004,shift-jisx0213,tis-620,utf-16-be,utf-16-le,utf-32-be,utf-32-le,utf-8-sig,uu-codec,zlib-codec,latin-1}]        
-                  [--orig_rot] [--start_op_index START_OP_INDEX]
-
-Enigma2 Encryption/Decryption of files
-...
+python -m enigma2.enigma2_cipher --data "Hello, World!" --pwd "my_secret_password" --op E --encoding utf-8
 ```
 
-Here are some example use cases:
-
-in console data encryption (you could save the encrypted data to a file by using --out_path argument):
-
+**Decrypting data:**
 ```bash
-python enigma2.py --data "Hello, World!" --pwd "my_secret_password" --op E --encoding utf-8
+python -m enigma2.enigma2_cipher --data "[222 185 248  16 ...]" --pwd "my_secret_password" --op D --encoding utf-8
 ```
 
-in console data decryption (you could save the decrypted data to a file by using --out_path argument). In decryption case, if data provided via console, it is recommended to pass the data as the numpy array given after encryption due to reliability issues with plain text (this error is meant to be solved in future versions):
-
+**Encrypting a file:**
 ```bash
-:: decrypting original message -> "Hello, World!"
-
-python -m enigma2.enigma2 --data "[222 185 248  16 171 207 168 167 232 149 192 175 251]" --pwd "my_secret_password" --op D --encoding utf-8
+python -m enigma2.enigma2_cipher --fpath "test.txt" --pwd "my_secret_password"
 ```
 
-in console file encryption (--op is Encrypt by default and the encoding can be autodetected):
-
+**Decrypting a file:**
 ```bash
-python -m enigma2.enigma2 --fpath "test.txt" --pwd "my_secret_password"
+python -m enigma2.enigma2_cipher --fpath "test.txt.npy" --pwd "my_secret_password" --op D
 ```
 
-in console file decryption:
-
-```bash
-python -m enigma2.enigma2 --fpath "test.txt.npy" --pwd "my_secret_password" --op D
-```
-
-For future versions an installable enigma.exe will be provided (obviously it is far way easier to download and have an installer that automatically does everything for you than being cloning, creating venv, etc...)
+## Usage from Python
 
 ---------------
 
 ### Initialization
 
----------------
-
-To use Enigma2, you need to initialize the `E2` class with an `E2Config` object. You can use `E2ConfigParams` to define your custom parameters.
+To use Enigma2, initialize the `E2` class with an `E2Config` object, which takes an `E2Params` object.
 
 ```python
 import numpy as np
-from enigma2.enigma2 import E2
+from enigma2.enigma2_cipher import E2
 from enigma2.enigma2_config import E2Config
-from enigma2.params_models import E2ConfigParams
+from enigma2.model_params import E2Params
 
 pwd = b"my_secret_password"
 
-# Define parameters using E2ConfigParams (Pydantic model)
-params = E2ConfigParams(
+# Define parameters using E2Params (Pydantic model)
+params = E2Params(
     pwd=pwd,
     dtype=np.uint16,
-    rotations_seed=1700,
-    number_rotors=5,
-    rotors_seed=1701,
-    noise_size=10000,
-    noise_seed=1702,
-    encoding="utf-16"
+    encoding="utf-16",
+    elements_creation_params={
+        "number_rotors": 5,
+        "noise_size": 10000
+    }
 )
 
 # Initialize config and E2 object
@@ -214,83 +153,35 @@ config = E2Config(params=params)
 e2 = E2(config=config)
 ```
 
-### Encryption
-
-To encrypt data, you can use the `encrypt` method of the `E2` class. This method takes a byte string (or numpy array) as input and returns the encrypted data.
+### Encryption & Decryption
 
 ```python
 data = b"Hello, World!"
 encrypted_data = e2.encrypt(data)
-print(encrypted_data)
-```
 
-### Decryption
-
-To decrypt data, you can use the `decrypt` method of the `E2` class. This method takes the encrypted data and returns the original data.
-
-```python
-# it is recommended to reset the rng if you are using the same object for both operations
-e2.reset_rng()
+# Decrypt back
+e2.reset_rng() # Reset RNG state for identity decryption if using same object
 decrypted_data = e2.decrypt(encrypted_data)
-print(decrypted_data.tobytes().decode("utf-16"))
+print(decrypted_data.tobytes().decode("utf-8"))
 ```
 
-### Configuration
+### Configuration Parameters
 
----------------
-
-The `E2ConfigParams` class provides several arguments that can be used to customize the encryption algorithm:
+The `E2Params` class (and its sub-model `elements_creation_params`) provides several arguments:
 
 - `pwd`: (Required) The password in bytes.
-- `dtype`: The data type of the encryption algorithm (e.g., `np.uint8`, `np.uint16`).
-- `btype`: The base type (automatically calculated from `dtype` if not provided).
-- `number_rotors`: Number of rotors (1-16).
-- `noise_size`: Length of the noise to add.
-- `encoding`: String encoding to use (must match `dtype`).
-
-### Example Use Case
-
----------------
-
-Here is a complete example of file encryption and decryption:
-
-```python
-import numpy as np
-from enigma2.enigma2 import E2
-from enigma2.enigma2_config import E2Config
-from enigma2.params_models import E2ConfigParams
-
-pwd = b"my_secret_password"
-params = E2ConfigParams(
-    pwd=pwd,
-    dtype=np.uint16,
-    number_rotors=5,
-    encoding="utf-16"
-)
-
-config = E2Config(params=params)
-e2 = E2(config=config)
-
-original_path = "path/to/original/file.pdf"
-encrypted_file_dir = "path/to/encrypted/file/"
-decrypted_file_dir = "path/to/decrypted/file/"
-
-# Encrypt the file (creates a .npy file)
-encrypted_file_path = e2.encrypt_file(original_path, encrypted_file_dir)
-
-# Decrypt the file back to its original state
-e2.decrypt_file(encrypted_file_path, decrypted_file_dir)
-```
-
-This example initializes the `E2` class with a password and a configuration dictionary, encrypts a file to then decrypt it.
+- `dtype`: The data type (e.g., `np.uint8`, `np.uint16`).
+- `encoding`: String encoding (must match `dtype`).
+- `elements_creation_params`:
+    - `number_rotors`: 1-16.
+    - `noise_size`: Length of the noise.
+    - `rotations_seed`, `rotors_seed`, `plugboard_seed`, `noise_seed`: Optional manual seeds.
 
 ## Contributing
 
 ---------------
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-
-For more projects see my [GitHub](https://github.com/lm319aka)
 
 ## License
 
@@ -299,3 +190,46 @@ For more projects see my [GitHub](https://github.com/lm319aka)
 Enigma2 is licensed under the MIT License. See the [LICENSE](LICENSE.txt) file for details.
 
 ---------------
+
+## Testing Guide
+
+---------------
+
+To ensure everything is working correctly after installation or modifications, you can run the built-in test suite. Enigma2 uses a package structure, so it's important to set the `PYTHONPATH` correctly.
+
+### 1. Prerequisites
+Ensure you are in the root directory of the project, your virtual environment is activated, and dependencies are installed:
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Running All Tests
+This command will automatically find and run all tests located in the `tests/` directory.
+
+**On Windows (PowerShell):**
+```powershell
+$env:PYTHONPATH = "src"; python -m unittest discover tests
+```
+
+**On Linux / Mac (Bash):**
+```bash
+export PYTHONPATH=$PYTHONPATH:$(pwd)/src; python3 -m unittest discover tests
+```
+
+### 3. Running Specific Test Suites
+If you only want to run a specific part of the tests:
+
+**Configuration & Generator Logic:**
+Verifies password hashing, seed derivation, and parameter validation.
+```powershell
+$env:PYTHONPATH = "src"; python -m unittest tests/test_enigma2_config.py
+```
+
+**Cipher & Encryption Identity:**
+Verifies that data encrypted can be correctly decrypted and that file encryption works as expected.
+```powershell
+$env:PYTHONPATH = "src"; python -m unittest tests/test_enigma2_cipher.py
+```
+
+### 4. Troubleshooting
+If you get a `ModuleNotFoundError` or `ImportError`, double-check that you are running the commands from the **root directory** of the project and that the `PYTHONPATH` variable is set exactly as shown above.
