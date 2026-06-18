@@ -43,7 +43,7 @@ On this document you will find the different features of past, present and futur
 - [X] write tests for E2, E2Config and E2Generator
 - [X] create new class method that generates random password (E2Generator)
 
-### new tasks for e2v2.3.0
+### new tasks for e2v2.3.2
 
 - [ ] create pydantic model to pass arguments for every config/generator class (E2ConfigParams, E2GeneratorParams, _E2ConfigParams,_E2GeneratorParams) in params_models.py
 - [ ] Fix stat class

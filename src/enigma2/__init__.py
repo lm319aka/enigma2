@@ -10,4 +10,4 @@ E2, E2Config, E2Generator
 __all__ = ["E2", "E2Config", "E2Generator", "encoding_dtype_map", "find_encoding", 
            "E2ConfigParams", "E2GeneratorParams", "_E2ConfigParams", "_E2GeneratorParams"]
 
-__version__ = "2.3.1"
+__version__ = "2.3.2"
