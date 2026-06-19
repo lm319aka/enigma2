@@ -4,8 +4,9 @@ from typing import Optional, Union, Any
 from pathlib import Path
 import numpy as np
 from typing import get_args
+import chardet
 
-from .encodings_getter import E2Encoding
+from .encodings_getter import E2Encoding, find_encoding
 from .e2_exceptions import *
 
 standard_model_config = ConfigDict(
@@ -82,7 +83,7 @@ class _E2Params(BaseModel):
     """
     model_config = standard_model_config
 
-    pwd: bytes
+    pwd: bytes = None
     encoding: E2Encoding = E2Encoding("utf-8")
     dtype: Any = None
     btype: Optional[PositiveInt] = None
@@ -92,7 +93,7 @@ class _E2Params(BaseModel):
     avoid_validation: bool = False
     verbose: bool = False
     log_path: Optional[Union[Path, str]] = None
-
+    
     @field_validator("encoding", mode="before")
     @classmethod
     def check_encoding(cls, value: Any):
@@ -113,8 +114,16 @@ class _E2Params(BaseModel):
 
     @model_validator(mode="after")
     def validate_params(self) -> _E2Params:
-        # # Ensure dtype is np.dtype for attribute access
-        # dtype_obj = np.dtype(self.dtype)
+        # Ensure there is a pwd
+        if not self.pwd:
+            raise NoPasswordFoundError()
+        pwd_encoding = find_encoding(self.pwd)
+        if pwd_encoding and pwd_encoding != self.encoding.encoding:
+            raise PasswordEncodingMismatchError(
+                self.encoding.encoding, 
+                self.pwd,
+                pwd_encoding
+            )
         
         # Validate dtype matches encoding
         if self.dtype is None:

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
 
-from .encodings_getter import encoding_dtype_map
+from .encodings_getter import E2Encoding #, E2EncodingModel
 from .model_params import E2Params, E2TypesConversion
 
 class E2Config:
@@ -130,10 +130,7 @@ class E2Config:
     def seeds_number(self) -> int:
         """Returns the number of seeds derived from the hash."""
         return self.__seeds_number
-     
-    def __repr__(self) -> str:
-        return f"E2Config(params={self.params})"
-     
+          
     def dump_json(self, path: str | Path) -> None:
         """Saves the configuration to a JSON file."""
         with open(path, "w") as fp:
@@ -145,6 +142,9 @@ class E2Config:
             data = json.load(fp)
             self.params = E2Params(**data)
             self.__init__(self.params)
+
+    # def __repr__(self) -> str:
+    #         return f"E2Config(params: {self.params.model_dump(E2EncodingModel, indent=2, ensure_ascii=True,)}))"
 
 
 class E2Generator:

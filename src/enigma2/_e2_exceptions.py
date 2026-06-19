@@ -37,6 +37,14 @@ class MismatchError(E2Error):
 class MismatchWarning(E2Warning):
     pass
 
+class NoEncodingMatchFoundError(MismatchError):
+    def __init__(self, data: bytes):
+        self.data = data
+        super().__init__(self._build_message())
+
+    def _build_message(self):
+        return f"No encoding match found for chain of bytes: {self.data}"
+
 class EncodingDtypeMismatchError(MismatchError):
     def __init__(self, encoding_dtype: str, dtype: str):
         self.encoding_dtype_str = encoding_dtype
@@ -47,15 +55,19 @@ class EncodingDtypeMismatchError(MismatchError):
         return f"Mismatch between encoding dtype and main dtype: {self.encoding_dtype_str} != {self.dtype_str}"
     
 class PasswordEncodingMismatchError(MismatchError):
-    def __init__(self, encoding: str, pwd: bytes):
+    def __init__(self, encoding: str, pwd: bytes, pwd_encoding: str = None):
         self.encoding_str = encoding
         self.pwd_bytes: bytes = pwd
+        self.pwd_encoding = pwd_encoding
         super().__init__(self._build_message())
 
     def _build_message(self):
-        pwd_encoding_res = chardet.detect(self.encoding_str)
-        return f"Mismatch between encoding and password: {self.encoding_str} != {pwd_encoding_res['encoding']}. Confidence: {pwd_encoding_res['confidence']}"
-    
+        if self.pwd_encoding is None:
+            return f"Mismatch between encoding ({self.encoding_str}) and password ({self.pwd_bytes})"
+        else:
+            return f"Mismatch between encoding and password ({self.pwd_bytes}): {self.encoding_str} != {self.pwd_encoding}."
+
+
 # TYPE ERRORS
 class E2TypeError(E2Error):
     pass

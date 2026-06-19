@@ -6,7 +6,7 @@ import chardet
 import time
 import logging
 
-from .encodings_getter import encoding_dtype_map, find_encoding
+from .encodings_getter import encoding_dtype_map, find_file_encoding, E2Encoding#, E2EncodingModel
 from .enigma2_config import E2Config, E2Generator
 from .model_params import E2Params
 
@@ -152,7 +152,7 @@ class E2:
                 file_data = f.read()
             file_encoding = chardet.detect(file_data)["encoding"]
             if file_encoding is None:
-                file_encoding = find_encoding(file_data)
+                file_encoding = find_file_encoding(file_data)
             data = np.fromfile(file_path, dtype=encoding_dtype_map[file_encoding])
         else:
             data = np.fromfile(file_path, dtype=self.config.dtype)
@@ -177,6 +177,10 @@ class E2:
         
         if isinstance(data_array, bytes):
             data_array = np.frombuffer(data_array, dtype=self.config.dtype)
+        elif isinstance(data_array, np.ndarray):
+            pass
+        else:
+            raise TypeError(f"data_array must be a numpy array or bytes, not {type(data_array)}")
 
         self.reset_rng(start_op_index)
 
@@ -248,30 +252,45 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # Initialize configuration
-    config_params = E2Params(
-        pwd=args.pwd.encode(args.encoding),
-        encoding=args.encoding,
-        original_rotations=args.orig_rot,
-        start_op_index=args.start_op_index
-    )
+    if args.op == "E":
+        config_params = E2Params(
+            pwd=args.pwd.encode(args.encoding),
+            encoding=args.encoding,
+            original_rotations=args.orig_rot,
+            start_op_index=args.start_op_index
+        )
+    else:
+        config_params = E2Params(
+            pwd=args.pwd.encode(args.encoding),
+            encoding=args.encoding,
+            original_rotations=args.orig_rot,
+            start_op_index=args.start_op_index
+        )
 
     config = E2Config(config_params)
     # config.verbose = True
-    # print(config)
+    # print(config_params)
     # print(sys.modules)
+    for p in config_params.__dict__:
+        print(f"{p}: {getattr(config_params, p)}")
     codec = E2(config)
 
     if args.data:
         # Handle direct data input
         data_bytes = args.data.encode(args.encoding)
         if args.op == "E":
+            # data_bytes = args.data.encode(args.encoding)
             result = codec.encrypt(data_bytes, start_op_index=args.start_op_index)
-            print(f"Encrypted data: {result}")
+            print(f"Encrypted data: {result.tobytes().decode(args.encoding)}")
         else:
+            # data_bytes = args.data#.encode(args.encoding)
             # For decryption, data might need to be parsed from string representation of array if it was printed before
             # but for simplicity we assume bytes here. In a real CLI this would be more robust.
             result = codec.decrypt(data_bytes, start_op_index=args.start_op_index)
             print(f"Decrypted data: {result.tobytes().decode(args.encoding)}")
+            # print(codec.config.encoding)
+            # print(f"Decrypted data: {result.tobytes()}")
+
 
     elif args.fpath:
         # Handle file input

@@ -47,7 +47,9 @@ On this document you will find the different features of past, present and futur
 
 - [X] create pydantic model to pass arguments for every config/generator class (E2ConfigParams, E2Params, _E2ConfigParams,_E2Params) in params_models.py
 - [ ] Fix stat class
-- [ ] Add pwd error handling on E2Params
+- [ ] solve issue with enigma2 package: <frozen runpy>:130: RuntimeWarning: 'enigma2.enigma2_cipher' found in sys.modules after import of package 'enigma2', but prior to execution of 'enigma2.enigma2_cipher'; this may result in unpredictable behaviour
+
+- [X] Add pwd error handling on E2Params
 - [X] Finish and check enigma tests
 - [X] Finish and check enigma2 config/generator tests
 - [ ] Finish plots/plot maker jupyter notebook
@@ -59,5 +61,5 @@ On this document you will find the different features of past, present and futur
 - [ ] pass config as json in terminal **(well, you pass the path but nevermind)**
 - [ ] modify README.md to include all the new features
 - [ ] TODO: improve speed using multi-threading and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**
-- [X] review code and implement better comments and logical structure if possible
+- [ ] review code and implement better comments and logical structure if possible
 - [ ] TODO: create installable enigma.exe (it can be executed everywhere on windows pc)

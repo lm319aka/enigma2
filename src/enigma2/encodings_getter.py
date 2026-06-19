@@ -2,7 +2,9 @@ import numpy as np
 from typing import Union
 from pathlib import Path
 import os
-from ._e2_exceptions import EncodingNotFoundError
+from pydantic import BaseModel, Field, create_model
+
+from ._e2_exceptions import EncodingNotFoundError, NoEncodingMatchFoundError
 
 encoding_dtype_map = {
     # canonical encodings
@@ -131,6 +133,20 @@ class E2Encoding:
             return encoding_dtype_map[self.encoding]
         except KeyError:
             raise EncodingNotFoundError(self.encoding)
+    
+    def __repr__(self):
+        return f"E2Encoding(encoding={self.encoding}, dtype_for_encoding={self.dtype_for_encoding})"
+
+class CustomE2Encoding(BaseModel):
+    encoding: str
+    dtype_for_encoding: str
+
+    class Config:
+        extra = "forbid"
+
+# E2EncodingModel = create_model("E2EncodingModel", __base__=CustomE2Encoding, **{
+#     'dtype_for_encoding': Field(alias='dtype_for_encoding', default_factory=lambda: E2Encoding("utf-8").dtype_for_encoding)
+# })
 
 # import encodings
 # try:
@@ -151,16 +167,10 @@ class E2Encoding:
 #     print(e)
 
 
-def find_encoding(obj: Union[str, bytes, Path]) -> str:
-    if isinstance(obj, bytes):
-        data = obj
-    elif isinstance(obj, (str, Path)):
-        if os.path.exists(obj) and os.path.isfile(obj):
-            with open(obj, 'rb') as f:
-                data = f.read()
-        else:
-            raise FileNotFoundError(f"File {obj} does not exist")
-    
+def find_encoding(data: bytes) -> str:
+    """
+    finds the encoding in which the data is encoded
+    """
     for encoding in encoding_dtype_map.keys():
         try:
             data.decode(encoding)
@@ -170,7 +180,19 @@ def find_encoding(obj: Union[str, bytes, Path]) -> str:
         except LookupError:
             continue
     
-    raise ValueError(f"Could not find encoding for data: {data}")
+    raise NoEncodingMatchFoundError(f"Could not find encoding for data: {data}")
+
+def find_file_encoding(obj: Union[str, Path]) -> str:
+    """
+    finds the encoding in which the file data is encoded
+    """
+    if os.path.exists(obj) and os.path.isfile(obj):
+        with open(obj, 'rb') as f:
+            data = f.read(1024) # we don't need to read all the file to find the encoding
+    else:
+        raise FileNotFoundError(f"File {obj} does not exist")
+    
+    return find_encoding(data)
 
 # DEPRECATED
 def file2array_bits(path, bit_unit):
