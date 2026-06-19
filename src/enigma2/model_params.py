@@ -117,8 +117,10 @@ class _E2Params(BaseModel):
         # Ensure there is a pwd
         if not self.pwd:
             raise NoPasswordFoundError()
-        pwd_encoding = find_encoding(self.pwd)
-        if pwd_encoding and pwd_encoding != self.encoding.encoding:
+        try:
+            self.pwd.decode(self.encoding.encoding)
+        except (UnicodeDecodeError, LookupError):
+            pwd_encoding = find_encoding(self.pwd)
             raise PasswordEncodingMismatchError(
                 self.encoding.encoding, 
                 self.pwd,

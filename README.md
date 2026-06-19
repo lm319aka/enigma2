@@ -96,29 +96,31 @@ The password is transformed into a hash (sha3_512) then parsed to obtain the see
 Enigma2 can be used from the terminal to encrypt or decrypt data or files.
 
 ```bash
-python -m enigma2.enigma2_cipher --help
+python -m enigma2 --help
+
+REM it's also valid -> python -m enigma2.enigma2_cipher --help
 ```
 
 ### Examples:
 
 **Encrypting data:**
 ```bash
-python -m enigma2.enigma2_cipher --data "Hello, World!" --pwd "my_secret_password" --op E --encoding utf-8
+python -m enigma2 --data "Hello, World!" --pwd "my_secret_password" --op E --encoding utf-8
 ```
 
 **Decrypting data:**
 ```bash
-python -m enigma2.enigma2_cipher --data "[222 185 248  16 ...]" --pwd "my_secret_password" --op D --encoding utf-8
+python -m enigma2 --data "[222 185 248  16 ...]" --pwd "my_secret_password" --op D --encoding utf-8
 ```
 
 **Encrypting a file:**
 ```bash
-python -m enigma2.enigma2_cipher --fpath "test.txt" --pwd "my_secret_password"
+python -m enigma2 --fpath "test.txt" --pwd "my_secret_password"
 ```
 
 **Decrypting a file:**
 ```bash
-python -m enigma2.enigma2_cipher --fpath "test.txt.npy" --pwd "my_secret_password" --op D
+python -m enigma2 --fpath "test.txt.npy" --pwd "my_secret_password" --op D
 ```
 
 ## Usage from Python

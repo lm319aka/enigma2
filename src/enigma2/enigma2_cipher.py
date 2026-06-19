@@ -277,19 +277,28 @@ def main() -> None:
 
     if args.data:
         # Handle direct data input
-        data_bytes = args.data.encode(args.encoding)
         if args.op == "E":
-            # data_bytes = args.data.encode(args.encoding)
+            data_bytes = args.data.encode(args.encoding)
             result = codec.encrypt(data_bytes, start_op_index=args.start_op_index)
-            print(f"Encrypted data: {result.tobytes().decode(args.encoding)}")
+            print(f"Encrypted data: {result.tolist()}")
         else:
-            # data_bytes = args.data#.encode(args.encoding)
-            # For decryption, data might need to be parsed from string representation of array if it was printed before
-            # but for simplicity we assume bytes here. In a real CLI this would be more robust.
-            result = codec.decrypt(data_bytes, start_op_index=args.start_op_index)
+            # For decryption, parse string representation of list or numpy array if possible
+            import re
+            data_str = args.data.strip()
+            if data_str.startswith('[') and data_str.endswith(']'):
+                try:
+                    content = data_str[1:-1].strip()
+                    # replace whitespace or newlines with a single comma
+                    content = re.sub(r'[\s,]+', ',', content)
+                    data_list = [int(x) for x in content.split(',') if x]
+                    data_array = np.array(data_list, dtype=codec.config.dtype)
+                except Exception:
+                    data_array = args.data.encode(args.encoding)
+            else:
+                data_array = args.data.encode(args.encoding)
+            
+            result = codec.decrypt(data_array, start_op_index=args.start_op_index)
             print(f"Decrypted data: {result.tobytes().decode(args.encoding)}")
-            # print(codec.config.encoding)
-            # print(f"Decrypted data: {result.tobytes()}")
 
 
     elif args.fpath:
