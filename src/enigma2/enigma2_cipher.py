@@ -234,7 +234,7 @@ class E2:
 
         return output_path
 
-if __name__ == "__main__":
+def main() -> None:
     import argparse
     from .encodings_getter import encoding_dtype_map
 
@@ -298,3 +298,6 @@ if __name__ == "__main__":
             codec.encrypt_file(args.fpath, args.out_path, detect_encoding=False, start_op_index=args.start_op_index)
         else:
             codec.decrypt_file(args.fpath, args.out_path, start_op_index=args.start_op_index)
+
+if __name__ == "__main__":
+    main()

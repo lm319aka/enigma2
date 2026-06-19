@@ -105,7 +105,7 @@ class TestE2(unittest.TestCase):
         dtypes_valid_encodings = ["utf-8", "utf-16"]
         for uint_dtype, encoding in zip(all_valid_dtypes, dtypes_valid_encodings):
             config_data = {
-                "pwd": self.pwd,
+                "pwd": self.pwd.decode("utf-8").encode(encoding),
                 "dtype": uint_dtype,
                 "elements_creation_params": {
                     "rotations_seed": 1700,
