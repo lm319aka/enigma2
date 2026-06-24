@@ -110,7 +110,7 @@ python -m enigma2 --data "Hello, World!" --pwd "my_secret_password" --op E --enc
 
 **Decrypting data:**
 ```bash
-python -m enigma2 --data "[222 185 248  16 ...]" --pwd "my_secret_password" --op D --encoding utf-8
+python -m enigma2 --data "[46, 108, 199, 93, 229, 42, 218, 199, 144, 65, 173, 189, 158]" --pwd "my_secret_password" --op D --encoding utf-8
 ```
 
 **Encrypting a file:**
@@ -127,7 +127,7 @@ python -m enigma2 --fpath "test.txt.npy" --pwd "my_secret_password" --op D
 
 ---------------
 
-### Initialization
+### Basic Initialization
 
 To use Enigma2, initialize the `E2` class with an `E2Config` object, which takes an `E2Params` object.
 
@@ -141,12 +141,13 @@ pwd = b"my_secret_password"
 
 # Define parameters using E2Params (Pydantic model)
 params = E2Params(
-    pwd=pwd,
-    dtype=np.uint16,
-    encoding="utf-16",
-    elements_creation_params={
+    pwd=pwd, # compulsory field
+    dtype=np.uint16, # None by default
+    encoding="utf-16", # utf-8 by default
+    elements_creation_params={ # if some elements are manually created, they wont be defined automatically using the password, but password must be defined anyways
         "number_rotors": 5,
-        "noise_size": 10000
+        "noise_size": 10000,
+
     }
 )
 

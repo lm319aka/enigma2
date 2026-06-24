@@ -43,23 +43,30 @@ On this document you will find the different features of past, present and futur
 - [X] write tests for E2, E2Config and E2Generator
 - [X] create new class method that generates random password (E2Generator)
 
-### new tasks for e2v2.3.2
+### new tasks for e2 v2.3.2
 
 - [X] create pydantic model to pass arguments for every config/generator class (E2ConfigParams, E2Params, _E2ConfigParams,_E2Params) in params_models.py
-- [ ] Fix stat class
-- [ ] solve issue with enigma2 package: <frozen runpy>:130: RuntimeWarning: 'enigma2.enigma2_cipher' found in sys.modules after import of package 'enigma2', but prior to execution of 'enigma2.enigma2_cipher'; this may result in unpredictable behaviour
+- [X] solve issue with enigma2 package: <frozen runpy>:130: RuntimeWarning: 'enigma2.enigma2_cipher' found in sys.modules after import of package 'enigma2', but prior to execution of 'enigma2.enigma2_cipher'; this may result in unpredictable behaviour
 
 - [X] Add pwd error handling on E2Params
 - [X] Finish and check enigma tests
 - [X] Finish and check enigma2 config/generator tests
-- [ ] Finish plots/plot maker jupyter notebook
+
+### new tasks for e2 v2.4
+
+- [ ] Try to eliminate attributes from E2Config and manage them from the params
+- [ ] Make an async version of enigma2
+- [ ] TODO: improve speed using multi-threading and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**
+- [ ] separate random creation of cipher elements from proper functions that depend on variable params
 - [ ] Write broader enigma class with less restrictions to use it for lab testing (it will be able to use odd rotor aranges, noise sizes, etc...) -> _E2 ??
-- [ ] modify code to allow passing rotors and other static elements/arrays directly in config **(maybe implementing it is a waste of time)**
 - [ ] Add some metadata to encrypted files **(like file type, encryption time, doc hash[to verify if file will be successfully decrypted], starting rotations index, original rotations used bool, etc...)**
 - [ ] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
-- [ ] separate random creation of cipher elements from proper functions that depend on variable params
+
+- [ ] Compare v2.3.2 with v2.4 in terms of performance
+- [ ] Finish plots/plot maker jupyter notebook
+- [ ] modify code to allow passing rotors and other static elements/arrays directly in config **(maybe implementing it is a waste of time)**
 - [ ] pass config as json in terminal **(well, you pass the path but nevermind)**
-- [ ] modify README.md to include all the new features
-- [ ] TODO: improve speed using multi-threading and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**
 - [ ] review code and implement better comments and logical structure if possible
+- [ ] Generate better code examples for readme
+- [ ] modify README.md to include all the new features
 - [ ] TODO: create installable enigma.exe (it can be executed everywhere on windows pc)

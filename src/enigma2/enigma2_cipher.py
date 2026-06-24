@@ -5,25 +5,31 @@ from pathlib import Path
 import chardet
 import time
 import logging
+import argparse
+from enum import Enum
+import re
+
+from ._e2_cipher import _E2, timed
+from ._e2_config import _E2Config
 
 from .encodings_getter import encoding_dtype_map, find_file_encoding, E2Encoding#, E2EncodingModel
 from .enigma2_config import E2Config, E2Generator
-from .model_params import E2Params
+from .model_params import E2Params, _E2Params
 
 # Setup logging
 logging.Logger(__name__).addHandler(logging.NullHandler())
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-def timed(func):
-    """Decorator to measure the execution time of a function."""
-    def wrapper(*args, **kwargs):
-        start = time.perf_counter()
-        result = func(*args, **kwargs)
-        end = time.perf_counter()
-        if kwargs.get("verbose", False) or (len(args) > 0 and hasattr(args[0], 'config') and args[0].config.verbose):
-            print(f"{func.__name__} took {end - start:.4f} seconds")
-        return result
-    return wrapper
+# def timed(func):
+#     """Decorator to measure the execution time of a function."""
+#     def wrapper(*args, **kwargs):
+#         start = time.perf_counter()
+#         result = func(*args, **kwargs)
+#         end = time.perf_counter()
+#         if kwargs.get("verbose", False) or (len(args) > 0 and hasattr(args[0], 'config') and args[0].config.verbose):
+#             print(f"{func.__name__} took {end - start:.4f} seconds")
+#         return result
+#     return wrapper
 
 class E2:
     """
@@ -233,58 +239,100 @@ class E2:
             f.write(decrypted_data.tobytes())
 
         return output_path
+    
+class CipherOperation(Enum):
+    ENCRYPT = "E"
+    DECRYPT = "D"
+    
+def cli_init(
+        args: argparse.Namespace,
+        cipher_operation: CipherOperation
+        ) -> E2 | _E2:
+    
+    # Initialize configuration
+    if args.odd_btype:
+        if cipher_operation == CipherOperation.ENCRYPT:
+            config_params = _E2Params(
+                pwd=args.pwd.encode(args.encoding),
+                btype=args.btype,
+                encoding=args.encoding,
+                original_rotations=args.orig_rtts,
+                start_op_index=args.start_op_index
+            )
+        elif cipher_operation == CipherOperation.DECRYPT:
+            config_params = _E2Params(
+                pwd=args.pwd.encode(args.encoding),
+                btype=args.btype,
+                encoding=args.encoding,
+                original_rotations=args.orig_rtts,
+                start_op_index=args.start_op_index
+            )
+
+        config = _E2Config(config_params)
+        print("Config params _E2 (raw E2):")
+        for p in config_params.__dict__:
+            print(f"{p}: {getattr(config_params, p)}")
+        codec = _E2(config)
+    else:
+        if cipher_operation == CipherOperation.ENCRYPT:
+            config_params = E2Params(
+                pwd=args.pwd.encode(args.encoding),
+                btype=args.btype,
+                encoding=args.encoding,
+                original_rotations=args.orig_rtts,
+                start_op_index=args.start_op_index
+            )
+        elif cipher_operation == CipherOperation.DECRYPT:
+            config_params = E2Params(
+                pwd=args.pwd.encode(args.encoding),
+                btype=args.btype,
+                encoding=args.encoding,
+                original_rotations=args.orig_rtts,
+                start_op_index=args.start_op_index
+            )
+
+        config = E2Config(config_params)
+        print("Config params E2:")
+        for p in config_params.__dict__:
+            print(f"{p}: {getattr(config_params, p)}")
+        codec = E2(config)
+
+    return codec
 
 def main() -> None:
-    import argparse
     from .encodings_getter import encoding_dtype_map
-
-    import sys
+    # import sys
 
     parser = argparse.ArgumentParser(description="Enigma2 Encryption/Decryption CLI")
     parser.add_argument("--data", type=str, help="Data to encrypt/decrypt")
     parser.add_argument("--fpath", type=str, help="Path of file to encrypt/decrypt")
-    parser.add_argument("--out_path", type=str, help="Path of output file")
+    parser.add_argument("--out-path", type=str, help="Path of output file")
     parser.add_argument("--pwd", required=True, type=str, help="Password for encryption/decryption")
     parser.add_argument("--op", type=str, default="E", choices=["E", "D"], help="Operation: E (Encrypt), D (Decrypt)")
     parser.add_argument("--encoding", type=str, default="utf-8", choices=encoding_dtype_map.keys(), help="Encoding to use")
-    parser.add_argument("--orig_rot", action="store_true", help="Use original Enigma-style rotations")
-    parser.add_argument("--start_op_index", type=int, default=0, help="Starting index for rotations")
-    args = parser.parse_args()
-    
-    # Initialize configuration
-    if args.op == "E":
-        config_params = E2Params(
-            pwd=args.pwd.encode(args.encoding),
-            encoding=args.encoding,
-            original_rotations=args.orig_rot,
-            start_op_index=args.start_op_index
-        )
-    else:
-        config_params = E2Params(
-            pwd=args.pwd.encode(args.encoding),
-            encoding=args.encoding,
-            original_rotations=args.orig_rot,
-            start_op_index=args.start_op_index
-        )
+    parser.add_argument("--orig-rtts", action="store_true", help="Use original Enigma-style rotations")
+    parser.add_argument("--start-op-index", type=int, default=0, help="Starting index for rotations")
+    parser.add_argument("--odd-btype", action="store_true", help="Use odd btype for raw Enigma2")
+    parser.add_argument("--btype", type=int, default=None, help="Custom btype for raw Enigma2")
 
-    config = E2Config(config_params)
-    # config.verbose = True
-    # print(config_params)
-    # print(sys.modules)
-    for p in config_params.__dict__:
-        print(f"{p}: {getattr(config_params, p)}")
-    codec = E2(config)
+    # parser.add_argument("--verbose", action="store_true", help="Enable verbose mode")
+    # parser.add_argument("--debug", action="store_true", help="Enable debug mode")
+
+    # Parse command-line arguments
+    args = parser.parse_args()
+
+    cipher_operation = CipherOperation(args.op)
+    codec = cli_init(args, cipher_operation)
 
     if args.data:
         # Handle direct data input
-        if args.op == "E":
+        if cipher_operation == CipherOperation.ENCRYPT:
             data_bytes = args.data.encode(args.encoding)
             result = codec.encrypt(data_bytes, start_op_index=args.start_op_index)
             print(f"Encrypted data: {result.tolist()}")
-        else:
+        elif cipher_operation == CipherOperation.DECRYPT:
             # For decryption, parse string representation of list or numpy array if possible
-            import re
-            data_str = args.data.strip()
+            data_str: str = args.data.strip()
             if data_str.startswith('[') and data_str.endswith(']'):
                 try:
                     content = data_str[1:-1].strip()
@@ -303,10 +351,13 @@ def main() -> None:
 
     elif args.fpath:
         # Handle file input
-        if args.op == "E":
+        if cipher_operation == CipherOperation.ENCRYPT:
             codec.encrypt_file(args.fpath, args.out_path, detect_encoding=False, start_op_index=args.start_op_index)
-        else:
+        elif cipher_operation == CipherOperation.DECRYPT:
             codec.decrypt_file(args.fpath, args.out_path, start_op_index=args.start_op_index)
+
+    else:
+        raise ValueError("Either --data or --fpath must be provided.")
 
 if __name__ == "__main__":
     main()

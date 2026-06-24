@@ -17,6 +17,17 @@ class NoPasswordFoundError(E2Error):
     def _build_message(self):
         return f"No password found in config file"
     
+class DomainError(E2Error):
+    def __init__(self, char):
+        self.char = char
+        super().__init__(self._build_message())
+
+    def _build_message(self):
+        return f"Byte character outside of valid domain: {self.char}"
+    
+class PasswordLengthError(E2Error):
+    pass
+    
 # ENCODING ERRORS
 class EncodingError(E2Error):
     pass
