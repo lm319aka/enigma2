@@ -77,7 +77,7 @@ class E2:
     
     def reset_rng(self, start_index: int = 0) -> None:
         """Resets the internal random number generators."""
-        self.generator.reset_rng(start_index)
+        self.generator._init_rng(start_index)
 
     def rotor_encryption(self, data_array: np.ndarray, rotor: np.ndarray, rotation: np.ndarray) -> np.ndarray:
         """Applies a single rotor encryption step."""
@@ -108,7 +108,7 @@ class E2:
             data_array = np.frombuffer(data_array, dtype=self.config.dtype)
 
         # Reset RNG to ensure consistency across operations
-        self.generator.reset_rng(start_op_index)
+        self.reset_rng(start_op_index)
         
         # Generate rotations and noise for this specific data size
         rotations_array = self.generator.generate_rotations(data_array.size, 

@@ -75,16 +75,16 @@ class _E2:
 
     def rotor_encryption(self, data_array: np.ndarray, rotor: np.ndarray, rotation: np.ndarray) -> np.ndarray:
         """Applies a single rotor encryption step."""
-        # res = data_array + rotation
-        res = np.mod(data_array + rotation, self.config.btype)
+        addition = np.add(data_array, rotation, dtype=np.uint64)
+        res = np.mod(addition, self.config.btype)
         # Use numpy indexing for fast mapping
         return rotor[res]
 
     def rotor_decryption(self, data_array: np.ndarray, rotor: np.ndarray, rotation: np.ndarray) -> np.ndarray:
         """Applies a single rotor decryption step."""
         res = rotor[data_array]
-        # return res - rotation
-        return np.mod(res - rotation, self.config.btype)
+        subtraction = np.subtract(res, rotation, dtype=np.uint64)
+        return np.mod(subtraction, self.config.btype)
     
     def check_entry_data(self, data_array: Union[np.ndarray, bytes]) -> np.ndarray:        
         # Convert bytes to numpy array if necessary
@@ -135,7 +135,10 @@ class _E2:
             data_array = self.rotor_encryption(data_array, self.encryption_rotors[i], rotations_array[i])
         
         # 3. Add noise
-        return np.mod(data_array + noise_array, self.config.btype)
+        return np.mod(
+            np.add(data_array, noise_array, dtype=np.uint64), 
+            self.config.btype
+        )
 
     def encrypt_file(self, 
                      file_path: Union[str, Path], 
@@ -204,15 +207,17 @@ class _E2:
         noise_array = self.generator.generate_noise(data_array.size)
 
         # 1. Remove noise
-        data_array = np.mod(data_array - noise_array, self.config.btype)
+        data_array = np.mod(
+            np.subtract(data_array, noise_array, dtype=np.uint64), 
+            self.config.btype
+        )
 
         # 2. Apply sequential rotor decryption in reverse order
         for i in reversed(range(self.config.number_rotors)):
             data_array = self.rotor_decryption(data_array, self.decryption_rotors[i], rotations_array[i])
         
         # 3. Apply reverse plugboard mapping
-        data_array = self.decryption_plugboard[data_array]
-        return data_array
+        return self.decryption_plugboard[data_array]
 
     def decrypt_file(self, 
                      file_path: Union[str, Path], 

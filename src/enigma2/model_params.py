@@ -135,16 +135,16 @@ class _E2Params(BaseModel):
         # elif not isinstance(self.dtype, np.dtype) or self.dtype.kind != "u":
         #     raise E2Error(f"Invalid datatype for dtype: {self.dtype} -> must be unsigned integer")
 
-        # Ensure dtype and btype closest match gap
-        expected_dtype = E2TypesConversion.btype2dtype_ceil(self.btype)
-        if expected_dtype != self.dtype:
-            raise EncodingDtypeMismatchError(
-                str(expected_dtype), 
-                str(self.dtype)
-            )
-
         if self.btype is None:
             self.btype = E2TypesConversion.dtype2btype(self.dtype)
+        
+        # # Ensure dtype and btype closest match gap
+        # expected_dtype = E2TypesConversion.btype2dtype_ceil(self.btype)
+        # if expected_dtype != self.dtype:
+        #     raise EncodingDtypeMismatchError(
+        #         str(expected_dtype), 
+        #         str(self.dtype)
+        #     )
         
         # Validate btype
         if self.btype is not None:
@@ -154,19 +154,19 @@ class _E2Params(BaseModel):
             raise E2ValueError(f"btype cannot be None")
 
         # check if pwd is in domain of valid characters
-        for char in self.pwd: # this checking approach is not the most efficient 
-            # but it is simple and for the reduced length of the password it should be fine
-            print(char, format(char, "c"))
-            if int(char) >= self.btype:
-                raise DomainError(char)
+        # for char in self.pwd: # this checking approach is not the most efficient 
+        #     # but it is simple and for the reduced length of the password it should be fine
+        #     print(char, format(char, "c"))
+        #     if char >= self.btype:
+        #         raise DomainError(char)
 
     @model_validator(mode="after")
     def validate_params(self) -> _E2Params:
         self.essential_params_validation()
         
         max_btype = E2TypesConversion.dtype2btype(self.dtype)
-        if max_btype < self.btype*2 - 1:
-            raise E2ValueError(f"btype*2 - 1  exceeds maximum value using actual dtype ({self.dtype}): {self.btype*2 - 1} > {max_btype}. To solve this, change dtype or encoding to a superior one.")
+        if max_btype < self.btype:
+            raise E2ValueError(f"btype  exceeds maximum value using actual dtype ({self.dtype}): {self.btype} > {max_btype}. To solve this, change dtype or encoding to a superior one.")
         
         return self
 
@@ -175,9 +175,17 @@ class E2Params(_E2Params):
     Strict configuration parameters for Enigma2, requiring exact btype/dtype match.
     """
     @model_validator(mode="after")
-    def validate_strict_params(self) -> E2Params:
+    def validate_params(self) -> E2Params:
         self.essential_params_validation()
 
+        # Ensure dtype and btype closest match gap
+        expected_dtype = E2TypesConversion.btype2dtype_ceil(self.btype)
+        if expected_dtype != self.dtype:
+            raise EncodingDtypeMismatchError(
+                str(expected_dtype), 
+                str(self.dtype)
+            )
+        
         expected_btype = E2TypesConversion.dtype2btype(self.dtype)
         if self.btype is not None and expected_btype != self.btype:
             raise BtypeDtypeMismatchError(
