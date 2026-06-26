@@ -264,7 +264,7 @@ class _E2Generator:
         if self.config.noise_size == 0:
             return np.zeros(size, dtype=self.config.dtype)
         
-        actual_noise_size = self.config.noise_size % size if self.config.noise_size > size else self.config.noise_size
+        actual_noise_size = size if self.config.noise_size > size else self.config.noise_size # to avoid collisions
         
         # Create noise values and random indexes
         noise_values = self.noise_rng.integers(low=0, 

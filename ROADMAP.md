@@ -46,7 +46,7 @@ On this document you will find the different features of past, present and futur
 ### new tasks for e2 v2.3.2
 
 - [X] create pydantic model to pass arguments for every config/generator class (E2ConfigParams, E2Params, _E2ConfigParams,_E2Params) in params_models.py
-- [X] solve issue with enigma2 package: <frozen runpy>:130: RuntimeWarning: 'enigma2.enigma2_cipher' found in sys.modules after import of package 'enigma2', but prior to execution of 'enigma2.enigma2_cipher'; this may result in unpredictable behaviour
+- [X] solve issue with enigma2 package: frozen runpy :130: RuntimeWarning: 'enigma2.enigma2_cipher' found in sys.modules after import of package 'enigma2', but prior to execution of 'enigma2.enigma2_cipher'; this may result in unpredictable behaviour
 
 - [X] Add pwd error handling on E2Params
 - [X] Finish and check enigma tests
@@ -55,12 +55,13 @@ On this document you will find the different features of past, present and futur
 ### new tasks for e2 v2.4
 
 - [X] Use signed ints for mod operations and manage conversion from signed to unsigned and vice versa
-- [X] Tests to check if _E2 properly works and _E2Config/_E2Generator properly work and manage exceptions and params
+- [X] Tests to check if _E2 properly works and_E2Config/_E2Generator properly work and manage exceptions and params
 - [X] Auto detect if user is using odd.btype in console so there is no need of writing --odd-btype flag, only --btype
-- [X] create __repr__ for E2, E2Config and E2Generator and raw ones
-- [ ] unite raw enigma2 with main enigma2
+- [X] create **repr__ for E2, E2Config and E2Generator and raw ones
+- [X] solve issue with noise size (when len(data) < noise_size, is executed noise_size = noise_size % len(data). The problem is that this generates colissions btwn the possible hashes that could be generated from different passwords, leading to different password to decrypt non-corresponding data) -> if condition is true, then noise_size = len(data) and continue as always.
+- [X] unite raw enigma2 with main enigma2
 - [ ] Try to eliminate attributes from E2Config and manage them from the params
-- [ ] Make an async version of enigma2
+- [X] Make an async version of enigma2
 - [ ] TODO: improve speed using multi-threading and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**
 - [ ] separate random creation of cipher elements from proper functions that depend on variable params
 - [ ] Write broader enigma class with less restrictions to use it for lab testing (it will be able to use odd rotor aranges, noise sizes, etc...) -> _E2 ??
