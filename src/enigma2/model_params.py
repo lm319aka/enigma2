@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator, PositiveInt, ValidationInfo
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator, PositiveInt, ValidationInfo, field_serializer
 from typing import Optional, Union, Any
 from pathlib import Path
 import numpy as np
@@ -45,6 +45,15 @@ class E2TypesConversion:
         2**32: np.uint32,
         2**64: np.uint64
     }
+
+
+    @classmethod
+    def available_dtypes(cls) -> list[Dtype]:
+        return list(cls.btype2dtype_dict.values())
+    
+    @classmethod
+    def available_btypes(cls) -> list[Dtype]:
+        return list(cls.btype2dtype_dict.keys())
 
     @classmethod
     def btype2dtype_exact(cls, btype: int) -> Dtype:
@@ -139,6 +148,13 @@ class _E2Params(BaseModel):
     verbose: bool = False
     log_path: Optional[Union[Path, str]] = None
     
+    @field_validator("pwd", mode="before")
+    @classmethod
+    def check_pwd(cls, value: Any):
+        if isinstance(value, str):
+            return value.encode("utf-8")
+        return value
+
     @field_validator("encoding", mode="before")
     @classmethod
     def check_encoding(cls, value: Any):
@@ -150,12 +166,30 @@ class _E2Params(BaseModel):
             return E2Encoding(value)
         raise EncodingError(f"Invalid datatype for encoding: {value} -> {type(value)}")
 
+    @field_serializer("encoding")
+    def serialize_encoding(self, encoding: E2Encoding) -> str:
+        return encoding.encoding
+
     @field_validator("dtype", mode="before")
     @classmethod
     def check_dtype_type(cls, value: Any):
+        if isinstance(value, str):
+            val_clean = value.strip().replace("np.", "").replace("numpy.", "").lower()
+            if "uint8" in val_clean:
+                value = np.uint8
+            elif "uint16" in val_clean:
+                value = np.uint16
+            elif "uint32" in val_clean:
+                value = np.uint32
         if value not in ALLOWED_DTYPES:
             raise ValueError(f"dtype {value} is not allowed. Must be one of {ALLOWED_DTYPES}")
         return value
+
+    @field_serializer("dtype")
+    def serialize_dtype(self, dtype: Any) -> str:
+        if hasattr(dtype, "__name__"):
+            return dtype.__name__
+        return str(dtype)
     
     def essential_params_validation(self):
         # Ensure there is a pwd

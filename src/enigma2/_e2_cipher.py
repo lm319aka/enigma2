@@ -263,3 +263,7 @@ class _E2:
             f.write(decrypted_data.tobytes())
 
         return output_path
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(config={self.config!r})"
+

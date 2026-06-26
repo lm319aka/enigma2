@@ -146,8 +146,19 @@ class _E2Config:
             self.params = _E2Params(**data)
             self.__init__(self.params)
 
-    # def __repr__(self) -> str:
-    #         return f"E2Config(params: {self.params.model_dump(E2EncodingModel, indent=2, ensure_ascii=True,)}))"
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}("
+            f"dtype={self.dtype}, "
+            f"btype={self.btype}, "
+            f"number_rotors={self.number_rotors}, "
+            f"plugboard_size={self.plugboard_size}, "
+            f"noise_size={self.noise_size}, "
+            f"original_rotations={self.original_rotations}, "
+            f"start_op_index={self.start_op_index}, "
+            f"encoding={self.encoding!r}"
+            f")"
+        )
 
 
 class _E2Generator:
@@ -303,4 +314,4 @@ class _E2Generator:
         return reversed_rotor
         
     def __repr__(self) -> str:
-        return f"E2Generator(params: {self.params.model_dump_json()})"
+        return f"{self.__class__.__name__}(config={self.config!r})"

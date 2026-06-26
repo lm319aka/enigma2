@@ -135,7 +135,7 @@ class E2Encoding:
             raise EncodingNotFoundError(self.encoding)
     
     def __repr__(self):
-        return f"E2Encoding(encoding={self.encoding}, dtype_for_encoding={self.dtype_for_encoding})"
+        return f"{self.__class__.__name__}(encoding={self.encoding!r}, dtype_for_encoding={self.dtype_for_encoding})"
 
 class CustomE2Encoding(BaseModel):
     encoding: str

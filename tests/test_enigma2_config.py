@@ -37,7 +37,7 @@ class testE2Config(unittest.TestCase):
         self.assertEqual(generator.config.params, params)
 
     def test_pwd_hash_parsing(self):
-        self.generator.reset_rng(0)
+        self.generator._init_rng(0)
         pwd_hash = hashlib.new(self.config.hash_alg, self.pwd).hexdigest()
         main_seeds_len = 24
         self.assertEqual(self.config.hash_pwd, pwd_hash)
@@ -82,14 +82,14 @@ class testE2Config(unittest.TestCase):
         
         for _ in range(5):
             start_index = random.randint(0, config.btype)
-            generator.reset_rng(start_index)
+            generator._init_rng(start_index)
 
             rotors = generator.generate_rotors()
             encryption_plugboard, decryption_plugboard = generator.generate_plugboards()
             rotations = generator.generate_rotations(config.number_rotations, initial_rotations_index=start_index)
             noise = generator.generate_noise(config.noise_size)
 
-            generator.reset_rng(start_index)
+            generator._init_rng(start_index)
 
             new_rotors = generator.generate_rotors()
             for original_rotor, new_rotor in zip(rotors, new_rotors):
@@ -107,14 +107,14 @@ class testE2Config(unittest.TestCase):
             self.assertTrue(np.all(noise == generator.generate_noise(config.noise_size)))
 
     def test_E2Generator_single_rotor_creation(self):
-        self.generator.reset_rng(0)
+        self.generator._init_rng(0)
         single_rotor = self.generator.create_single_rotor()
         self.assertEqual(single_rotor.dtype, self.config.dtype)
         self.assertEqual(single_rotor.size, self.config.btype)
         self.assertFalse(np.any((single_rotor > (self.config.btype - 1)) | (single_rotor < 0)))
 
     def test_check_reverse_rotor_operation(self):
-        self.generator.reset_rng(0)
+        self.generator._init_rng(0)
         encryption_rotor = self.generator.create_single_rotor()
         decryption_rotor = self.generator.reverse_rotor(encryption_rotor)
 
@@ -129,7 +129,7 @@ class testE2Config(unittest.TestCase):
         self.assertTrue(np.all(data_sample == decrypted_data_sample))
 
     def test_E2Generator_rotors_creation(self):
-        self.generator.reset_rng(0)
+        self.generator._init_rng(0)
         enc_rotors, dec_rotors = self.generator.generate_rotors()
         for rotors in [enc_rotors, dec_rotors]:
             self.assertEqual(rotors.dtype, self.config.dtype)
@@ -137,7 +137,7 @@ class testE2Config(unittest.TestCase):
             self.assertFalse(np.any((rotors > (self.config.btype - 1)) | (rotors < 0)))
 
     def test_E2Generator_rotations_creation(self):
-        self.generator.reset_rng(0)
+        self.generator._init_rng(0)
         rotations_size = 100
         rotations = self.generator.generate_rotations(rotations_size=rotations_size, initial_rotations_index=0)
         self.assertEqual(rotations.shape, (self.config.number_rotations, rotations_size))
@@ -147,7 +147,7 @@ class testE2Config(unittest.TestCase):
             self.assertFalse(np.any((rotation > (self.config.btype - 1)) | (rotation < 0)))
 
     def test_E2Generator_plugboard_creation(self):
-        self.generator.reset_rng(0)
+        self.generator._init_rng(0)
         plug, rev_plug = self.generator.generate_plugboards()
         self.assertEqual(plug.dtype, self.config.dtype)
         self.assertEqual(rev_plug.dtype, self.config.dtype)

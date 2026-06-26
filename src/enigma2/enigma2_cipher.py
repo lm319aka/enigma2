@@ -14,7 +14,7 @@ from ._e2_config import _E2Config
 
 from .encodings_getter import encoding_dtype_map, find_file_encoding, E2Encoding#, E2EncodingModel
 from .enigma2_config import E2Config, E2Generator
-from .model_params import E2Params, _E2Params
+from .model_params import E2Params, _E2Params, E2TypesConversion
 
 # Setup logging
 logging.Logger(__name__).addHandler(logging.NullHandler())
@@ -239,6 +239,10 @@ class E2:
             f.write(decrypted_data.tobytes())
 
         return output_path
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(config={self.config!r})"
+
     
 class CipherOperation(Enum):
     ENCRYPT = "E"
@@ -246,11 +250,12 @@ class CipherOperation(Enum):
     
 def cli_init(
         args: argparse.Namespace,
-        cipher_operation: CipherOperation
+        cipher_operation: CipherOperation,
+        odd_btype: bool
         ) -> E2 | _E2:
     
     # Initialize configuration
-    if args.odd_btype:
+    if odd_btype:
         if cipher_operation == CipherOperation.ENCRYPT:
             config_params = _E2Params(
                 pwd=args.pwd.encode(args.encoding),
@@ -312,7 +317,8 @@ def main() -> None:
     parser.add_argument("--encoding", type=str, default="utf-8", choices=encoding_dtype_map.keys(), help="Encoding to use")
     parser.add_argument("--orig-rtts", action="store_true", help="Use original Enigma-style rotations")
     parser.add_argument("--start-op-index", type=int, default=0, help="Starting index for rotations")
-    parser.add_argument("--odd-btype", action="store_true", help="Use odd btype for raw Enigma2")
+    parser.add_argument("--input-array", action="store_true", help="Defines input as numpy array")
+    parser.add_argument("--output-array", action="store_true", help="Defines output as numpy array")
     parser.add_argument("--btype", type=int, default=None, help="Custom btype for raw Enigma2")
 
     # parser.add_argument("--verbose", action="store_true", help="Enable verbose mode")
@@ -322,31 +328,46 @@ def main() -> None:
     args = parser.parse_args()
 
     cipher_operation = CipherOperation(args.op)
-    codec = cli_init(args, cipher_operation)
+    odd_btype = args.btype not in E2TypesConversion.available_btypes()
+
+    codec = cli_init(
+        args, 
+        cipher_operation,
+        odd_btype
+    )
 
     if args.data:
-        # Handle direct data input
-        if cipher_operation == CipherOperation.ENCRYPT:
-            data_bytes = args.data.encode(args.encoding)
-            result = codec.encrypt(data_bytes, start_op_index=args.start_op_index)
-            print(f"Encrypted data: {result.tolist()}")
-        elif cipher_operation == CipherOperation.DECRYPT:
-            # For decryption, parse string representation of list or numpy array if possible
-            data_str: str = args.data.strip()
+
+        # For decryption, parse string representation of list or numpy array if possible
+        data_str: str = args.data.strip()
+        if args.input_array or (data_str.startswith('[') and data_str.endswith(']')):
             if data_str.startswith('[') and data_str.endswith(']'):
                 try:
                     content = data_str[1:-1].strip()
                     # replace whitespace or newlines with a single comma
                     content = re.sub(r'[\s,]+', ',', content)
                     data_list = [int(x) for x in content.split(',') if x]
-                    data_array = np.array(data_list, dtype=codec.config.dtype)
+                    input_data = np.array(data_list, dtype=codec.config.dtype)
                 except Exception:
-                    data_array = args.data.encode(args.encoding)
+                    if args.input_array:
+                        raise ValueError("Invalid input array format")
+                    else:
+                        input_data = args.data.encode(args.encoding)
             else:
-                data_array = args.data.encode(args.encoding)
-            
-            result = codec.decrypt(data_array, start_op_index=args.start_op_index)
-            print(f"Decrypted data: {result.tobytes().decode(args.encoding)}")
+                raise ValueError("Invalid input array format")
+        else:
+            input_data = args.data.encode(args.encoding)
+
+        # Handle direct data input
+        if cipher_operation == CipherOperation.ENCRYPT:
+            result = codec.encrypt(input_data, start_op_index=args.start_op_index)
+            print(f"Encrypted data: {result.tolist()}")
+        elif cipher_operation == CipherOperation.DECRYPT:            
+            result = codec.decrypt(input_data, start_op_index=args.start_op_index)
+            if args.output_array:
+                print(f"Decrypted data: {result.tolist()}")
+            else:
+                print(f"Decrypted data: {result.tobytes().decode(args.encoding)}")
 
 
     elif args.fpath:
