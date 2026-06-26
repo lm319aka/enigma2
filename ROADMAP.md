@@ -54,6 +54,8 @@ On this document you will find the different features of past, present and futur
 
 ### new tasks for e2 v2.4
 
+- [X] Use signed ints for mod operations and manage conversion from signed to unsigned and vice versa
+- [ ] Tests to check if _E2 properly works and _E2Config/_E2Generator properly work and manage exceptions and params
 - [ ] Try to eliminate attributes from E2Config and manage them from the params
 - [ ] Make an async version of enigma2
 - [ ] TODO: improve speed using multi-threading and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**

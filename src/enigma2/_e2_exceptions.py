@@ -27,6 +27,20 @@ class DomainError(E2Error):
     
 class PasswordLengthError(E2Error):
     pass
+
+class PlugboardSizeError(E2Error):
+    pass
+
+class NoiseSizeError(E2Error):
+    pass
+    
+class PlugboardOddSizeError(PlugboardSizeError):
+    def __init__(self, plugboard_size: int):
+        self.plugboard_size = plugboard_size
+        super().__init__(self._build_message())
+
+    def _build_message(self):
+        return f"Plugboard size must be even: {self.plugboard_size} % 2 != 0"
     
 # ENCODING ERRORS
 class EncodingError(E2Error):

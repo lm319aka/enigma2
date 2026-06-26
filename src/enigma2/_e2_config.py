@@ -113,7 +113,7 @@ class _E2Config:
         assert max_seed_val > self.plugboard_seed >= 0, f"Plugboard seed out of range: {self.plugboard_seed}"
         
         assert 16 >= self.number_rotors >= 1, f"Number of rotors must be in range [1, 16]: {self.number_rotors}"
-        assert 16 >= self.plugboard_size >= 1, f"Plugboard size must be in range [1, 16]: {self.plugboard_size}"
+        assert 16 >= self.plugboard_size >= 0, f"Plugboard size must be in range [1, 16]: {self.plugboard_size}"
         
         # Noise size range check
         len_noise_size_hash_part = len(self.hash_pwd[self.__main_seeds_len*4 + 2:])
@@ -272,9 +272,13 @@ class _E2Generator:
 
         :return: A tuple containing (encryption_plugboard, decryption_plugboard).
         """
-        assert 1 <= self.config.plugboard_size <= self.config.btype//2, f"Plugboard size out of range: {self.config.plugboard_size}"
+        assert 0 <= self.config.plugboard_size <= self.config.btype//2, f"Plugboard size out of range: {self.config.plugboard_size}"
 
         plugboard = np.arange(self.config.btype, dtype=self.config.dtype)
+        
+        if self.config.plugboard_size == 0:
+            return plugboard, self.reverse_rotor(plugboard)
+        
         places_swap = np.arange(self.config.btype, dtype=self.config.dtype)
         self.plugboard_rng.shuffle(places_swap)
         # Select pairs to swap

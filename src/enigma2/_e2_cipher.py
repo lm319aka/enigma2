@@ -8,6 +8,7 @@ import logging
 
 from .encodings_getter import encoding_dtype_map, find_file_encoding, E2Encoding#, E2EncodingModel
 from ._e2_config import _E2Config, _E2Generator
+from .model_params import E2TypesConversion
 
 # Setup logging
 logging.Logger(__name__).addHandler(logging.NullHandler())
@@ -73,18 +74,34 @@ class _E2:
         """Resets the internal random number generators."""
         self.generator._init_rng(start_index)
 
+    def mod_add(self, a: np.ndarray, b: np.ndarray, m: int):
+        higher_encoding = E2TypesConversion.superior_dtype(self.config.dtype)
+        tmp = np.empty_like(a, dtype=higher_encoding)  # buffer temporal
+        np.add(a, b, out=tmp, dtype=higher_encoding)  # suma sin overflow
+        res = np.mod(tmp, m, out=a)             # vuelca el resultado en a (dtype original)
+        return res
+    
+    def mod_sub(self, a: np.ndarray, b: np.ndarray, m: int):
+        higher_encoding = E2TypesConversion.superior_signed_dtype(self.config.dtype)
+        tmp = np.empty_like(a, dtype=higher_encoding)  # buffer temporal
+        np.subtract(a.astype(dtype=higher_encoding), 
+                    b.astype(dtype=higher_encoding), 
+                    out=tmp
+                    )  # resta sin overflow
+        res = np.mod(tmp, m)             # vuelca el resultado en a (dtype original)
+        return res.astype(dtype=self.config.dtype)
+
+
     def rotor_encryption(self, data_array: np.ndarray, rotor: np.ndarray, rotation: np.ndarray) -> np.ndarray:
         """Applies a single rotor encryption step."""
-        addition = np.add(data_array, rotation, dtype=np.uint64)
-        res = np.mod(addition, self.config.btype)
+        res = self.mod_add(data_array, rotation, self.config.btype)
         # Use numpy indexing for fast mapping
         return rotor[res]
 
     def rotor_decryption(self, data_array: np.ndarray, rotor: np.ndarray, rotation: np.ndarray) -> np.ndarray:
         """Applies a single rotor decryption step."""
         res = rotor[data_array]
-        subtraction = np.subtract(res, rotation, dtype=np.uint64)
-        return np.mod(subtraction, self.config.btype)
+        return self.mod_sub(res, rotation, self.config.btype)
     
     def check_entry_data(self, data_array: Union[np.ndarray, bytes]) -> np.ndarray:        
         # Convert bytes to numpy array if necessary
@@ -135,10 +152,7 @@ class _E2:
             data_array = self.rotor_encryption(data_array, self.encryption_rotors[i], rotations_array[i])
         
         # 3. Add noise
-        return np.mod(
-            np.add(data_array, noise_array, dtype=np.uint64), 
-            self.config.btype
-        )
+        return self.mod_add(data_array, noise_array, self.config.btype)
 
     def encrypt_file(self, 
                      file_path: Union[str, Path], 
@@ -207,10 +221,7 @@ class _E2:
         noise_array = self.generator.generate_noise(data_array.size)
 
         # 1. Remove noise
-        data_array = np.mod(
-            np.subtract(data_array, noise_array, dtype=np.uint64), 
-            self.config.btype
-        )
+        data_array = self.mod_sub(data_array, noise_array, self.config.btype)
 
         # 2. Apply sequential rotor decryption in reverse order
         for i in reversed(range(self.config.number_rotors)):

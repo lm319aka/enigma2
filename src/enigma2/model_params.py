@@ -19,7 +19,9 @@ standard_model_config = ConfigDict(
 )
 
 Dtype = Union[np.uint8, np.uint16, np.uint32, np.uint64]
-ALLOWED_DTYPES = [np.uint8, np.uint16, np.uint32, np.uint64] # get_args(Dtype)
+SignedDtype = Union[np.int8, np.int16, np.int32, np.int64]
+ALLOWED_DTYPES = [np.uint8, np.uint16, np.uint32] # won't include np.uint64
+
 
 MIN_BTYPE = 4
 MAX_BTYPE = 18446744073709551616 # 2**64
@@ -60,11 +62,33 @@ class E2TypesConversion:
         raise Btype2DtypeCeilingConversionError(btype)
 
     @classmethod
-    def dtype2btype(cls, dtype: Any) -> int:
+    def dtype2btype(cls, dtype: Dtype) -> int:
         try:
             return cls.dtype2btype_dict[dtype]
         except KeyError:
             raise Dtype2BtypeConversionError(dtype)
+        
+    @classmethod
+    def superior_dtype(cls, dtype: Dtype) -> Dtype:
+        if dtype == np.uint8:
+            return np.uint16
+        elif dtype == np.uint16:
+            return np.uint32
+        elif dtype == np.uint32:
+            return np.uint64
+        else:
+            raise E2Error(f"No superior dtype for {dtype}")
+        
+    @classmethod
+    def superior_signed_dtype(cls, dtype: Dtype) -> SignedDtype:
+        if dtype == np.uint8:
+            return np.int16
+        elif dtype == np.uint16:
+            return np.int32
+        elif dtype == np.uint32:
+            return np.int64
+        else:
+            raise E2Error(f"No superior signed dtype for {dtype}")
 
 class _E2ElementsCreationParams(BaseModel):
     """
@@ -76,9 +100,27 @@ class _E2ElementsCreationParams(BaseModel):
     number_rotors: Optional[PositiveInt] = None
     rotors_seed: Optional[PositiveInt] = None
     plugboard_seed: Optional[PositiveInt] = None
-    plugboard_size: Optional[PositiveInt] = None
-    noise_size: Optional[PositiveInt] = None
+    plugboard_size: Optional[int] = None
+    noise_size: Optional[int] = None
     noise_seed: Optional[PositiveInt] = None
+
+    @field_validator("plugboard_size", mode="before")
+    @classmethod
+    def check_plugboard_size(cls, value: Any):
+        if value is not None:
+            if value < 0:
+                raise PlugboardSizeError(f"Invalid plugboard size: {value}")
+            elif value%2 != 0:
+                raise PlugboardOddSizeError(value)
+        return value
+
+    @field_validator("noise_size", mode="before")
+    @classmethod
+    def check_noise_size(cls, value: Any):
+        if value is not None:
+            if value < 0:
+                raise NoiseSizeError(f"Invalid noise size: {value}")
+        return value
 
 class _E2Params(BaseModel):
     """
