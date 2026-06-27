@@ -8,6 +8,7 @@ import logging
 from .encodings_getter import encoding_dtype_map, find_file_encoding, E2Encoding#, E2EncodingModel
 from ._e2_config import _E2Config, _E2Generator
 from .model_params import E2TypesConversion
+from .e2_exceptions import StartOpIndexError
 
 # Setup logging
 logging.Logger(__name__).addHandler(logging.NullHandler())
@@ -128,7 +129,8 @@ class _E2:
         :param start_op_index: Starting index for the operation (affects RNG).
         :return: Encrypted numpy array.
         """
-        assert start_op_index >= 0, "start_op_index must be >= 0"
+        if start_op_index < 0:
+            raise StartOpIndexError("start_op_index must be >= 0")
         data_array = self.check_entry_data(data_array)
         
         # Reset RNG to ensure consistency across operations
@@ -205,7 +207,8 @@ class _E2:
         :param start_op_index: Starting index for the operation.
         :return: Decrypted numpy array.
         """
-        assert start_op_index >= 0, "start_op_index must be >= 0"
+        if start_op_index < 0:
+            raise StartOpIndexError("start_op_index must be >= 0")
         data_array = self.check_entry_data(data_array)
         
         self.reset_rng(start_op_index)
@@ -240,7 +243,8 @@ class _E2:
         :param start_op_index: Starting index for the operation.
         :return: Path to the decrypted file.
         """
-        assert start_op_index >= 0, "start_op_index must be >= 0"
+        if start_op_index < 0:
+            raise StartOpIndexError("start_op_index must be >= 0")
         file_path = Path(file_path)
         if not file_path.exists():
             raise FileNotFoundError(f"File {file_path} does not exist")

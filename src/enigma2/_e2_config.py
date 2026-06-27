@@ -112,22 +112,30 @@ class _E2Config:
     def _validate_derived_params(self) -> None:
         """
         Performs range validation on derived and provided parameters.
+        Concepto Educativo: Reemplazar `assert` por `raise` con excepciones explícitas garantiza que las validaciones
+        se ejecuten siempre en producción, incluso si Python se ejecuta en modo optimizado (-O).
         """
-        assert self.number_rotors > 0, "Number of rotors must be greater than 0"
+        if not (16 >= self.number_rotors >= 1):
+            raise RotorsNumberError(f"Number of rotors must be in range [1, 16]: {self.number_rotors}")
         
         # Seed range checks based on the expected length from hash chains
         max_seed_val = 16**self.__main_seeds_len
-        assert max_seed_val > self.rotations_seed >= 0, f"Rotations seed out of range: {self.rotations_seed}"
-        assert max_seed_val > self.rotors_seed >= 0, f"Rotors seed out of range: {self.rotors_seed}"
-        assert max_seed_val > self.noise_seed >= 0, f"Noise seed out of range: {self.noise_seed}"
-        assert max_seed_val > self.plugboard_seed >= 0, f"Plugboard seed out of range: {self.plugboard_seed}"
+        if not (max_seed_val > self.rotations_seed >= 0):
+            raise SeedRangeError(f"Rotations seed out of range: {self.rotations_seed}")
+        if not (max_seed_val > self.rotors_seed >= 0):
+            raise SeedRangeError(f"Rotors seed out of range: {self.rotors_seed}")
+        if not (max_seed_val > self.noise_seed >= 0):
+            raise SeedRangeError(f"Noise seed out of range: {self.noise_seed}")
+        if not (max_seed_val > self.plugboard_seed >= 0):
+            raise SeedRangeError(f"Plugboard seed out of range: {self.plugboard_seed}")
         
-        assert 16 >= self.number_rotors >= 1, f"Number of rotors must be in range [1, 16]: {self.number_rotors}"
-        assert 16 >= self.plugboard_size >= 0, f"Plugboard size must be in range [1, 16]: {self.plugboard_size}"
+        if not (16 >= self.plugboard_size >= 0):
+            raise PlugboardSizeError(f"Plugboard size must be in range [0, 16]: {self.plugboard_size}")
         
         # Noise size range check
         len_noise_size_hash_part = len(self.hash_pwd[self.__main_seeds_len*4 + 2:])
-        assert 16**len_noise_size_hash_part > self.noise_size >= 0, f"Noise size out of range: {self.noise_size}"
+        if not (16**len_noise_size_hash_part > self.noise_size >= 0):
+            raise NoiseSizeError(f"Noise size out of range: {self.noise_size}")
 
     @property
     def hash_alg(self) -> str:
@@ -299,7 +307,8 @@ class _E2Generator:
 
         :return: A tuple containing (encryption_plugboard, decryption_plugboard).
         """
-        assert 0 <= self.config.plugboard_size <= self.config.btype//2, f"Plugboard size out of range: {self.config.plugboard_size}"
+        if not (0 <= self.config.plugboard_size <= self.config.btype // 2):
+            raise PlugboardSizeError(f"Plugboard size out of range: {self.config.plugboard_size}")
 
         plugboard = np.arange(self.config.btype, dtype=self.config.dtype)
         

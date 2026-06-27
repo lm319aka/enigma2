@@ -33,6 +33,15 @@ class PlugboardSizeError(E2Error):
 
 class NoiseSizeError(E2Error):
     pass
+
+class RotorsNumberError(E2Error):
+    pass
+
+class SeedRangeError(E2Error):
+    pass
+
+class StartOpIndexError(E2ValueError):
+    pass
     
 class PlugboardOddSizeError(PlugboardSizeError):
     def __init__(self, plugboard_size: int):

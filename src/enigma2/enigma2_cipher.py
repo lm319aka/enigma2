@@ -15,6 +15,7 @@ from ._e2_config import _E2Config
 from .encodings_getter import encoding_dtype_map, find_file_encoding, E2Encoding#, E2EncodingModel
 from .enigma2_config import E2Config, E2Generator
 from .model_params import E2Params, _E2Params, E2TypesConversion
+from .e2_exceptions import StartOpIndexError
 
 # Setup logging
 logging.Logger(__name__).addHandler(logging.NullHandler())
@@ -59,7 +60,8 @@ class E2(_E2):
         :param start_op_index: Starting index for the operation (affects RNG).
         :return: Encrypted numpy array.
         """
-        assert start_op_index >= 0, "start_op_index must be >= 0"
+        if start_op_index < 0:
+            raise StartOpIndexError("start_op_index must be >= 0")
         
         # Convert bytes to numpy array if necessary
         if isinstance(data_array, bytes):
@@ -96,7 +98,8 @@ class E2(_E2):
         :param start_op_index: Starting index for the operation.
         :return: Decrypted numpy array.
         """
-        assert start_op_index >= 0, "start_op_index must be >= 0"
+        if start_op_index < 0:
+            raise StartOpIndexError("start_op_index must be >= 0")
         
         if isinstance(data_array, bytes):
             data_array = np.frombuffer(data_array, dtype=self.config.dtype)
