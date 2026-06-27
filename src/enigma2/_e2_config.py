@@ -7,7 +7,16 @@ from typing import Optional, Tuple, Dict, Any
 
 from .encodings_getter import E2Encoding #, E2EncodingModel
 from .model_params import _E2Params, E2TypesConversion
-from .e2_exceptions import *
+# Concepto Educativo (Namespace Pollution):
+# Importar con asterisco (`from .e2_exceptions import *`) contamina el espacio de nombres, dificulta
+# el rastreo del origen de los símbolos y previene optimizaciones de linters/analizadores estáticos.
+from .e2_exceptions import (
+    PasswordLengthError,
+    RotorsNumberError,
+    SeedRangeError,
+    PlugboardSizeError,
+    NoiseSizeError,
+)
 
 class _E2Config:
     """
