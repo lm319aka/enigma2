@@ -319,7 +319,8 @@ class _E2Generator:
 
         :return: A tuple containing (encryption_plugboard, decryption_plugboard).
         """
-        if not (0 <= self.config.plugboard_size <= self.config.btype // 2):
+        if not (0 <= self.config.plugboard_size <= self.config.btype // 2): # cannot be more than half the btype
+            # that is because the plugboard size indicates the number of pairs created -> real size is double
             raise PlugboardSizeError(f"Plugboard size out of range: {self.config.plugboard_size}")
 
         plugboard = np.arange(self.config.btype, dtype=self.config.dtype)
