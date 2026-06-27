@@ -1,4 +1,5 @@
 import hashlib
+import secrets
 import numpy as np
 import json
 from pathlib import Path
@@ -193,6 +194,12 @@ class _E2Generator:
     
     def _init_rng(self, start_index: int = 0) -> None:
         """Initializes or resets the random number generators."""
+        # Concepto Educativo (CSPRNG vs PRNG):
+        # Los generadores por defecto de NumPy (como PCG64) son generadores pseudoaleatorios (PRNG) no criptográficos
+        # optimizados para simulación estadística. Para aplicaciones criptográficas de producción, las semillas deben
+        # ser alimentadas con alta entropía del sistema operativo (por ejemplo mediante el módulo `secrets` de Python
+        # usando secrets.randbits(128)).
+        # En Enigma2, cuando no se proveen semillas manuales, se derivan del KDF con PBKDF2-HMAC-SHA512.
         self.rotations_rng = np.random.default_rng(self.config.rotations_seed)
         self.rotors_rng = np.random.default_rng(self.config.rotors_seed)
         self.noise_rng = np.random.default_rng(self.config.noise_seed)
