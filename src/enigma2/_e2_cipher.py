@@ -112,6 +112,9 @@ class _E2:
         else:
             raise TypeError(f"data_array must be a numpy array or bytes, not {type(data_array)}")
         
+        if np.any(data_array >= self.config.btype):
+            raise ValueError(f"Data values must be less than {self.config.btype}")
+
         return data_array
 
     @timed
@@ -130,10 +133,6 @@ class _E2:
             raise StartOpIndexError("start_op_index must be >= 0")
         
         data_array = self.check_entry_data(data_array)
-
-        # check if data is within the bounds of the btype
-        if np.any(data_array >= self.config.btype):
-            raise ValueError(f"Data values must be less than {self.config.btype}")
         
         # Reset RNG to ensure consistency across operations
         self.reset_rng(start_op_index)
@@ -154,8 +153,8 @@ class _E2:
         for i in range(self.config.number_rotors):
             data_array = self.rotor_encryption(data_array, self.encryption_rotors[i], rotations_array[i])
         
-        # 3. Add noise (there could be values outside of btypes, but it adds a layer of security)
-        return data_array + noise_array
+        # 3. Add noise
+        return self.mod_add(data_array, noise_array, self.config.btype)
 
     def encrypt_file(self, 
                      file_path: Union[str, Path], 
@@ -227,7 +226,7 @@ class _E2:
         noise_array = self.generator.generate_noise(data_array.size)
 
         # 1. Remove noise
-        data_array = data_array - noise_array
+        data_array = self.mod_sub(data_array, noise_array, self.config.btype)
 
         # check if data is within the bounds of the btype after removing noise
         if np.any(data_array >= self.config.btype):
