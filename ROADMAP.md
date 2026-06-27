@@ -63,7 +63,7 @@ On this document you will find the different features of past, present and futur
 - [ ] Try to eliminate attributes from E2Config and manage them from the params
 - [X] Make an async version of enigma2
 
-- [ ] Not doing mod operation on sum of noise and data (adds more security and attackers are unable to tell reasonable actal btype)
+- [X] Not doing mod operation on sum of noise and data (adds more security and attackers are unable to tell reasonable actal btype)
 
 
 - [ ] TODO: improve speed using multi-threading and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**

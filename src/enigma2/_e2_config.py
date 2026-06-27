@@ -331,6 +331,8 @@ class _E2Generator:
         places_swap = np.arange(self.config.btype, dtype=self.config.dtype)
         self.plugboard_rng.shuffle(places_swap)
         # Select pairs to swap
+        if self.config.btype % 2 == 1: # btype is odd
+            places_swap = places_swap[:-1]
         swaps = places_swap.reshape(-1, 2)[:self.config.plugboard_size, :]
 
         for place_1, place_2 in swaps:

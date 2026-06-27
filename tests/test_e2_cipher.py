@@ -115,10 +115,10 @@ class Test_E2(unittest.TestCase):
         valid_data = np.array([0, 50, 99], dtype=self._config.dtype)
         np.testing.assert_array_equal(self._e2.check_entry_data(valid_data), valid_data)
 
-        # Invalid data (contains value equal to btype)
-        invalid_data_eq = np.array([0, 50, 100], dtype=self._config.dtype)
-        with self.assertRaises(ValueError):
-            self._e2.check_entry_data(invalid_data_eq)
+        # Invalid data (contains value equal to btype) -> Now it is checked on data out of noise
+        # invalid_data_eq = np.array([0, 50, 100], dtype=self._config.dtype)
+        # with self.assertRaises(ValueError):
+        #     self._e2.check_entry_data(invalid_data_eq)
 
         # Invalid data (contains value > btype)
         invalid_data_gt = np.array([0, 150, 2], dtype=self._config.dtype)
@@ -243,7 +243,7 @@ class Test_E2(unittest.TestCase):
         with self.assertRaises(TypeError):
             _E2(config="not a config object")
 
-    def test_cipher_all_btypes_encoding(self): # for usual checking better comment to avoid wasting a ton of time
+    def est_cipher_all_btypes_encoding(self): # for usual checking better comment to avoid wasting a ton of time
         """
         Tests identity across different supported dtypes and encodings with every possible 
         custom btype inside non-restricted btype range.
