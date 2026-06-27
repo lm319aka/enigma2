@@ -213,11 +213,14 @@ class _E2Generator:
         self.noise_rng = np.random.default_rng(self.config.noise_seed)
         self.plugboard_rng = np.random.default_rng(self.config.plugboard_seed)
         
+        # Concepto Educativo (State Skipping O(1)):
+        # En lugar de generar y descartar 'start_index' números flotantes consumiendo CPU y RAM,
+        # utilizamos `.bit_generator.advance(delta)` que altera el estado interno del generador en tiempo constante O(1).
         if start_index > 0:
-            self.rotations_rng.random(start_index)
-            self.rotors_rng.random(start_index)
-            self.noise_rng.random(start_index)
-            self.plugboard_rng.random(start_index)
+            self.rotations_rng.bit_generator.advance(start_index)
+            self.rotors_rng.bit_generator.advance(start_index)
+            self.noise_rng.bit_generator.advance(start_index)
+            self.plugboard_rng.bit_generator.advance(start_index)
 
     # def reset_rng(self, start_index: int = 0) -> None:
     #     """
