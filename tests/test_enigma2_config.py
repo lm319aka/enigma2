@@ -38,7 +38,8 @@ class testE2Config(unittest.TestCase):
 
     def test_pwd_hash_parsing(self):
         self.generator._init_rng(0)
-        pwd_hash = hashlib.new(self.config.hash_alg, self.pwd).hexdigest()
+        salt = hashlib.sha256(self.pwd).digest()
+        pwd_hash = hashlib.pbkdf2_hmac("sha512", self.pwd, salt, 100_000).hex()
         main_seeds_len = 24
         self.assertEqual(self.config.hash_pwd, pwd_hash)
 

@@ -24,13 +24,22 @@ class _E2Config:
         # Internal configuration for seed derivation
         self.__main_seeds_len: int = 24
         self.__seeds_number: int = 5
-        self.__hash_alg: str = "sha3_512" # Hash len must be always >=64
+        self.__hash_alg: str = "pbkdf2_sha512" # KDF algorithm identifier
 
         self.params = params
         
-        # Initialize password and its hash
+        # Initialize password and derive key using PBKDF2-HMAC-SHA512 for secure seed derivation.
+        # Concepto Educativo: Las KDFs (Key Derivation Functions) agregan sal (salt) para evitar ataques con tablas arcoíris
+        # y aplican estiramiento de claves (key stretching mediante iteraciones) para encarecer ataques de fuerza bruta.
         self.pwd: bytes = params.pwd
-        self.hash_pwd: str = hashlib.new(self.__hash_alg, self.pwd).hexdigest()
+        salt = hashlib.sha256(self.pwd).digest()
+        derived_key = hashlib.pbkdf2_hmac(
+            hash_name="sha512",
+            password=self.pwd,
+            salt=salt,
+            iterations=100_000
+        )
+        self.hash_pwd: str = derived_key.hex()
 
         # Core encryption parameters derived from params
         self.dtype: np.dtype = np.dtype(params.dtype)
