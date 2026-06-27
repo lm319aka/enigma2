@@ -69,19 +69,19 @@ On this document you will find the different features of past, present and futur
 - [ ] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
 
 #### Code Review & Security Audit Improvements (from code_review_report.md)
-- [ ] **Critical Security & Cryptography (Priority 1):**
-  - [ ] Implement robust KDF (PBKDF2-HMAC-SHA512 or Argon2id) with salt and key stretching in `_derive_params_from_hash` (`_e2_config.py`) instead of weak unsalted SHA3-512.
-  - [ ] Replace non-cryptographic PRNG (`numpy.random.default_rng`) with CSPRNG (`secrets` module) or seed RNGs using high-entropy bits (`secrets.randbits(128)`) in `_init_rng` (`_e2_config.py`).
-- [ ] **Logic Bugs & Failing Tests (Priority 2):**
+- [X] **Critical Security & Cryptography (Priority 1):**
+  - [X] Implement robust KDF (PBKDF2-HMAC-SHA512 or Argon2id) with salt and key stretching in `_derive_params_from_hash` (`_e2_config.py`) instead of weak unsalted SHA3-512.
+  - [X] Replace non-cryptographic PRNG (`numpy.random.default_rng`) with CSPRNG (`secrets` module) or seed RNGs using high-entropy bits (`secrets.randbits(128)`) in `_init_rng` (`_e2_config.py`).
+- [X] **Logic Bugs & Failing Tests (Priority 2):**
   - [X] Fix noise size calculation bug when `noise_size > size` in `generate_noise` (`_e2_config.py`) to align with spec and pass `test_E2Generator_generate_noise_edge_cases`.
   - [X] Add `btype` even-number validation in `model_params.py` (`_E2Params`) raising `E2ValueError` for odd values to satisfy `test_btype_validation_edge_cases`.
-  - [ ] Move runtime `assert` validations (e.g., plugboard size in `generate_plugboards` in `_e2_config.py`) to Pydantic models in `model_params.py` to prevent validation bypass during Python `-O` optimized execution.
-- [ ] **Performance & CPU/Memory Optimization (Priority 3):**
-  - [ ] Optimize RNG offset advancing in `reset_rng` (`_e2_config.py`) using O(1) fast jump (`Generator.bit_generator.advance(delta)`) instead of generating and discarding random floats.
+  - [X] Move runtime `assert` validations (e.g., plugboard size in `generate_plugboards` in `_e2_config.py`) to Pydantic models in `model_params.py` to prevent validation bypass during Python `-O` optimized execution.
+- [X] **Performance & CPU/Memory Optimization (Priority 3):**
+  - [X] Optimize RNG offset advancing in `reset_rng` (`_e2_config.py`) using O(1) fast jump (`Generator.bit_generator.advance(delta)`) instead of generating and discarding random floats.
   - [X] Limit `chardet` encoding auto-detection in `encrypt_file` (`_e2_cipher.py`) to a partial buffer (e.g., first 32 KB) to avoid high memory/CPU usage and potential OOM errors on large files.
-- [ ] **Code Quality & Architecture (Priority 4):**
-  - [ ] Replace wildcard import (`from .e2_exceptions import *` in `_e2_config.py`) with explicit exception imports to prevent namespace pollution.
-  - [ ] Implement Factory pattern (`create_cipher`) in `enigma2/__init__.py` for unified dynamic instantiation of synchronous and asynchronous cipher classes (`E2`, `_E2`, `E2Async`, `_E2Async`).
+- [X] **Code Quality & Architecture (Priority 4):**
+  - [X] Replace wildcard import (`from .e2_exceptions import *` in `_e2_config.py`) with explicit exception imports to prevent namespace pollution.
+  - [X] Implement Factory pattern (`create_cipher`) in `enigma2/__init__.py` for unified dynamic instantiation of synchronous and asynchronous cipher classes (`E2`, `_E2`, `E2Async`, `_E2Async`).
 
 - [ ] Compare v2.3.2 with v2.4 in terms of performance
 - [ ] Finish plots/plot maker jupyter notebook
