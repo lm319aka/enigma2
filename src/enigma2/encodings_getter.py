@@ -3,7 +3,7 @@ from typing import Union
 from pathlib import Path
 import os
 from pydantic import BaseModel, Field, create_model
-
+import chardet
 from ._e2_exceptions import EncodingNotFoundError, NoEncodingMatchFoundError
 
 encoding_dtype_map = {
@@ -171,15 +171,22 @@ def find_encoding(data: bytes) -> str:
     """
     finds the encoding in which the data is encoded
     """
-    for encoding in encoding_dtype_map.keys():
-        try:
-            data.decode(encoding)
-            return encoding
-        except UnicodeDecodeError:
-            continue
-        except LookupError:
-            continue
     
+    # Try to detect encoding using chardet: simple, fast and reliable
+    file_encoding = chardet.detect(data)["encoding"]
+
+    # If chardet fails, try to find encoding by trial and error: not as reliable or fast but a good alternative
+    if file_encoding is None:
+        for encoding in encoding_dtype_map.keys():
+            try:
+                data.decode(encoding)
+                return encoding
+            except UnicodeDecodeError:
+                continue
+            except LookupError:
+                continue
+    else:
+        return file_encoding
     raise NoEncodingMatchFoundError(f"Could not find encoding for data: {data}")
 
 def find_file_encoding(obj: Union[str, Path]) -> str:
@@ -188,7 +195,7 @@ def find_file_encoding(obj: Union[str, Path]) -> str:
     """
     if os.path.exists(obj) and os.path.isfile(obj):
         with open(obj, 'rb') as f:
-            data = f.read(1024) # we don't need to read all the file to find the encoding
+            data = f.read(32768) # we don't need to read all the file to find the encoding, 32k is enough
     else:
         raise FileNotFoundError(f"File {obj} does not exist")
     

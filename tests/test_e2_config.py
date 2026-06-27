@@ -61,10 +61,10 @@ class Test_E2Config(unittest.TestCase):
         with self.assertRaises(E2ValueError) as context:
             _E2Params(pwd=self.pwd, btype=3, dtype=np.uint8)
 
-        # 4. btype is not an even number
-        with self.assertRaises(E2ValueError) as context:
-            _E2Params(pwd=self.pwd, btype=5, dtype=np.uint8)
-        self.assertIn("btype must be a positive integer greater than", str(context.exception))
+        # 4. btype is not an even number (now it doesn't matter, it works for odd numbers too)
+        # with self.assertRaises(E2ValueError) as context:
+        #     _E2Params(pwd=self.pwd, btype=5, dtype=np.uint8)
+        # self.assertIn("btype must be a positive integer greater than", str(context.exception))
 
     def test_pwd_validation_errors(self):
         """Tests password validation errors such as empty password or encoding mismatch."""
@@ -243,14 +243,12 @@ class Test_E2Config(unittest.TestCase):
         noise = generator_no_noise.generate_noise(50)
         np.testing.assert_array_equal(noise, np.zeros(50, dtype=np.uint8))
 
-        # 2. noise_size > size (should trigger modulo constraint check)
+        # 2. noise_size > size (should trigger noise_size reduction to data size)
         params_large_noise = _E2Params(pwd=self.pwd, btype=100, dtype=np.uint8, elements_creation_params={"noise_size": 60})
         generator_large_noise = _E2Generator(params_large_noise)
-        # size is 50, actual_noise_size = 60 % 50 = 10
+        # size is 50, actual_noise_size = 50
         noise_large = generator_large_noise.generate_noise(50)
         self.assertEqual(noise_large.shape, (50,))
-        # Assert that at most 10 elements are non-zero
-        self.assertTrue(np.count_nonzero(noise_large) <= 10)
 
     def test_dump_and_load_json(self):
         """Verifies config serialization/deserialization to JSON."""

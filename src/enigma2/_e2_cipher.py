@@ -2,7 +2,6 @@ import numpy as np
 import os
 from typing import Union, Optional, Tuple
 from pathlib import Path
-import chardet
 import time
 import logging
 
@@ -184,9 +183,8 @@ class _E2:
         if detect_encoding:
             with open(file_path, "rb") as f:
                 file_data = f.read()
-            file_encoding = chardet.detect(file_data)["encoding"]
-            if file_encoding is None:
-                file_encoding = find_file_encoding(file_data)
+
+            file_encoding = find_file_encoding(file_data)
             data = np.fromfile(file_path, dtype=encoding_dtype_map[file_encoding])
         else:
             data = np.fromfile(file_path, dtype=self.config.dtype)
