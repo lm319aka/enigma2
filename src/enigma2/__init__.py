@@ -18,17 +18,26 @@ from .enigma2_config import E2Config, E2Generator
 from .model_params import E2Params, _E2Params
 from typing import Any, Union
 
-def create_cipher(params: Any, async_mode: bool = False) -> Union[E2, _E2, E2Async, _E2Async]:
+def create_cipher(config_or_params: Any, async_mode: bool = False) -> Union[E2, _E2, E2Async, _E2Async]:
     """
     Factory function to dynamically create an Enigma2 cipher instance.
 
-    :param params: Parameters instance (E2Params, or _E2Params).
+    :param config_or_params: Configuration or Parameters instance (E2Config, _E2Config, E2Params, or _E2Params).
     :param async_mode: If True, instantiates the asynchronous version (E2Async or _E2Async).
     :return: An initialized cipher engine instance.
     """
-    if async_mode:
-        return E2Async(E2Config(params)) if isinstance(params, E2Params) else _E2Async(_E2Config(params))
-    return E2(E2Config(params)) if isinstance(params, E2Params) else _E2(_E2Config(params))
+    if isinstance(config_or_params, E2Config):
+        return E2Async(config_or_params) if async_mode else E2(config_or_params)
+    elif isinstance(config_or_params, _E2Config):
+        return _E2Async(config_or_params) if async_mode else _E2(config_or_params)
+    elif isinstance(config_or_params, E2Params):
+        cfg = E2Config(config_or_params)
+        return E2Async(cfg) if async_mode else E2(cfg)
+    elif isinstance(config_or_params, _E2Params):
+        cfg = _E2Config(config_or_params)
+        return _E2Async(cfg) if async_mode else _E2(cfg)
+    else:
+        raise TypeError(f"Invalid config_or_params type: {type(config_or_params)}")
 
 
 __all__ = ["E2", "_E2", "E2Async", "_E2Async", "E2Config", "E2Generator", "create_cipher",

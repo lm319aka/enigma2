@@ -127,48 +127,144 @@ python -m enigma2 --fpath "test.txt.npy" --pwd "my_secret_password" --op D
 
 ---------------
 
-### Basic Initialization
+Enigma2 provides both synchronous (`E2`, `_E2`) and asynchronous (`E2Async`, `_E2Async`) APIs. You can instantiate cipher engines directly or use the unified **Factory Pattern** via `create_cipher`.
 
-To use Enigma2, initialize the `E2` class with an `E2Config` object, which takes an `E2Params` object.
+### 1. Initialization (Factory Pattern)
+
+The `create_cipher` function dynamically creates the appropriate cipher instance based on your configuration parameters and desired execution mode (`async_mode=True` or `async_mode=False`).
 
 ```python
 import numpy as np
-from enigma2.enigma2_cipher import E2
-from enigma2.enigma2_config import E2Config
-from enigma2.model_params import E2Params
+from enigma2 import create_cipher, E2Params, E2, E2Async
 
 pwd = b"my_secret_password"
 
-# Define parameters using E2Params (Pydantic model)
+# Define operational parameters using E2Params (Pydantic model)
 params = E2Params(
-    pwd=pwd, # compulsory field
-    dtype=np.uint16, # None by default
-    encoding="utf-16", # utf-8 by default
-    elements_creation_params={ # if some elements are manually created, they wont be defined automatically using the password, but password must be defined anyways
-        "number_rotors": 5,
-        "noise_size": 10000,
-
+    pwd=pwd, # Required field
+    dtype=np.uint8, # Data type (np.uint8, np.uint16, etc.)
+    encoding="utf-8", # String encoding (utf-8, utf-16, etc.)
+    elements_creation_params={
+        "number_rotors": 4, # Custom number of rotors (1-16)
+        "noise_size": 100,  # Custom noise size
     }
 )
 
-# Initialize config and E2 object
-config = E2Config(params=params)
-e2 = E2(config=config)
+# Initialize synchronous cipher instance
+cipher_sync: E2 = create_cipher(params, async_mode=False)
+
+# Initialize asynchronous cipher instance
+cipher_async: E2Async = create_cipher(params, async_mode=True)
 ```
 
-### Encryption & Decryption
+### 2. Synchronous Encryption & Decryption (`E2`)
 
+The synchronous API is ideal for standard scripts and desktop applications.
+
+#### Data Encryption & Decryption
 ```python
-data = b"Hello, World!"
-encrypted_data = e2.encrypt(data)
+data = b"Hello, Enigma2 World!"
 
-# Decrypt back
-e2.reset_rng() # Reset RNG state for identity decryption if using same object
-decrypted_data = e2.decrypt(encrypted_data)
+# Encrypt bytes or numpy arrays
+encrypted_data = cipher_sync.encrypt(data)
+
+# Reset RNG state before decrypting with the same instance
+cipher_sync.reset_rng()
+decrypted_data = cipher_sync.decrypt(encrypted_data)
+
 print(decrypted_data.tobytes().decode("utf-8"))
+# Output: Hello, Enigma2 World!
 ```
 
-### Configuration Parameters
+#### File Encryption & Decryption
+```python
+from pathlib import Path
+
+file_path = Path("secret_document.txt")
+
+# Encrypt file to binary .npy format
+enc_file_path = cipher_sync.encrypt_file(file_path)
+
+# Decrypt .npy file back to original format
+cipher_sync.reset_rng()
+dec_file_path = cipher_sync.decrypt_file(enc_file_path, output_path="restored_document.txt")
+```
+
+### 3. Asynchronous Encryption & Decryption (`E2Async`)
+
+The asynchronous API leverages non-blocking thread-pool execution under the hood, making it ideal for web servers (FastAPI, Starlette, Tornado), async worker queues, and high-throughput applications.
+
+#### Async Data Encryption & Decryption
+```python
+import asyncio
+
+async def run_async_data_example():
+    data = b"Hello from Asynchronous Enigma2!"
+    
+    # Encrypt data asynchronously without blocking the event loop
+    encrypted = await cipher_async.encrypt_async(data)
+    
+    # Reset RNG state
+    cipher_async.reset_rng()
+    
+    # Decrypt data asynchronously
+    decrypted = await cipher_async.decrypt_async(encrypted)
+    print(decrypted.tobytes().decode("utf-8"))
+
+asyncio.run(run_async_data_example())
+```
+
+#### Async File Encryption & Decryption
+```python
+import asyncio
+from pathlib import Path
+
+async def run_async_file_example():
+    file_path = Path("large_dataset.csv")
+    
+    # Encrypt file asynchronously
+    enc_path = await cipher_async.encrypt_file_async(file_path)
+    
+    cipher_async.reset_rng()
+    dec_path = await cipher_async.decrypt_file_async(enc_path)
+    print(f"Decrypted file saved at: {dec_path}")
+
+asyncio.run(run_async_file_example())
+```
+
+#### Parallel Batch Processing (`asyncio.gather`)
+Process multiple streams or files concurrently across background threads:
+```python
+import asyncio
+from enigma2 import create_cipher, E2Params
+
+async def run_parallel_batch():
+    params = E2Params(pwd=b"batch_password_123")
+    messages = [b"Message Alpha", b"Message Beta", b"Message Gamma"]
+    
+    # Create distinct cipher instances per task to ensure independent RNG states
+    ciphers = [create_cipher(params, async_mode=True) for _ in messages]
+    
+    # Encrypt all messages in parallel
+    encrypted_batch = await asyncio.gather(*[
+        cipher.encrypt_async(msg) for cipher, msg in zip(ciphers, messages)
+    ])
+    
+    # Reset RNGs and decrypt in parallel
+    for cipher in ciphers:
+        cipher.reset_rng()
+        
+    decrypted_batch = await asyncio.gather(*[
+        cipher.decrypt_async(enc_msg) for cipher, enc_msg in zip(ciphers, encrypted_batch)
+    ])
+    
+    for dec in decrypted_batch:
+        print(dec.tobytes().decode("utf-8"))
+
+asyncio.run(run_parallel_batch())
+```
+
+### Configuration Parameters Reference
 
 The `E2Params` class (and its sub-model `elements_creation_params`) provides several arguments:
 
