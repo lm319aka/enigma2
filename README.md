@@ -26,6 +26,12 @@ source .venv/bin/activate :: On Linux/Mac
 pip install -r requirements.txt
 ```
 
+To install as a package for a project:
+
+```bash
+pip install "git+https://github.com/lm319aka/enigma2.git"
+```
+
 ## BACKGROUND: THE ORIGINAL ENIGMA
 
 ---------------
@@ -54,7 +60,7 @@ Enigma2 uses the same basic idea as the original Enigma: A series of rotating ro
 
 - The rotors and rotations are totally randomized and can vary the characters range depending of the selected encoding (0-255; 0-65535; ...).
 - Instead of an initial and final layer that swap some characters (like original Enigma), Enigma2 creates a random noise layer that is added to the data as a last partial rotation (because not all data block receives it).
-- Number of rotors is totally aleatory and can go from 1 up to 16 (This could be changed to be bigger but is a waste of resources and time, it slows the process down dramatically, for the best best ratio time/performance should be used 2 to 4 rotors).
+- Number of rotors is totally random and can go from 1 up to 16 (This could be changed to be bigger but is a waste of resources and time, it slows the process down dramatically, for the best best ratio time/performance should be used 2 to 4 rotors).
 
 This also means the more secure the elements are, the more time it will take to encrypt/decrypt data.
 
@@ -151,10 +157,11 @@ params = E2Params(
 )
 
 # Initialize synchronous cipher instance
-cipher_sync: E2 = create_cipher(params, async_mode=False)
+cipher_sync: E2 = create_cipher(params, async_mode=False) # True to initialize asynchronous cipher instance
 
-# Initialize asynchronous cipher instance
-cipher_async: E2Async = create_cipher(params, async_mode=True)
+# # Could be initialized from E2:
+# config = E2Config(params)
+# cipher_sync = E2(config)
 ```
 
 ### 2. Synchronous Encryption & Decryption (`E2`)
@@ -162,13 +169,14 @@ cipher_async: E2Async = create_cipher(params, async_mode=True)
 The synchronous API is ideal for standard scripts and desktop applications.
 
 #### Data Encryption & Decryption
+
 ```python
 data = b"Hello, Enigma2 World!"
 
 # Encrypt bytes or numpy arrays
 encrypted_data = cipher_sync.encrypt(data)
 
-# Reset RNG state before decrypting with the same instance
+# In new enigma2 versions, it is not necessary to Reset RNG state before decrypting with the same instance, it is done automatically after encryption/decryption, but it is not a bad practice in case of multiple encryptions/decryptions one after the other
 cipher_sync.reset_rng()
 decrypted_data = cipher_sync.decrypt(encrypted_data)
 
@@ -177,6 +185,7 @@ print(decrypted_data.tobytes().decode("utf-8"))
 ```
 
 #### File Encryption & Decryption
+
 ```python
 from pathlib import Path
 
@@ -186,15 +195,185 @@ file_path = Path("secret_document.txt")
 enc_file_path = cipher_sync.encrypt_file(file_path)
 
 # Decrypt .npy file back to original format
-cipher_sync.reset_rng()
+cipher_sync.reset_rng() # not mandatory
 dec_file_path = cipher_sync.decrypt_file(enc_file_path, output_path="restored_document.txt")
 ```
 
-### 3. Asynchronous Encryption & Decryption (`E2Async`)
+#### Data Encryption & Decryption using different encodings
+
+```python
+# Code example for encryption/decryption of a bytes chain using UTF-16 encoding.
+# The recomended encodings are utf-8 and utf-16 because of their reduced btype and their speed.
+# UTF-32 is also supported but it's not recommended for local use due to the 
+# enormous amount of memory/RAM needed for the rotors (In the order of Gb)
+
+pwd = "my_secret_password".encode("utf-16")
+params = E2Params(
+    pwd=pwd,
+    encoding="utf-16", # specifying only the encoding the program automatically infer the dtype and btype that must be used
+)
+enigma2_cipher = e2.create_cipher(params)
+print(params)
+encrypted_data = enigma2_cipher.encrypt("Hello, World!".encode("utf-16"))
+print(f"Encrypted: {encrypted_data}")
+decrypted_data = enigma2_cipher.decrypt(encrypted_data)
+print(f"Decrypted: {decrypted_data.tobytes().decode('utf-16')}")
+```
+
+#### Data Encryption & Decryption modifying configuration
+
+```python
+# using non-default config for encryption/decryption
+
+additional_params = _E2ElementsCreationParams( # Defines special parameters for the elements of the cipher
+    rotations_seed=1700,
+    number_rotors=16,
+    rotors_seed=1701,
+    plugboard_size=4,
+    plugboard_seed=1703,
+    noise_size=2,
+    noise_seed=1702
+)
+
+pwd_utf16 = "my_secret_password".encode("utf-16") # Password is needed although it is not used because we defined the elements_creation_params
+params_utf16 = E2Params(
+    pwd=pwd_utf16,
+    dtype=np.uint16,
+    encoding="utf-16",
+    elements_creation_params=additional_params
+)
+enigma2_cipher_utf16 = e2.create_cipher(params_utf16)
+encrypted_data_utf16 = enigma2_cipher_utf16.encrypt("Hello, World!".encode("utf-16"))
+print(f"Encrypted (UTF-16): {encrypted_data_utf16}")
+decrypted_data_utf16 = enigma2_cipher_utf16.decrypt(encrypted_data_utf16)
+print(f"Decrypted (UTF-16): {decrypted_data_utf16.tobytes().decode('utf-16')}")
+```
+
+#### Data Encryption & Decryption with original enigma rotations
+
+```python
+# code example for encryption/decryption using original enigma rotations (the ones used in the original Enigma machine)
+pwd = b"my_secret_password"
+params = E2Params(
+    pwd=pwd,
+    original_rotations=True, # Makes the cipher behave like the original Enigma would but only in the rotations aspect
+    elements_creation_params={
+        "rotations_seed": 1700,
+        "number_rotors": 2,
+        "rotors_seed": 1701,
+        "noise_size": 2,
+        "noise_seed": 1702
+    }
+)
+enigma2_cipher = e2.create_cipher(params)
+encrypted_data = enigma2_cipher.encrypt(b"Hello, World!")
+print(f"Encrypted: {encrypted_data}")
+decrypted_data = enigma2_cipher.decrypt(encrypted_data)
+print(f"Decrypted: {decrypted_data.tobytes()}")
+```
+
+#### Data Encryption & Decryption with custom rotors
+
+```python
+# code example encrypting message and then decrypting it in chunks
+pwd = b"my_secret_password"
+params = E2Params(
+    pwd=pwd,
+)
+
+enigma2_cipher = e2.create_cipher(params)
+
+msg = np.arange(10, dtype=enigma2_cipher.config.dtype)
+start_idx = len(msg)//2 + 1
+print("start_idx", start_idx)
+
+encrypted_data = enigma2_cipher.encrypt(msg)
+print(f"Total Encrypted: {encrypted_data}")
+
+encrypted_data_p1 = enigma2_cipher.encrypt(msg[:start_idx+1], 0)
+encrypted_data_p2 = enigma2_cipher.encrypt(msg[start_idx+1:], start_idx)
+print(f"Partial Encrypted: {encrypted_data_p1} {encrypted_data_p2}")
+
+decrypted_data = enigma2_cipher.decrypt(
+    encrypted_data,
+)
+print(f"Total Decrypted: {decrypted_data}")
+
+decrypted_data_p1 = enigma2_cipher.decrypt(
+    encrypted_data_p1,
+    start_op_index=0
+)
+decrypted_data_p2 = enigma2_cipher.decrypt(
+    encrypted_data_p2,
+    start_op_index=start_idx
+)
+print(f"Partial Decrypted: {decrypted_data_p1} {decrypted_data_p2}")
+```
+
+### 3. Synchronous Encryption & Decryption (`_E2`)
+
+_E2 is the raw version of E2. It is not recommended for regular basis, but it is provided for those who need the lowest level of abstraction, more capabilities and less restrictions. The main difference between E2 and _E2 is that _E2 allows odd-btypes (This is when btype doesn't perfectly match the dtype or is not of the type 2^(8n) with n being a positive integer. e.g. 256 is a perfect btype while 245 or 244 are not).
+
+
+
+#### Data Encryption & Decryption (_E2)
+
+```python
+import numpy as np
+import enigma2 as e2
+from enigma2._e2_cipher import _E2, _E2Config
+from enigma2.model_params import _E2Params, _E2ElementsCreationParams
+import numpy as np
+
+# simple code example for encryption/decryption of a bytes chain
+pwd = b"my_secret_password"
+
+# elements_creation_params = _E2ElementsCreationParams(
+#     # rotations_seed=1700,
+#     number_rotors=10,
+#     # rotors_seed=1701,
+#     noise_size=10,
+#     # noise_seed=1702,
+#     plugboard_size=6,
+#     # plugboard_seed=1703
+# )
+
+cipher_btype = 12111 # for example
+
+params = _E2Params(
+    pwd=pwd,
+    encoding="utf-16",
+    # dtype=np.uint8,
+    btype=cipher_btype,
+    # elements_creation_params=elements_creation_params,
+    # original_rotations=True
+)
+
+_sync_cipher = e2.create_cipher(params) # create synchronous raw e2 cipher
+
+# Another way to create raw _E2 cipher
+# config = _E2Config(params)
+# _sync_cipher = _E2(config)
+
+print(_sync_cipher)
+def_rng = np.random.default_rng(1234)
+orig_data = def_rng.integers(cipher_btype, size=100)
+print(orig_data)
+encrypted_data = _sync_cipher.encrypt(orig_data)
+print(f"Encrypted: {encrypted_data}")
+decrypted_data = _sync_cipher.decrypt(encrypted_data)
+print(f"Decrypted: {decrypted_data}")
+
+print(orig_data==decrypted_data)
+print(np.all(orig_data==decrypted_data))
+```
+
+### 4. Asynchronous Encryption & Decryption (`E2Async`)
 
 The asynchronous API leverages non-blocking thread-pool execution under the hood, making it ideal for web servers (FastAPI, Starlette, Tornado), async worker queues, and high-throughput applications.
 
 #### Async Data Encryption & Decryption
+
 ```python
 import asyncio
 
@@ -215,6 +394,7 @@ asyncio.run(run_async_data_example())
 ```
 
 #### Async File Encryption & Decryption
+
 ```python
 import asyncio
 from pathlib import Path

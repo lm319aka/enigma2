@@ -243,7 +243,8 @@ class Test_E2(unittest.TestCase):
         with self.assertRaises(TypeError):
             _E2(config="not a config object")
 
-    def est_cipher_all_btypes_encoding(self): # for usual checking better comment to avoid wasting a ton of time
+    @unittest.skip("Too slow")
+    def test_cipher_all_btypes_encoding(self): # for usual checking better comment to avoid wasting a ton of time
         """
         Tests identity across different supported dtypes and encodings with every possible 
         custom btype inside non-restricted btype range.

@@ -108,8 +108,8 @@ class _E2ElementsCreationParams(BaseModel):
     rotations_seed: Optional[PositiveInt] = None
     number_rotors: Optional[PositiveInt] = None
     rotors_seed: Optional[PositiveInt] = None
-    plugboard_seed: Optional[PositiveInt] = None
     plugboard_size: Optional[int] = None
+    plugboard_seed: Optional[PositiveInt] = None
     noise_size: Optional[int] = None
     noise_seed: Optional[PositiveInt] = None
 
