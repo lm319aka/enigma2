@@ -2,7 +2,7 @@ import numpy as np
 from typing import Union
 from pathlib import Path
 import os
-from pydantic import BaseModel, Field, create_model
+from pydantic import BaseModel, ConfigDict, Field, create_model
 import chardet
 from ._e2_exceptions import EncodingNotFoundError, NoEncodingMatchFoundError
 
@@ -125,7 +125,7 @@ encoding_dtype_map = {
 class E2Encoding:
 
     def __init__(self, encoding: str):
-        self.encoding = encoding
+        self.encoding = encoding.lower()
         self.dtype_for_encoding = self.__encoding_dtype()
 
     def __encoding_dtype(self):
@@ -141,8 +141,7 @@ class CustomE2Encoding(BaseModel):
     encoding: str
     dtype_for_encoding: str
 
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 # E2EncodingModel = create_model("E2EncodingModel", __base__=CustomE2Encoding, **{
 #     'dtype_for_encoding': Field(alias='dtype_for_encoding', default_factory=lambda: E2Encoding("utf-8").dtype_for_encoding)
@@ -222,7 +221,7 @@ def file2array_bits(path, bit_unit):
 
     # Convertir cada grupo de bits a número entero
     # Creamos potencias de 2: [2^(n-1), ..., 2^0]
-    potencias = 2 ** np.arange(0, bit_unit, dtype=np.uint64)
+    potencias = 2 ** np.arange(bit_unit - 1, -1, -1, dtype=np.uint64)
 
     # 5. Selección de dtype según el tamaño necesario
     if bit_unit <= 8:

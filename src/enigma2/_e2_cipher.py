@@ -184,10 +184,7 @@ class _E2:
 
         # Load data with appropriate dtype
         if detect_encoding:
-            with open(file_path, "rb") as f:
-                file_data = f.read()
-
-            file_encoding = find_file_encoding(file_data)
+            file_encoding = find_file_encoding(file_path)
             data = np.fromfile(file_path, dtype=encoding_dtype_map[file_encoding])
         else:
             data = np.fromfile(file_path, dtype=self.config.dtype)

@@ -232,9 +232,8 @@ class Test_E2Config(unittest.TestCase):
         # 3. plugboard_size out of bounds (> btype//2)
         # For btype=10, max plugboard_size is 5. We test plugboard_size = 6 (which is even).
         params_oob = _E2Params(pwd=self.pwd, btype=10, dtype=np.uint8, elements_creation_params={"plugboard_size": 6})
-        generator_oob = _E2Generator(params_oob)
         with self.assertRaises(PlugboardSizeError):
-            generator_oob.generate_plugboards()
+            _E2Generator(params_oob)
 
     def test_E2Generator_generate_noise_edge_cases(self):
         """Tests noise generation logic including no-noise and noise wrapping."""

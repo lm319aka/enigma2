@@ -181,7 +181,7 @@ class _E2Params(BaseModel):
                 value = np.uint16
             elif "uint32" in val_clean:
                 value = np.uint32
-        if value not in ALLOWED_DTYPES:
+        if value is not None and value not in ALLOWED_DTYPES:
             raise ValueError(f"dtype {value} is not allowed. Must be one of {ALLOWED_DTYPES}")
         return value
 

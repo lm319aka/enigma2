@@ -1,6 +1,6 @@
 # ENIGMA2
 
-================ done by lm319aka ================ (Updated for v2.3.2)
+================ done by lm319aka ================ (Updated for v2.4)
 
 Enigma2 is a Python package that provides a simple and efficient way to encrypt and decrypt data using a custom encryption algorithm. The package is designed to be easy to use and provides a range of features to make it suitable for a variety of applications.
 
@@ -13,16 +13,16 @@ Disclaimer: This is an educational open-source project intended for personal use
 To install Enigma2, simply clone the repo, create a venv and install the requirements:
 
 ```bash
-:: Clone repo
+# Clone repo
 git clone https://github.com/lm319aka/enigma2.git
 
-:: go to repo, create and activate venv
+# Go to repo, create and activate venv
 cd enigma2
 python -m venv .venv
-.venv\Scripts\activate  :: On Windows
-source .venv/bin/activate :: On Linux/Mac
+.venv\Scripts\activate  # On Windows
+source .venv/bin/activate # On Linux/Mac
 
-:: install requirements
+# Install requirements
 pip install -r requirements.txt
 ```
 
@@ -39,7 +39,7 @@ pip install "git+https://github.com/lm319aka/enigma2.git"
 Invented by German engineer Arthur Scherbius in 1918, the Enigma machine was designed to encrypt messages using rotating mechanical rotors. Originally intended for commercial use, it was a marvel of early cryptographic engineering.
 The German military adopted and enhanced Enigma in the 1930s, turning it into their primary tool for secure wartime communication. With added plugboards and daily-changing settings, it became one of the most complex encryption systems of its time.
 
-Despite its sophistication, Allied cryptanalyst—starting with Polish mathematicians and later the British team at Bletchley Park led by Alan Turing—successfully cracked Enigma. Their work, including the invention of the Bombe machine, gave the Allies access to Nazi communications and dramatically shifted the course of World War II.
+Despite its sophistication, Allied cryptanalysts—starting with Polish mathematicians and later the British team at Bletchley Park led by Alan Turing—successfully cracked Enigma. Their work, including the invention of the Bombe machine, gave the Allies access to Nazi communications and dramatically shifted the course of World War II.
 
 ## ⚙️ How the Enigma Cipher Worked — In a Nutshell
 
@@ -50,23 +50,23 @@ Despite its sophistication, Allied cryptanalyst—starting with Polish mathemati
 - **Daily Settings**: Operators used a secret daily key (rotor order, positions, plugboard connections) to configure the machine—without it, decoding was nearly impossible.
 - **Self-Reversing**: The machine was symmetric—typing the encrypted letter back in with the same settings would reveal the original message.
 
-The main reason for Enigma's success was its complexity and the great amount of possible settings that must be cracked in order to decrypt a message, making it impossible to be cracked by brute force back in the 40s. But it was discovered that it could be broken with clever tricks like knowing fixed indices of recursive chars or with algorithms like IoC (Index of Coincidence).
+The main reason for Enigma's success was its complexity and the vast number of possible settings that had to be cracked in order to decrypt a message, making it impossible to break by brute force back in the 1940s. However, cryptanalysts discovered it could be broken with clever tricks like identifying fixed indices of recurring characters or using statistical algorithms like IoC (Index of Coincidence).
 
 ## HOW ENIGMA2 (aka E2) WORKS
 
 ---------------
 
-Enigma2 uses the same basic idea as the original Enigma: A series of rotating rotors are the ones that encrypt the data, but with a few differences and some new elements.
+Enigma2 uses the same fundamental concept as the original Enigma: a series of rotating rotors encrypt the data, but with a few differences and new security features.
 
-- The rotors and rotations are totally randomized and can vary the characters range depending of the selected encoding (0-255; 0-65535; ...).
-- Instead of an initial and final layer that swap some characters (like original Enigma), Enigma2 creates a random noise layer that is added to the data as a last partial rotation (because not all data block receives it).
-- Number of rotors is totally random and can go from 1 up to 16 (This could be changed to be bigger but is a waste of resources and time, it slows the process down dramatically, for the best best ratio time/performance should be used 2 to 4 rotors).
+- The rotors and rotations are completely randomized and vary their character range depending on the selected encoding (0-255, 0-65535, etc.).
+- Instead of initial and final layers that swap characters (like the original Enigma plugboard), Enigma2 creates a random noise layer added to the data as a final partial rotation.
+- The number of rotors is randomized and ranges from 1 to 16. (While this can be increased, higher rotor counts slow processing down dramatically; for the optimal balance of speed and performance, 2 to 4 rotors are recommended).
 
-This also means the more secure the elements are, the more time it will take to encrypt/decrypt data.
+This also means that the more complex the cipher configuration is, the more computation time it will take to encrypt or decrypt data.
 
 ### PROCESS STEP BY STEP (for encryption)
 
-1. The password is hashed (using sha3_512) and divided in chunks then used to create the seeds for random number generators for each part (the rotors, rotations and noise). These processes are packed in a Generator class.
+1. The password is hashed (using sha3_512) and divided into chunks, which are then used to generate seeds for each component's random number generator (rotors, rotations, and noise). These processes are encapsulated in a Generator class.
 2. Create the rotors, rotations and noise using the Generator class.
 3. Get encoding automatically or manually.
 4. Start encrypting data by adding to each element of data its corresponding element on the actual rotation layer and then output result as indexes to its corresponding rotor layer.
@@ -83,13 +83,13 @@ This also means the more secure the elements are, the more time it will take to 
 5. Apply reverse rotor mappings and remove rotations in reverse order.
 6. Return decrypted data.
 
-**Note: For small amounts of data, E2 could provoke some collisions. For big amounts of data, the chance of collisions is very low, near to 0%.**
+**Note: For small amounts of data, E2 may produce occasional collisions. For large datasets, the probability of collisions is near 0%.**
 
 ### IS E2 SECURE?
 
 ---------------
 
-For those of you that want a quick answer, yes. If you want a more elaborated one, the answer is: It depends on the way the main elements of the cipher are created. If they are created manually and are totally randomized, the cipher is way more secure than if they are generated using a password.
+For those wanting a quick answer: yes. For a more elaborate answer: it depends on how the cipher elements are generated. If elements are created manually with pure randomness, the cipher is significantly more secure than when generated from a password.
 
 #### Elements created using a password
 
@@ -104,30 +104,118 @@ Enigma2 can be used from the terminal to encrypt or decrypt data or files.
 ```bash
 python -m enigma2 --help
 
-REM it's also valid -> python -m enigma2.enigma2_cipher --help
+# Or alternatively: python -m enigma2.enigma2_cipher --help
 ```
 
-### Examples:
+If you run the command above, the following message will be displayed:
+
+```bash
+usage: __main__.py [-h] [--data DATA] [--fpath FPATH] [--out-path OUT_PATH] --pwd PWD [--op {E,D}]
+                   [--encoding {utf-8,utf-16,utf-32,ascii,utf-7,base64-codec,big5,big5hkscs,bz2-codec,cp037,cp1026,cp1125,cp1140,cp1250,cp1251,cp1252,cp1253,cp1254,cp1255,cp1256,cp1257,cp1258,cp273,cp424,cp437,cp500,cp720,cp737,cp775,cp850,cp852,cp855,cp856,cp857,cp858,cp860,cp861,cp862,cp863,cp864,cp865,cp866,cp869,cp874,cp875,cp932,cp949,cp950,euc-jis-2004,euc-jisx0213,euc-jp,euc-kr,gb18030,gb2312,gbk,hex-codec,hp-roman8,hz,idna,iso2022-jp,iso2022-jp-1,iso2022-jp-2,iso2022-jp-2004,iso2022-jp-3,iso2022-jp-ext,iso2022-kr,iso8859-1,iso8859-10,iso8859-11,iso8859-13,iso8859-14,iso8859-15,iso8859-16,iso8859-2,iso8859-3,iso8859-4,iso8859-5,iso8859-6,iso8859-7,iso8859-8,iso8859-9,johab,koi8-r,koi8-t,koi8-u,kz1048,mac-cyrillic,mac-greek,mac-iceland,mac-latin2,mac-roman,mac-turkish,ptcp154,quopri-codec,raw-unicode-escape,rot-13,shift-jis,shift-jis-2004,shift-jisx0213,tis-620,utf-16-be,utf-16-le,utf-32-be,utf-32-le,utf-8-sig,uu-codec,zlib-codec,latin-1}]
+                   [--orig-rtts] [--start-op-index START_OP_INDEX] [--input-array] [--output-array] [--btype BTYPE]
+
+Enigma2 Encryption/Decryption CLI
+
+options:
+  -h, --help            show this help message and exit
+  --data DATA           Data to encrypt/decrypt
+  --fpath FPATH         Path of file to encrypt/decrypt
+  --out-path OUT_PATH   Path of output file
+  --pwd PWD             Password for encryption/decryption
+  --op {E,D}            Operation: E (Encrypt), D (Decrypt)
+  --encoding {utf-8,utf-16,utf-32,ascii,utf-7,base64-codec,big5,big5hkscs,bz2-codec,cp037,cp1026,cp1125,cp1140,cp1250,cp1251,cp1252,cp1253,cp1254,cp1255,cp1256,cp1257,cp1258,cp273,cp424,cp437,cp500,cp720,cp737,cp775,cp850,cp852,cp855,cp856,cp857,cp858,cp860,cp861,cp862,cp863,cp864,cp865,cp866,cp869,cp874,cp875,cp932,cp949,cp950,euc-jis-2004,euc-jisx0213,euc-jp,euc-kr,gb18030,gb2312,gbk,hex-codec,hp-roman8,hz,idna,iso2022-jp,iso2022-jp-1,iso2022-jp-2,iso2022-jp-2004,iso2022-jp-3,iso2022-jp-ext,iso2022-kr,iso8859-1,iso8859-10,iso8859-11,iso8859-13,iso8859-14,iso8859-15,iso8859-16,iso8859-2,iso8859-3,iso8859-4,iso8859-5,iso8859-6,iso8859-7,iso8859-8,iso8859-9,johab,koi8-r,koi8-t,koi8-u,kz1048,mac-cyrillic,mac-greek,mac-iceland,mac-latin2,mac-roman,mac-turkish,ptcp154,quopri-codec,raw-unicode-escape,rot-13,shift-jis,shift-jis-2004,shift-jisx0213,tis-620,utf-16-be,utf-16-le,utf-32-be,utf-32-le,utf-8-sig,uu-codec,zlib-codec,latin-1}
+                        Encoding to use
+  --orig-rtts           Use original Enigma-style rotations
+  --start-op-index START_OP_INDEX
+                        Starting index for rotations
+  --input-array         Defines input as numpy array
+  --output-array        Defines output as numpy array
+  --btype BTYPE         Custom btype for raw Enigma2
+```
+
+### Examples
 
 **Encrypting data:**
+
 ```bash
 python -m enigma2 --data "Hello, World!" --pwd "my_secret_password" --op E --encoding utf-8
+
+# By default, --op is E and encoding is utf-8
 ```
 
 **Decrypting data:**
+
 ```bash
 python -m enigma2 --data "[46, 108, 199, 93, 229, 42, 218, 199, 144, 65, 173, 189, 158]" --pwd "my_secret_password" --op D --encoding utf-8
 ```
 
 **Encrypting a file:**
+
 ```bash
 python -m enigma2 --fpath "test.txt" --pwd "my_secret_password"
 ```
 
 **Decrypting a file:**
+
 ```bash
 python -m enigma2 --fpath "test.txt.npy" --pwd "my_secret_password" --op D
 ```
+
+**Using other encodings:**
+
+```bash
+python -m enigma2 --data "Hello, World!" --pwd "my_secret_password" --encoding utf-16
+```
+
+```bash
+python -m enigma2 --data "[18524, 56523, 60049, 37807, 31559, 28023, 57124, 30614, 57629, 21708, 18010, 45603, 40016, 34667]" --pwd "my_secret_password" --encoding utf-16 --op D
+```
+
+**Using original rotations:**
+
+Original rotations can be very useful when working with small btypes.
+
+```bash
+python -m enigma2 --data "Hello, World!" --pwd "my_secret_password" --orig-rtts
+```
+
+```bash
+python -m enigma2 --data "[147, 58, 120, 20, 59, 60, 73, 189, 1, 225, 190, 228, 14]" --pwd "my_secret_password" --orig-rtts --op D
+```
+
+**Encrypting/decrypting a chunk of data with a specific start_op_index:**
+
+```bash
+python -m enigma2 --data "abcd" --pwd "my_secret_password" --start-op-index 4
+```
+
+```bash
+python -m enigma2 --data "[236, 155, 129, 99]" --pwd "my_secret_password" --start-op-index 4 --op D
+```
+
+**Providing input and receiving output as numpy arrays:**
+
+```bash
+python -m enigma2 --data "[1, 2, 3, 4]" --pwd "my_secret_password" --input-array
+```
+
+By default in console operations, the output after encryption is a numpy array to avoid encoding issues.
+
+```bash
+python -m enigma2 --data "[88, 52, 117, 151]" --pwd "my_secret_password" --output-array --op D
+```
+
+**Using a custom btype:**
+
+```bash
+python -m enigma2 --data "Hello, World!" --pwd "my_secret_password" --btype 123
+```
+
+```bash
+python -m enigma2 --data "[68, 47, 21, 2, 8, 118, 75, 0, 85, 66, 104, 53, 29]" --pwd "my_secret_password" --btype 123 --op D
+```
+
+The operations shown above can be combined in different ways within the same command.
 
 ## Usage from Python
 
@@ -176,7 +264,7 @@ data = b"Hello, Enigma2 World!"
 # Encrypt bytes or numpy arrays
 encrypted_data = cipher_sync.encrypt(data)
 
-# In new enigma2 versions, it is not necessary to Reset RNG state before decrypting with the same instance, it is done automatically after encryption/decryption, but it is not a bad practice in case of multiple encryptions/decryptions one after the other
+# In newer Enigma2 versions, it is not necessary to reset RNG state before decrypting with the same instance, it is done automatically after encryption/decryption, but it is good practice in case of multiple encryptions/decryptions one after the other
 cipher_sync.reset_rng()
 decrypted_data = cipher_sync.decrypt(encrypted_data)
 
@@ -203,16 +291,16 @@ dec_file_path = cipher_sync.decrypt_file(enc_file_path, output_path="restored_do
 
 ```python
 # Code example for encryption/decryption of a bytes chain using UTF-16 encoding.
-# The recomended encodings are utf-8 and utf-16 because of their reduced btype and their speed.
+# The recommended encodings are utf-8 and utf-16 because of their reduced btype and their speed.
 # UTF-32 is also supported but it's not recommended for local use due to the 
 # enormous amount of memory/RAM needed for the rotors (In the order of Gb)
 
 pwd = "my_secret_password".encode("utf-16")
 params = E2Params(
     pwd=pwd,
-    encoding="utf-16", # specifying only the encoding the program automatically infer the dtype and btype that must be used
+    encoding="utf-16", # Specifying only the encoding lets the program automatically infer the dtype and btype
 )
-enigma2_cipher = e2.create_cipher(params)
+enigma2_cipher = create_cipher(params)
 print(params)
 encrypted_data = enigma2_cipher.encrypt("Hello, World!".encode("utf-16"))
 print(f"Encrypted: {encrypted_data}")
@@ -224,6 +312,8 @@ print(f"Decrypted: {decrypted_data.tobytes().decode('utf-16')}")
 
 ```python
 # using non-default config for encryption/decryption
+
+from enigma2.model_params import _E2ElementsCreationParams
 
 additional_params = _E2ElementsCreationParams( # Defines special parameters for the elements of the cipher
     rotations_seed=1700,
@@ -242,7 +332,7 @@ params_utf16 = E2Params(
     encoding="utf-16",
     elements_creation_params=additional_params
 )
-enigma2_cipher_utf16 = e2.create_cipher(params_utf16)
+enigma2_cipher_utf16 = create_cipher(params_utf16)
 encrypted_data_utf16 = enigma2_cipher_utf16.encrypt("Hello, World!".encode("utf-16"))
 print(f"Encrypted (UTF-16): {encrypted_data_utf16}")
 decrypted_data_utf16 = enigma2_cipher_utf16.decrypt(encrypted_data_utf16)
@@ -265,14 +355,14 @@ params = E2Params(
         "noise_seed": 1702
     }
 )
-enigma2_cipher = e2.create_cipher(params)
+enigma2_cipher = create_cipher(params)
 encrypted_data = enigma2_cipher.encrypt(b"Hello, World!")
 print(f"Encrypted: {encrypted_data}")
 decrypted_data = enigma2_cipher.decrypt(encrypted_data)
 print(f"Decrypted: {decrypted_data.tobytes()}")
 ```
 
-#### Data Encryption & Decryption with custom rotors
+#### Data Encryption & Decryption in Chunks (using start_op_index)
 
 ```python
 # code example encrypting message and then decrypting it in chunks
@@ -281,7 +371,7 @@ params = E2Params(
     pwd=pwd,
 )
 
-enigma2_cipher = e2.create_cipher(params)
+enigma2_cipher = create_cipher(params)
 
 msg = np.arange(10, dtype=enigma2_cipher.config.dtype)
 start_idx = len(msg)//2 + 1
@@ -312,18 +402,16 @@ print(f"Partial Decrypted: {decrypted_data_p1} {decrypted_data_p2}")
 
 ### 3. Synchronous Encryption & Decryption (`_E2`)
 
-_E2 is the raw version of E2. It is not recommended for regular basis, but it is provided for those who need the lowest level of abstraction, more capabilities and less restrictions. The main difference between E2 and _E2 is that _E2 allows odd-btypes (This is when btype doesn't perfectly match the dtype or is not of the type 2^(8n) with n being a positive integer. e.g. 256 is a perfect btype while 245 or 244 are not).
-
-
+`_E2` is the low-level version of `E2`. It is not recommended for regular use, but it is provided for applications requiring lower abstraction, custom capabilities, and fewer restrictions. The main difference between `E2` and `_E2` is that `_E2` supports custom/odd `btype` values (where `btype` does not strictly match standard powers of 2, e.g., 256 is a standard `btype`, whereas 245 or 244 are custom `btypes`).
 
 #### Data Encryption & Decryption (_E2)
 
 ```python
 import numpy as np
 import enigma2 as e2
-from enigma2._e2_cipher import _E2, _E2Config
+from enigma2._e2_cipher import _E2
+from enigma2._e2_config import _E2Config
 from enigma2.model_params import _E2Params, _E2ElementsCreationParams
-import numpy as np
 
 # simple code example for encryption/decryption of a bytes chain
 pwd = b"my_secret_password"
@@ -376,8 +464,11 @@ The asynchronous API leverages non-blocking thread-pool execution under the hood
 
 ```python
 import asyncio
+from enigma2 import create_cipher, E2Params
 
 async def run_async_data_example():
+    params = E2Params(pwd=b"my_secret_password")
+    cipher_async = create_cipher(params, async_mode=True)
     data = b"Hello from Asynchronous Enigma2!"
     
     # Encrypt data asynchronously without blocking the event loop
@@ -398,8 +489,11 @@ asyncio.run(run_async_data_example())
 ```python
 import asyncio
 from pathlib import Path
+from enigma2 import create_cipher, E2Params
 
 async def run_async_file_example():
+    params = E2Params(pwd=b"my_secret_password")
+    cipher_async = create_cipher(params, async_mode=True)
     file_path = Path("large_dataset.csv")
     
     # Encrypt file asynchronously
@@ -413,7 +507,9 @@ asyncio.run(run_async_file_example())
 ```
 
 #### Parallel Batch Processing (`asyncio.gather`)
+
 Process multiple streams or files concurrently across background threads:
+
 ```python
 import asyncio
 from enigma2 import create_cipher, E2Params
@@ -449,12 +545,18 @@ asyncio.run(run_parallel_batch())
 The `E2Params` class (and its sub-model `elements_creation_params`) provides several arguments:
 
 - `pwd`: (Required) The password in bytes.
-- `dtype`: The data type (e.g., `np.uint8`, `np.uint16`).
 - `encoding`: String encoding (must match `dtype`).
+- `btype`: The base type (e.g., `123`, `256`).
+- `dtype`: The data type (e.g., `np.uint8`, `np.uint16`).
 - `elements_creation_params`:
-    - `number_rotors`: 1-16.
-    - `noise_size`: Length of the noise.
-    - `rotations_seed`, `rotors_seed`, `plugboard_seed`, `noise_seed`: Optional manual seeds.
+  - `number_rotors`: Number of rotors (1-16).
+  - `noise_size`: Length of the noise array.
+  - `rotations_seed`, `rotors_seed`, `plugboard_seed`, `noise_seed`: Optional manual seeds.
+- `original_rotations`: If `True`, uses deterministic rotations similar to the original mechanical Enigma.
+- `start_op_index`: Starting index for operations and RNG state offset (useful for processing streams or chunks).
+- `avoid_validation`: If `True`, skips parameter range checks (not recommended).
+- `verbose`: If `True`, enables logging output.
+- `log_path`: Optional path to write log output.
 
 ## Contributing
 
@@ -477,38 +579,47 @@ Enigma2 is licensed under the MIT License. See the [LICENSE](LICENSE.txt) file f
 To ensure everything is working correctly after installation or modifications, you can run the built-in test suite. Enigma2 uses a package structure, so it's important to set the `PYTHONPATH` correctly.
 
 ### 1. Prerequisites
+
 Ensure you are in the root directory of the project, your virtual environment is activated, and dependencies are installed:
+
 ```bash
 pip install -r requirements.txt
 ```
 
 ### 2. Running All Tests
+
 This command will automatically find and run all tests located in the `tests/` directory.
 
 **On Windows (PowerShell):**
+
 ```powershell
 $env:PYTHONPATH = "src"; python -m unittest discover tests
 ```
 
 **On Linux / Mac (Bash):**
+
 ```bash
 export PYTHONPATH=$PYTHONPATH:$(pwd)/src; python3 -m unittest discover tests
 ```
 
 ### 3. Running Specific Test Suites
+
 If you only want to run a specific part of the tests:
 
 **Configuration & Generator Logic:**
 Verifies password hashing, seed derivation, and parameter validation.
+
 ```powershell
 $env:PYTHONPATH = "src"; python -m unittest tests/test_enigma2_config.py
 ```
 
 **Cipher & Encryption Identity:**
 Verifies that data encrypted can be correctly decrypted and that file encryption works as expected.
+
 ```powershell
 $env:PYTHONPATH = "src"; python -m unittest tests/test_enigma2_cipher.py
 ```
 
 ### 4. Troubleshooting
+
 If you get a `ModuleNotFoundError` or `ImportError`, double-check that you are running the commands from the **root directory** of the project and that the `PYTHONPATH` variable is set exactly as shown above.

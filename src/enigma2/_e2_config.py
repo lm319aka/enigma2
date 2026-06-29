@@ -138,8 +138,9 @@ class _E2Config:
         if not (max_seed_val > self.plugboard_seed >= 0):
             raise SeedRangeError(f"Plugboard seed out of range: {self.plugboard_seed}")
         
-        if not (16 >= self.plugboard_size >= 0):
-            raise PlugboardSizeError(f"Plugboard size must be in range [0, 16]: {self.plugboard_size}")
+        max_plugboard = min(16, self.btype // 2)
+        if not (max_plugboard >= self.plugboard_size >= 0):
+            raise PlugboardSizeError(f"Plugboard size must be in range [0, {max_plugboard}]: {self.plugboard_size}")
         
         # Noise size range check
         len_noise_size_hash_part = len(self.hash_pwd[self.__main_seeds_len*4 + 2:])
@@ -281,7 +282,10 @@ class _E2Generator:
             indexes = np.arange(rotations_size, dtype=np.uint64) + initial_rotations_index
             for rotation_index in range(self.config.number_rotors):
                 chunk_size = self.config.btype**rotation_index
-                rotations_array[rotation_index] = (indexes // chunk_size) % self.config.btype
+                try:
+                    rotations_array[rotation_index] = (indexes // chunk_size) % self.config.btype
+                except OverflowError: # its a bad fix but it kinda works
+                    rotations_array[rotation_index] = np.zeros(rotations_size, dtype=self.config.dtype)
         else:
             # Randomized rotations like Enigma2
             for rotation_num in range(self.config.number_rotors):
