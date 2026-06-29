@@ -99,10 +99,15 @@ On this document you will find the different features of past, present and futur
   - [X] Clean up duplicate `import numpy as np` statements in raw cipher snippet.
 
 - [X] Fix OverflowError on original Enigma rotations creation
+- [X] Write broader enigma class with less restrictions to use it for lab testing (it will be able to use odd rotor aranges, noise sizes, etc...) -> _E2 ??
+- [X] Generate better code examples for readme
+
+### Tasks for e2 v2.4.1
+
 - [ ] Try to eliminate attributes from E2Config and manage them from the params
 - [ ] TODO: improve speed using multi-threading and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**
 - [ ] separate random creation of cipher elements from proper functions that depend on variable params
-- [X] Write broader enigma class with less restrictions to use it for lab testing (it will be able to use odd rotor aranges, noise sizes, etc...) -> _E2 ??
+
 - [ ] Add some metadata to encrypted files **(like file type, encryption time, doc hash[to verify if file will be successfully decrypted], starting rotations index, original rotations used bool, etc...)**
 - [ ] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
 
@@ -111,6 +116,5 @@ On this document you will find the different features of past, present and futur
 - [ ] modify code to allow passing rotors and other static elements/arrays directly in config **(maybe implementing it is a waste of time)**
 - [ ] pass config as json in terminal **(well, you pass the path but nevermind)**
 - [ ] review code and implement better comments and logical structure if possible
-- [X] Generate better code examples for readme
 - [ ] modify README.md to include all the new features
 - [ ] TODO: create installable enigma.exe (it can be executed everywhere on windows pc)
