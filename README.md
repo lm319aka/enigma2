@@ -551,6 +551,7 @@ The `E2Params` class (and its sub-model `elements_creation_params`) provides sev
 - `elements_creation_params`:
   - `number_rotors`: Number of rotors (1-16).
   - `noise_size`: Length of the noise array.
+  - `plugboard_size`: Length of the plugboard array (1-16 pairs -> 2-32).
   - `rotations_seed`, `rotors_seed`, `plugboard_seed`, `noise_seed`: Optional manual seeds.
 - `original_rotations`: If `True`, uses deterministic rotations similar to the original mechanical Enigma.
 - `start_op_index`: Starting index for operations and RNG state offset (useful for processing streams or chunks).
@@ -600,6 +601,12 @@ $env:PYTHONPATH = "src"; python -m unittest discover tests
 
 ```bash
 export PYTHONPATH=$PYTHONPATH:$(pwd)/src; python3 -m unittest discover tests
+```
+
+If the user wants to run a file (not a test), it is recomended to install e2 in edit mode to avoid module import errors:
+
+```bash
+pip install -e .
 ```
 
 ### 3. Running Specific Test Suites
