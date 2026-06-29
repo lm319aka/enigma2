@@ -43,23 +43,78 @@ On this document you will find the different features of past, present and futur
 - [X] write tests for E2, E2Config and E2Generator
 - [X] create new class method that generates random password (E2Generator)
 
-### new tasks for e2v2.3.2
+### new tasks for e2 v2.3.2
 
 - [X] create pydantic model to pass arguments for every config/generator class (E2ConfigParams, E2Params, _E2ConfigParams,_E2Params) in params_models.py
-- [ ] Fix stat class
-- [ ] solve issue with enigma2 package: <frozen runpy>:130: RuntimeWarning: 'enigma2.enigma2_cipher' found in sys.modules after import of package 'enigma2', but prior to execution of 'enigma2.enigma2_cipher'; this may result in unpredictable behaviour
+- [X] solve issue with enigma2 package: frozen runpy :130: RuntimeWarning: 'enigma2.enigma2_cipher' found in sys.modules after import of package 'enigma2', but prior to execution of 'enigma2.enigma2_cipher'; this may result in unpredictable behaviour
 
 - [X] Add pwd error handling on E2Params
 - [X] Finish and check enigma tests
 - [X] Finish and check enigma2 config/generator tests
-- [ ] Finish plots/plot maker jupyter notebook
-- [ ] Write broader enigma class with less restrictions to use it for lab testing (it will be able to use odd rotor aranges, noise sizes, etc...) -> _E2 ??
-- [ ] modify code to allow passing rotors and other static elements/arrays directly in config **(maybe implementing it is a waste of time)**
+
+### new tasks for e2 v2.4
+
+- [X] Use signed ints for mod operations and manage conversion from signed to unsigned and vice versa
+- [X] Tests to check if _E2 properly works and_E2Config/_E2Generator properly work and manage exceptions and params
+- [X] Auto detect if user is using odd.btype in console so there is no need of writing --odd-btype flag, only --btype
+- [X] create **repr__ for E2, E2Config and E2Generator and raw ones
+- [X] solve issue with noise size (when len(data) < noise_size, is executed noise_size = noise_size % len(data). The problem is that this generates colissions btwn the possible hashes that could be generated from different passwords, leading to different password to decrypt non-corresponding data) -> if condition is true, then noise_size = len(data) and continue as always.
+- [X] unite raw enigma2 with main enigma2
+- [X] Make an async version of enigma2
+
+- [X] Not doing mod operation on sum of noise and data (adds more security and attackers are unable to tell reasonable actal btype)
+
+#### Code Review & Security Audit Improvements (from code_review_report.md)
+
+- [X] **Critical Security & Cryptography (Priority 1):**
+  - [X] Implement robust KDF (PBKDF2-HMAC-SHA512 or Argon2id) with salt and key stretching in `_derive_params_from_hash` (`_e2_config.py`) instead of weak unsalted SHA3-512.
+  - [X] Replace non-cryptographic PRNG (`numpy.random.default_rng`) with CSPRNG (`secrets` module) or seed RNGs using high-entropy bits (`secrets.randbits(128)`) in `_init_rng` (`_e2_config.py`).
+- [X] **Logic Bugs & Failing Tests (Priority 2):**
+  - [X] Fix noise size calculation bug when `noise_size > size` in `generate_noise` (`_e2_config.py`) to align with spec and pass `test_E2Generator_generate_noise_edge_cases`.
+  - [X] Add `btype` even-number validation in `model_params.py` (`_E2Params`) raising `E2ValueError` for odd values to satisfy `test_btype_validation_edge_cases`.
+  - [X] Move runtime `assert` validations (e.g., plugboard size in `generate_plugboards` in `_e2_config.py`) to Pydantic models in `model_params.py` to prevent validation bypass during Python `-O` optimized execution.
+- [X] **Performance & CPU/Memory Optimization (Priority 3):**
+  - [X] Optimize RNG offset advancing in `reset_rng` (`_e2_config.py`) using O(1) fast jump (`Generator.bit_generator.advance(delta)`) instead of generating and discarding random floats.
+  - [X] Limit `chardet` encoding auto-detection in `encrypt_file` (`_e2_cipher.py`) to a partial buffer (e.g., first 32 KB) to avoid high memory/CPU usage and potential OOM errors on large files.
+- [X] **Code Quality & Architecture (Priority 4):**
+  - [X] Replace wildcard import (`from .e2_exceptions import *` in `_e2_config.py`) with explicit exception imports to prevent namespace pollution.
+  - [X] Implement Factory pattern (`create_cipher`) in `enigma2/__init__.py` for unified dynamic instantiation of synchronous and asynchronous cipher classes (`E2`, `_E2`, `E2Async`, `_E2Async`).
+
+#### Bug Fixes & Documentation Audit
+
+- [X] **Codebase Bug Fixes (High/Medium Priority):**
+  - [X] Fix crash in `encrypt_file` when `detect_encoding=True` by passing file bytes to `find_encoding` instead of `find_file_encoding` (`_e2_cipher.py`).
+  - [X] Allow explicit `dtype=None` in `check_dtype_type` validator (`model_params.py`) to prevent premature `ValueError`.
+  - [X] Case-normalize encoding strings to lowercase in `E2Encoding` (`encodings_getter.py`) to prevent `EncodingNotFoundError` with `chardet` results (e.g. `"UTF-8"`).
+  - [X] Align plugboard size validation in `_validate_derived_params()` (`_e2_config.py`) with `btype // 2` to prevent runtime crashes on small `btype` values.
+- [X] **Codebase Maintenance & Quality (Low Priority):**
+  - [X] Update `CustomE2Encoding` (`encodings_getter.py`) to Pydantic v2 `model_config = ConfigDict(extra="forbid")` to eliminate deprecation warnings.
+  - [X] Fix reversed bit ordering in deprecated `file2array_bits` helper function (`encodings_getter.py`).
+- [X] **README.md Fixes & Corrections:**
+  - [X] Fix invalid import path in raw cipher example (`_E2Config` imported from `_e2_config` instead of `_e2_cipher`).
+  - [X] Fix uninitialized `cipher_async` variable in async code snippets.
+  - [X] Fix missing `e2.` module prefix in multiple sync examples or standardize imports.
+  - [X] Add explicit import instructions for internal model `_E2ElementsCreationParams`.
+  - [X] Correct section title from "custom rotors" to "encrypting/decrypting in chunks (`start_op_index`)".
+  - [X] Clean up duplicate `import numpy as np` statements in raw cipher snippet.
+
+- [X] Fix OverflowError on original Enigma rotations creation
+- [X] Write broader enigma class with less restrictions to use it for lab testing (it will be able to use odd rotor aranges, noise sizes, etc...) -> _E2 ??
+- [X] Generate better code examples for readme
+
+### Tasks for e2 v2.4.1
+
+- [ ] Try to eliminate attributes from E2Config and manage them from the params
+- [ ] TODO: improve speed using multi-threading and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**
+- [ ] separate random creation of cipher elements from proper functions that depend on variable params
+
 - [ ] Add some metadata to encrypted files **(like file type, encryption time, doc hash[to verify if file will be successfully decrypted], starting rotations index, original rotations used bool, etc...)**
 - [ ] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
-- [ ] separate random creation of cipher elements from proper functions that depend on variable params
+
+- [ ] Compare v2.3.2 with v2.4 in terms of performance
+- [ ] Finish plots/plot maker jupyter notebook
+- [ ] modify code to allow passing rotors and other static elements/arrays directly in config **(maybe implementing it is a waste of time)**
 - [ ] pass config as json in terminal **(well, you pass the path but nevermind)**
-- [ ] modify README.md to include all the new features
-- [ ] TODO: improve speed using multi-threading and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**
 - [ ] review code and implement better comments and logical structure if possible
+- [ ] modify README.md to include all the new features
 - [ ] TODO: create installable enigma.exe (it can be executed everywhere on windows pc)

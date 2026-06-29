@@ -17,6 +17,40 @@ class NoPasswordFoundError(E2Error):
     def _build_message(self):
         return f"No password found in config file"
     
+class DomainError(E2Error):
+    def __init__(self, char):
+        self.char = char
+        super().__init__(self._build_message())
+
+    def _build_message(self):
+        return f"Byte character outside of valid domain: {self.char}"
+    
+class PasswordLengthError(E2Error):
+    pass
+
+class PlugboardSizeError(E2Error):
+    pass
+
+class NoiseSizeError(E2Error):
+    pass
+
+class RotorsNumberError(E2Error):
+    pass
+
+class SeedRangeError(E2Error):
+    pass
+
+class StartOpIndexError(E2ValueError):
+    pass
+    
+class PlugboardOddSizeError(PlugboardSizeError):
+    def __init__(self, plugboard_size: int):
+        self.plugboard_size = plugboard_size
+        super().__init__(self._build_message())
+
+    def _build_message(self):
+        return f"Plugboard size must be even: {self.plugboard_size} % 2 != 0"
+    
 # ENCODING ERRORS
 class EncodingError(E2Error):
     pass

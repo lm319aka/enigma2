@@ -2,8 +2,8 @@ import numpy as np
 from typing import Union
 from pathlib import Path
 import os
-from pydantic import BaseModel, Field, create_model
-
+from pydantic import BaseModel, ConfigDict, Field, create_model
+import chardet
 from ._e2_exceptions import EncodingNotFoundError, NoEncodingMatchFoundError
 
 encoding_dtype_map = {
@@ -125,7 +125,7 @@ encoding_dtype_map = {
 class E2Encoding:
 
     def __init__(self, encoding: str):
-        self.encoding = encoding
+        self.encoding = encoding.lower()
         self.dtype_for_encoding = self.__encoding_dtype()
 
     def __encoding_dtype(self):
@@ -135,14 +135,13 @@ class E2Encoding:
             raise EncodingNotFoundError(self.encoding)
     
     def __repr__(self):
-        return f"E2Encoding(encoding={self.encoding}, dtype_for_encoding={self.dtype_for_encoding})"
+        return f"{self.__class__.__name__}(encoding={self.encoding!r}, dtype_for_encoding={self.dtype_for_encoding})"
 
 class CustomE2Encoding(BaseModel):
     encoding: str
     dtype_for_encoding: str
 
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 # E2EncodingModel = create_model("E2EncodingModel", __base__=CustomE2Encoding, **{
 #     'dtype_for_encoding': Field(alias='dtype_for_encoding', default_factory=lambda: E2Encoding("utf-8").dtype_for_encoding)
@@ -171,15 +170,22 @@ def find_encoding(data: bytes) -> str:
     """
     finds the encoding in which the data is encoded
     """
-    for encoding in encoding_dtype_map.keys():
-        try:
-            data.decode(encoding)
-            return encoding
-        except UnicodeDecodeError:
-            continue
-        except LookupError:
-            continue
     
+    # Try to detect encoding using chardet: simple, fast and reliable
+    file_encoding = chardet.detect(data)["encoding"]
+
+    # If chardet fails, try to find encoding by trial and error: not as reliable or fast but a good alternative
+    if file_encoding is None:
+        for encoding in encoding_dtype_map.keys():
+            try:
+                data.decode(encoding)
+                return encoding
+            except UnicodeDecodeError:
+                continue
+            except LookupError:
+                continue
+    else:
+        return file_encoding
     raise NoEncodingMatchFoundError(f"Could not find encoding for data: {data}")
 
 def find_file_encoding(obj: Union[str, Path]) -> str:
@@ -188,7 +194,7 @@ def find_file_encoding(obj: Union[str, Path]) -> str:
     """
     if os.path.exists(obj) and os.path.isfile(obj):
         with open(obj, 'rb') as f:
-            data = f.read(1024) # we don't need to read all the file to find the encoding
+            data = f.read(32768) # we don't need to read all the file to find the encoding, 32k is enough
     else:
         raise FileNotFoundError(f"File {obj} does not exist")
     
@@ -215,7 +221,7 @@ def file2array_bits(path, bit_unit):
 
     # Convertir cada grupo de bits a número entero
     # Creamos potencias de 2: [2^(n-1), ..., 2^0]
-    potencias = 2 ** np.arange(0, bit_unit, dtype=np.uint64)
+    potencias = 2 ** np.arange(bit_unit - 1, -1, -1, dtype=np.uint64)
 
     # 5. Selección de dtype según el tamaño necesario
     if bit_unit <= 8:
