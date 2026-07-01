@@ -61,6 +61,7 @@ On this document you will find the different features of past, present and futur
 - [X] solve issue with noise size (when len(data) < noise_size, is executed noise_size = noise_size % len(data). The problem is that this generates colissions btwn the possible hashes that could be generated from different passwords, leading to different password to decrypt non-corresponding data) -> if condition is true, then noise_size = len(data) and continue as always.
 - [X] unite raw enigma2 with main enigma2
 - [X] Make an async version of enigma2
+- [X] separate random creation of cipher elements from proper functions that depend on variable params
 
 - [X] Not doing mod operation on sum of noise and data (adds more security and attackers are unable to tell reasonable actal btype)
 
@@ -102,14 +103,27 @@ On this document you will find the different features of past, present and futur
 - [X] Write broader enigma class with less restrictions to use it for lab testing (it will be able to use odd rotor aranges, noise sizes, etc...) -> _E2 ??
 - [X] Generate better code examples for readme
 
-### Tasks for e2 v2.4.1
+### Tasks for e2 v2.4.X
+
+- [ ] create copy function to create a new instance of the cipher with the same state
+- [ ] modify encryption/decryption functions to add data compression before any operation
+
+- [ ] make new flag on cli to use the original enigma machine (it would have 3 fixed  rotors and a plugboard, using original rotations and a fixed password to avoid changing the machine state like the original enigma machine)
+- [ ] add flag on cli to set data-chunk-size for file encryption/decryption [although for decryption it could be automatically detected using the metadata]
+- [ ] add flag on cli to enable compression before encryption
+
+- [ ] Modifiy async enigma file encryption/decryption to support file encryption/decryption in chunks of x bytes to call encrypt_file/decrypt_file multiple times in parallel (multi-threading -> 4 threads or as many as cores the cpu has). A function that uses a for loop to call the cipher to proccess each x bytes every cycle, that coincides with the number of cores the cpu has.
+- [ ] TODO: improve speed using  and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**
+
+- [ ] create function to add metadata to encrypted files to avoid having to enter some parameters to decrypt them (metadata: x00 chain 16 elements [indicates beginning of metadata], file-hash [or maybe only the first x bytes], data-chucnk-size [for decryption], original filetype, encoding, original rotations, use of compression, start rotation index, btype [if not redundant], etc..., xff chain [indicates end of metadata])
+- [ ] user can determine if a file can be decrypted with a cipher using the metadata or setting it manually
+- [ ] use metadata of encrypted files to automatically detect if an encrypted file can be decrypted with a cipher and if something is missing/wrong in the metadata before decrypting it
 
 - [ ] Try to eliminate attributes from E2Config and manage them from the params
-- [ ] TODO: improve speed using multi-threading and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**
-- [ ] separate random creation of cipher elements from proper functions that depend on variable params
 
-- [ ] Add some metadata to encrypted files **(like file type, encryption time, doc hash[to verify if file will be successfully decrypted], starting rotations index, original rotations used bool, etc...)**
 - [ ] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
+
+### Statistics
 
 - [ ] Compare v2.3.2 with v2.4 in terms of performance
 - [ ] Finish plots/plot maker jupyter notebook
