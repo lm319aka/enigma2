@@ -61,7 +61,4 @@ class E2Async(E2):
         :param start_op_index: Starting index for the operation.
         :return: Path to the decrypted file.
         """
-        return await asyncio.to_thread(self.decrypt_file, file_path, output_path, start_op_index)
-
-    def copy(self) -> "E2Async":
-        return E2Async(self.config.copy())
+        return await asyncio.to_thread(self.decrypt_file, file_path, output_path, start_op_index)

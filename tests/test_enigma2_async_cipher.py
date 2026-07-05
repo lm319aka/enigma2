@@ -110,5 +110,17 @@ class TestE2Async(unittest.IsolatedAsyncioTestCase):
             # Check identity
             self.assertEqual(source_file.read_bytes(), decrypted_path.read_bytes())
 
+    def test_async_cipher_copy(self):
+        """Ensures copy constructor and equality work as expected for async ciphers."""
+        copy_e2 = self.e2_async.copy()
+        self.assertEqual(copy_e2, self.e2_async)
+        self.assertEqual(copy_e2.config, self.e2_async.config)
+        self.assertTrue(copy_e2 == self.e2_async)
+
+        copy_raw_e2 = self._e2_async.copy()
+        self.assertEqual(copy_raw_e2, self._e2_async)
+        self.assertEqual(copy_raw_e2.config, self._e2_async.config)
+        self.assertTrue(copy_raw_e2 == self._e2_async)
+
 if __name__ == "__main__":
     unittest.main()

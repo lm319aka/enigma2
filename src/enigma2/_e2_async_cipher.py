@@ -62,6 +62,4 @@ class _E2Async(_E2):
         :return: Path to the decrypted file.
         """
         return await asyncio.to_thread(self.decrypt_file, file_path, output_path, start_op_index)
-    
-    def copy(self) -> "_E2Async":
-        return _E2Async(self.config.copy())
+

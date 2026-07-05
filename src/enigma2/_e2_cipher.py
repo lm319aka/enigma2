@@ -271,9 +271,11 @@ class _E2:
         return output_path
     
     def copy(self) -> "_E2":
-        return _E2(self.config.copy())
+        return self.__class__(self.config.copy())
     
-    def __eq__(self, other: "_E2") -> bool:
+    def __eq__(self, other: object) -> bool:
+        if type(self) is not type(other):
+            return False
         return self.config == other.config
 
     def __repr__(self) -> str:

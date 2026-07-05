@@ -128,5 +128,12 @@ class TestE2(unittest.TestCase):
             decrypted = e2.decrypt(encrypted)
             np.testing.assert_array_equal(decrypted, data)
 
+    def test_cipher_copy(self):
+        """Ensures copy constructor and equality work as expected."""
+        cipher_copy = self.e2.copy()
+        self.assertEqual(cipher_copy, self.e2)
+        self.assertEqual(cipher_copy.config, self.e2.config)
+        self.assertTrue(cipher_copy == self.e2)
+
 if __name__ == "__main__":
     unittest.main()

@@ -282,6 +282,13 @@ class Test_E2Config(unittest.TestCase):
         self.assertEqual(new_config.number_rotors, self.config.number_rotors)
         self.assertEqual(new_config.noise_size, self.config.noise_size)
 
+    def test_generator_copy(self):
+        """Verifies generator copy."""
+        new_generator = self.generator.copy()
+        self.assertEqual(new_generator, self.generator)
+        self.assertTrue(new_generator == self.generator)
+        self.assertEqual(new_generator.config, self.generator.config)
+
 
 if __name__ == "__main__":
     unittest.main()

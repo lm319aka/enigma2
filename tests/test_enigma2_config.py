@@ -156,5 +156,20 @@ class testE2Config(unittest.TestCase):
         self.assertEqual(len(rev_plug), self.config.btype)
         self.assertTrue(np.all(plug == self.generator.reverse_rotor(rev_plug)))
     
+    def test_E2Config_copy(self):
+        """Verifies E2Config copy and equality."""
+        new_config = self.config.copy()
+        self.assertEqual(new_config, self.config)
+        self.assertTrue(new_config == self.config)
+        self.assertEqual(new_config.pwd, self.config.pwd)
+        self.assertEqual(new_config.btype, self.config.btype)
+
+    def test_E2Generator_copy(self):
+        """Verifies E2Generator copy and equality."""
+        new_generator = self.generator.copy()
+        self.assertEqual(new_generator, self.generator)
+        self.assertTrue(new_generator == self.generator)
+        self.assertEqual(new_generator.config, self.generator.config)
+
 if __name__ == "__main__":
     unittest.main()
