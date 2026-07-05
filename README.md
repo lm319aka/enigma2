@@ -1,6 +1,6 @@
 # ENIGMA2
 
-================ done by lm319aka ================ (Updated for v2.4)
+================ done by lm319aka ================ (Updated for v2.4.1)
 
 Enigma2 is a Python package that provides a simple and efficient way to encrypt and decrypt data using a custom encryption algorithm. The package is designed to be easy to use and provides a range of features to make it suitable for a variety of applications.
 
@@ -31,6 +31,17 @@ To install as a package for a project:
 ```bash
 pip install "git+https://github.com/lm319aka/enigma2.git"
 ```
+
+## What's New in v2.4.1
+
+- **Refactored `copy` and `__eq__` Methods**: Replaced duplicate methods with a single class-generic implementation (`self.__class__`) in base classes (`_E2Config`, `_E2Generator`, `_E2`). Subclasses inherit them automatically, and a bug in `_E2Generator.copy` was resolved.
+- **Separated CLI Logic**: Extracted command-line interface logic from `enigma2_cipher.py` into a dedicated [cli.py](file:///C:/CODE_FOLDER/enigma2/src/enigma2/cli.py) module, keeping core cipher classes focused.
+- **New CLI Flags**:
+  - `--original-enigma`: Emulates the original Enigma machine setup (3 fixed rotors, plugboard, Enigma-style rotations, fixed password, no noise, no `--pwd` flag required).
+  - `--chunk-size`: Set custom block size for file operations.
+  - `--compression`: Enable compression with native algorithms (`gzip`, `bz2`, `lzma`, `zlib`).
+- **Decoupled Compression**: Shifted validation and execution of compression from raw `_E2`/`_E2Params` to the high-level `E2`/`E2Params`, restricting compression strictly to perfect `btypes`.
+- **Method Cleanups**: Renamed lower-level encrypt/decrypt methods to `_encrypt`/`_decrypt`, and exposed clean `encrypt`/`decrypt` delegator methods.
 
 ## BACKGROUND: THE ORIGINAL ENIGMA
 

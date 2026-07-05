@@ -43,4 +43,4 @@ def create_cipher(config_or_params: Any, async_mode: bool = False) -> Union[E2, 
 __all__ = ["E2", "_E2", "E2Async", "_E2Async", "E2Config", "E2Generator", "create_cipher",
            "encoding_dtype_map", "find_encoding", "E2Params", "_E2Params"]
 
-__version__ = "2.4.0"
+__version__ = "2.4.1"
