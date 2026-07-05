@@ -3,6 +3,7 @@ from enum import Enum
 import re
 import numpy as np
 
+from .model_params import _E2ElementsCreationParams
 from ._e2_cipher import _E2
 from ._e2_config import _E2Config
 from .enigma2_config import E2Config
@@ -16,60 +17,59 @@ class CipherOperation(Enum):
     DECRYPT = "D"
 
 
+class OriginalEnigmaData:
+
+    ENCLODING_DICT = {
+        chr(i): i-97 for i in range(97, 123)
+    }
+    ENCLODING_DICT.update({" ": 26})
+
+    DECODING_DICT = {v: k for k, v in ENCLODING_DICT.items()}
+
+    @staticmethod
+    def encode(data: str) -> np.ndarray:
+        return np.array([OriginalEnigmaData.ENCLODING_DICT[c] for c in data])
+
+    @staticmethod
+    def decode(data: np.ndarray) -> str:
+        return "".join([OriginalEnigmaData.DECODING_DICT[c] for c in data])
+
 def cli_init_cipher(
     args: argparse.Namespace,
     cipher_operation: CipherOperation,
     odd_btype: bool
 ) -> E2 | _E2:
     if args.original_enigma:
-        pwd_bytes = b"enigma_original_default_pwd"
+        pwd_bytes = b" "
         orig_rtts = True
+        bt = len(OriginalEnigmaData.ENCLODING_DICT)
         
-        # Determine btype to compute safe plugboard size
-        if args.btype is not None:
-            bt = args.btype
-        else:
-            from .encodings_getter import E2Encoding
-            try:
-                enc_obj = E2Encoding(args.encoding)
-                dt = enc_obj.dtype_for_encoding
-                bt = E2TypesConversion.dtype2btype(dt)
-            except Exception:
-                bt = 256
-        
-        max_possible = bt // 2
-        plugboard_size = min(10, max_possible)
-        if plugboard_size % 2 != 0:
-            plugboard_size -= 1
+        plugboard_size = 4
 
-        from .model_params import _E2ElementsCreationParams
         elements_creation = _E2ElementsCreationParams(
             number_rotors=3,
-            rotations_seed=42,
-            rotors_seed=43,
             plugboard_size=plugboard_size,
-            plugboard_seed=44,
             noise_size=0,
-            noise_seed=45
         )
     else:
         pwd_bytes = args.pwd.encode(args.encoding) if args.pwd else None
         orig_rtts = args.orig_rtts
         elements_creation = None
 
+        bt = args.btype
+
     # Initialize configuration
-    if odd_btype:
+    if odd_btype or args.original_enigma:
         config_params = _E2Params(
             pwd=pwd_bytes,
-            btype=args.btype,
+            btype=bt,
             encoding=args.encoding,
             original_rotations=orig_rtts,
             start_op_index=args.start_op_index,
             chunk_size=args.chunk_size,
-            data_compression_alg=args.compression
+            data_compression_alg=args.compression,
+            elements_creation_params=elements_creation
         )
-        if elements_creation is not None:
-            config_params.elements_creation_params = elements_creation
         
         config = _E2Config(config_params)
         print("Config params _E2 (raw E2):")
@@ -79,15 +79,13 @@ def cli_init_cipher(
     else:
         config_params = E2Params(
             pwd=pwd_bytes,
-            btype=args.btype,
+            btype=bt,
             encoding=args.encoding,
             original_rotations=orig_rtts,
             start_op_index=args.start_op_index,
             chunk_size=args.chunk_size,
             data_compression_alg=args.compression
         )
-        if elements_creation is not None:
-            config_params.elements_creation_params = elements_creation
 
         config = E2Config(config_params)
         print("Config params E2:")
@@ -154,6 +152,9 @@ def main() -> None:
                         input_data = args.data.encode(args.encoding)
             else:
                 raise ValueError("Invalid input array format")
+            
+        elif args.original_enigma:
+            input_data = OriginalEnigmaData.encode(args.data)
         else:
             input_data = args.data.encode(args.encoding)
 
@@ -161,10 +162,16 @@ def main() -> None:
         if cipher_operation == CipherOperation.ENCRYPT:
             result = codec.encrypt(input_data, start_op_index=args.start_op_index)
             print(f"Encrypted data: {result.tolist()}")
+
+            if args.original_enigma:
+                print(f">> {OriginalEnigmaData.decode(result)}")
+
         elif cipher_operation == CipherOperation.DECRYPT:
             result = codec.decrypt(input_data, start_op_index=args.start_op_index)
             if args.output_array:
                 print(f"Decrypted data: {result.tolist()}")
+            elif args.original_enigma:
+                print(f"Decrypted data: {OriginalEnigmaData.decode(result)}")
             else:
                 print(f"Decrypted data: {result.tobytes().decode(args.encoding)}")
 
