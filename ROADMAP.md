@@ -105,7 +105,7 @@ On this document you will find the different features of past, present and futur
 
 ### Tasks for e2 v2.4.X
 
-- [ ] make copy function to create a new instance of the cipher with the same state
+- [X] make copy function to create a new instance of the cipher with the same state
 - [ ] modify encryption/decryption functions to add data compression before any operation
 
 - [ ] create dedicated file for enigma2 cli (to avoid import Errors/loops)

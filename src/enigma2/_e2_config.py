@@ -174,6 +174,12 @@ class _E2Config:
             self.params = _E2Params(**data)
             self.__init__(self.params)
 
+    def copy(self) -> "_E2Config":
+        return _E2Config(self.params.model_copy())
+
+    def __eq__(self, other: "_E2Config") -> bool:
+        return self.params == other.params
+    
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}("
@@ -356,6 +362,12 @@ class _E2Generator:
         reversed_rotor = np.empty_like(rotor)
         reversed_rotor[rotor] = np.arange(len(rotor), dtype=rotor.dtype)
         return reversed_rotor
-        
+    
+    def copy(self) -> "_E2Config":
+        return _E2Config(self.params.model_copy())
+
+    def __eq__(self, other: "_E2Generator") -> bool:
+        return self.config == other.config
+            
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(config={self.config!r})"

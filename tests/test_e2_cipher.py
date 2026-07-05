@@ -243,6 +243,13 @@ class Test_E2(unittest.TestCase):
         with self.assertRaises(TypeError):
             _E2(config="not a config object")
 
+    def test_cipher_copy(self):
+        """Ensures copy constructor works as expected."""
+        cipher_copy = self._e2.copy()
+        self.assertEqual(cipher_copy, self._e2)
+        self.assertEqual(cipher_copy.config, self._e2.config)
+        self.assertTrue(cipher_copy == self._e2)
+
     @unittest.skip("Too slow")
     def test_cipher_all_btypes_encoding(self): # for usual checking better comment to avoid wasting a ton of time
         """

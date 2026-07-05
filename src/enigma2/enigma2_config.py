@@ -9,6 +9,9 @@ class E2Config(_E2Config):
     def __init__(self, params: E2Params) -> None:
         super().__init__(params)
 
+    def copy(self) -> "E2Config":
+        return E2Config(self.params.model_copy())
+
 class E2Generator(_E2Generator):
     """
     Generates operational elements for Enigma2, such as rotors and plugboards,
@@ -17,3 +20,6 @@ class E2Generator(_E2Generator):
 
     def __init__(self, params: E2Params) -> None:
         super().__init__(params)
+
+    def copy(self) -> "E2Generator":
+        return E2Generator(self.params.model_copy())

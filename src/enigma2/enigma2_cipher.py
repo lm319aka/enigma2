@@ -48,7 +48,9 @@ class E2(_E2):
         """Applies a single rotor decryption step."""
         res = rotor[data_array]
         return res - rotation
-
+    
+    def copy(self) -> "E2":
+        return E2(self.config.copy())
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(config={self.config!r})"

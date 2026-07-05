@@ -271,5 +271,17 @@ class Test_E2Config(unittest.TestCase):
             self.assertEqual(new_config.number_rotors, self.config.number_rotors)
             self.assertEqual(new_config.noise_size, self.config.noise_size)
 
+    def test_config_copy(self):
+        """Verifies config copy."""
+        new_config = self.config.copy()
+        self.assertEqual(new_config, self.config)
+        self.assertTrue(new_config == self.config)
+        self.assertEqual(new_config.pwd, self.config.pwd)
+        self.assertEqual(new_config.btype, self.config.btype)
+        self.assertEqual(new_config.dtype, self.config.dtype)
+        self.assertEqual(new_config.number_rotors, self.config.number_rotors)
+        self.assertEqual(new_config.noise_size, self.config.noise_size)
+
+
 if __name__ == "__main__":
     unittest.main()
