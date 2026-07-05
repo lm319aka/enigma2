@@ -11,6 +11,7 @@ from .model_params import _E2Params, E2TypesConversion
 # Importar con asterisco (`from .e2_exceptions import *`) contamina el espacio de nombres, dificulta
 # el rastreo del origen de los símbolos y previene optimizaciones de linters/analizadores estáticos.
 from .e2_exceptions import (
+    E2Error,
     PasswordLengthError,
     RotorsNumberError,
     SeedRangeError,
@@ -71,6 +72,12 @@ class _E2Config:
         self.verbose: bool = params.verbose
         self.log_path: Optional[Path | str] = params.log_path
         self.encoding: str = params.encoding.encoding
+        self.data_compression_alg: Optional[str] = params.data_compression_alg
+
+        self.perfect_btype: bool = self.btype in E2TypesConversion.available_btypes()
+
+        if not self.perfect_btype and self.data_compression_alg is not None:
+            raise E2Error("Cannot use data compression with non-perfect btype (an odd-btype)")
 
         # Derive seeds and parameters from password hash if not explicitly provided
         self._derive_params_from_hash()

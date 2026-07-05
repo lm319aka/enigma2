@@ -8,6 +8,7 @@ import chardet
 
 from .encodings_getter import E2Encoding, find_encoding
 from .e2_exceptions import *
+from .compression import Compressor
 
 standard_model_config = ConfigDict(
     extra="forbid", # fields passed that are not in the model will raise error
@@ -147,6 +148,15 @@ class _E2Params(BaseModel):
     avoid_validation: bool = False
     verbose: bool = False
     log_path: Optional[Union[Path, str]] = None
+    data_compression_alg: Optional[str] = None
+
+    @field_validator("data_compression_alg", mode="before")
+    @classmethod
+    def check_data_compression(cls, value: Any):
+        if value is not None:
+            if value not in Compressor.AVAILABLE_ALGORITHMS:
+                raise UnavailableCompressionAlgorithmError(value, Compressor.AVAILABLE_ALGORITHMS)
+        return value
     
     @field_validator("pwd", mode="before")
     @classmethod

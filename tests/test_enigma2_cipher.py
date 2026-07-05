@@ -7,6 +7,8 @@ import random
 from enigma2.enigma2_cipher import E2
 from enigma2.enigma2_config import E2Config
 from enigma2.model_params import E2Params
+from enigma2.compression import Compressor
+from enigma2 import create_cipher
 
 class TestE2(unittest.TestCase):
     def setUp(self):
@@ -134,6 +136,32 @@ class TestE2(unittest.TestCase):
         self.assertEqual(cipher_copy, self.e2)
         self.assertEqual(cipher_copy.config, self.e2.config)
         self.assertTrue(cipher_copy == self.e2)
+
+    def test_cipher_with_enabled_compression(self):
+        """Tests encryption and decryption with compression enabled."""
+        for alg in Compressor.AVAILABLE_ALGORITHMS:
+            enc = "utf-8"
+            cipher_compression = create_cipher(E2Params(
+                pwd=b"testpassword",
+                encoding=enc,
+                data_compression_alg=alg
+            ))
+
+            # random_rng = np.random.default_rng(42)
+            # data = random_rng.integers(0, cipher_compression.config.btype, size=200, dtype=cipher_compression.config.dtype)
+            
+            data = """Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin sollicitudin odio nisl, in tempor orci aliquam quis. 
+            Donec non pharetra arcu, vitae sagittis enim. Cras lacinia augue nulla, vitae sollicitudin arcu tincidunt a. 
+            Aenean ut interdum risus. Maecenas vestibulum commodo nibh, ac posuere erat ullamcorper sit amet. 
+            In commodo imperdiet finibus. Suspendisse neque dui, pharetra sit amet tortor in, lacinia congue sapien. 
+            Aenean elit nibh, tincidunt quis turpis quis, porttitor bibendum arcu. Vestibulum fermentum urna et ullamcorper tristique. 
+            Sed interdum ligula vitae dui dignissim, nec congue nisl luctus. Donec lobortis sit amet magna non cursus. 
+            Proin eget risus rutrum, consequat justo imperdiet, scelerisque mauris. Phasellus dignissim sollicitudin tortor, 
+            auctor aliquam arcu varius nec.""".encode(enc)
+
+            encrypted = cipher_compression.encrypt(data)
+            decrypted = cipher_compression.decrypt(encrypted)
+            self.assertEqual(data, decrypted.tobytes())
 
 if __name__ == "__main__":
     unittest.main()

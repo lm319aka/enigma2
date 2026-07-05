@@ -149,3 +149,16 @@ class Btype2DtypeCeilingConversionError(ConversionError):
 
     def _build_message(self):
         return f"Btype exceeds maximum value: {self.btype}"
+    
+# COMPRESSION ERRORS
+class CompressionError(E2Error):
+    pass
+
+class UnavailableCompressionAlgorithmError(CompressionError):
+    def __init__(self, compression: str, options: list[str]):
+        self.compression = compression
+        self.options = options
+        super().__init__(self._build_message())
+
+    def _build_message(self):
+        return f"Compression not available: {self.compression}\nAvailable options: {self.options}"

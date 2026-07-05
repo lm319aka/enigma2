@@ -10,6 +10,8 @@ from ._e2_config import _E2Config, _E2Generator
 from .model_params import E2TypesConversion
 from .e2_exceptions import StartOpIndexError
 
+from .compression import Compressor
+
 # Setup logging
 logging.Logger(__name__).addHandler(logging.NullHandler())
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -115,7 +117,7 @@ class _E2:
         if np.any(data_array >= self.config.btype):
             raise ValueError(f"Data values must be less than {self.config.btype}")
 
-        return data_array
+        return data_array        
 
     @timed
     def encrypt(self, 
@@ -131,9 +133,20 @@ class _E2:
         
         if start_op_index < 0:
             raise StartOpIndexError("start_op_index must be >= 0")
-        
+                
         data_array = self.check_entry_data(data_array)
-        
+
+        # Compress data if necessary
+        if self.config.data_compression_alg is not None:
+            data_array = Compressor.compress_nparray(data_array, self.config.data_compression_alg)
+
+            # if isinstance(data_array, np.ndarray):
+            #     data_array = Compressor.compress_nparray(data_array, self.config.data_compression_alg)
+            # elif isinstance(data_array, bytes):
+            #     data_array = Compressor.compress(data_array, self.config.data_compression_alg)
+            # else:
+            #     raise TypeError(f"data_array must be a numpy array or bytes, not {type(data_array)}")
+                
         # Reset RNG to ensure consistency across operations
         self.reset_rng(start_op_index)
         
@@ -234,7 +247,13 @@ class _E2:
             data_array = self.rotor_decryption(data_array, self.decryption_rotors[i], rotations_array[i])
         
         # 3. Apply reverse plugboard mapping
-        return self.decryption_plugboard[data_array]
+        data_array = self.decryption_plugboard[data_array]
+
+        # Decompress data if necessary
+        if self.config.data_compression_alg is not None:
+            data_array = Compressor.decompress_nparray(data_array, self.config.data_compression_alg)
+        
+        return data_array
 
     def decrypt_file(self, 
                      file_path: Union[str, Path], 
