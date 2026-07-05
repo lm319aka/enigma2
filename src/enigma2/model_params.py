@@ -149,6 +149,7 @@ class _E2Params(BaseModel):
     verbose: bool = False
     log_path: Optional[Union[Path, str]] = None
     data_compression_alg: Optional[str] = None
+    chunk_size: Optional[PositiveInt] = None
 
     @field_validator("data_compression_alg", mode="before")
     @classmethod

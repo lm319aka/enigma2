@@ -106,14 +106,14 @@ On this document you will find the different features of past, present and futur
 ### Tasks for e2 v2.4.X
 
 - [X] make copy function to create a new instance of the cipher with the same state
-- [ ] modify encryption/decryption functions to add data compression before any operation
+- [X] modify encryption/decryption functions to add data compression before any operation
 - [ ] Solve confusion between start_op_index on Params class and start_op_index on encrypt/decrypt functions
 - [ ] Rename encrypt/decrypt functions on underscore e2 classes to _encrypt/_decrypt to differentiate them from the main ones and avoid confusion
 
-- [ ] create dedicated file for enigma2 cli (to avoid import Errors/loops)
-- [ ] make new flag on cli to use the original enigma machine (it would have 3 fixed  rotors and a plugboard, using original rotations and a fixed password to avoid changing the machine state like the original enigma machine)
-- [ ] add flag on cli to set data-chunk-size for file encryption/decryption [although for decryption it could be automatically detected using the metadata]
-- [ ] add flag on cli to enable compression before encryption
+- [X] create dedicated file for enigma2 cli (to avoid import Errors/loops)
+- [X] make new flag on cli to use the original enigma machine (it would have 3 fixed  rotors and a plugboard, using original rotations and a fixed password to avoid changing the machine state like the original enigma machine)
+- [X] add flag on cli to set data-chunk-size for file encryption/decryption [although for decryption it could be automatically detected using the metadata]
+- [X] add flag on cli to enable compression with given algorithm (default None)
 
 - [ ] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
 - [ ] create metadata class for encrypted files with all the information needed to decrypt them and methods to dump to file or load from file

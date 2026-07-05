@@ -154,5 +154,90 @@ class TestEnigma2CLI(unittest.TestCase):
             self.assertTrue(temp_file.exists())
             self.assertEqual(temp_file.read_bytes(), content)
 
+    def test_original_enigma_cli(self):
+        """Test encryption and decryption using the --original-enigma flag (no pwd required)."""
+        message = "Test message for original Enigma mode."
+        
+        # 1. Encrypt
+        enc_res = self.run_cli([
+            "-m", "enigma2",
+            "--data", message,
+            "--original-enigma",
+            "--op", "E"
+        ])
+        self.assertEqual(enc_res.returncode, 0, msg=enc_res.stderr)
+        
+        match = re.search(r"Encrypted data:\s*(\[.*\])", enc_res.stdout)
+        self.assertTrue(match)
+        encrypted_list_str = match.group(1)
+        
+        # 2. Decrypt
+        dec_res = self.run_cli([
+            "-m", "enigma2",
+            "--data", encrypted_list_str,
+            "--original-enigma",
+            "--op", "D"
+        ])
+        self.assertEqual(dec_res.returncode, 0, msg=dec_res.stderr)
+        self.assertIn(f"Decrypted data: {message}", dec_res.stdout)
+
+    def test_compression_cli(self):
+        """Test that compression flag enables compression and encryption/decryption works."""
+        message = "Compression test string"
+        
+        # 1. Encrypt with gzip compression
+        enc_res = self.run_cli([
+            "-m", "enigma2",
+            "--data", message,
+            "--pwd", self.pwd,
+            "--compression", "gzip",
+            "--op", "E"
+        ])
+        self.assertEqual(enc_res.returncode, 0, msg=enc_res.stderr)
+        
+        match = re.search(r"Encrypted data:\s*(\[.*\])", enc_res.stdout)
+        self.assertTrue(match)
+        encrypted_list_str = match.group(1)
+        
+        # 2. Decrypt with gzip compression
+        dec_res = self.run_cli([
+            "-m", "enigma2",
+            "--data", encrypted_list_str,
+            "--pwd", self.pwd,
+            "--compression", "gzip",
+            "--op", "D"
+        ])
+        self.assertEqual(dec_res.returncode, 0, msg=dec_res.stderr)
+        self.assertIn(f"Decrypted data: {message}", dec_res.stdout)
+
+    def test_chunk_size_cli(self):
+        """Test encryption and decryption passing --chunk-size."""
+        message = "Testing chunk size flag"
+        
+        # 1. Encrypt
+        enc_res = self.run_cli([
+            "-m", "enigma2",
+            "--data", message,
+            "--pwd", self.pwd,
+            "--chunk-size", "100",
+            "--op", "E"
+        ])
+        self.assertEqual(enc_res.returncode, 0, msg=enc_res.stderr)
+        
+        match = re.search(r"Encrypted data:\s*(\[.*\])", enc_res.stdout)
+        self.assertTrue(match)
+        encrypted_list_str = match.group(1)
+        
+        # 2. Decrypt
+        dec_res = self.run_cli([
+            "-m", "enigma2",
+            "--data", encrypted_list_str,
+            "--pwd", self.pwd,
+            "--chunk-size", "100",
+            "--op", "D"
+        ])
+        self.assertEqual(dec_res.returncode, 0, msg=dec_res.stderr)
+        self.assertIn(f"Decrypted data: {message}", dec_res.stdout)
+
 if __name__ == "__main__":
     unittest.main()

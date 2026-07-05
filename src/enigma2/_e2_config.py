@@ -73,6 +73,7 @@ class _E2Config:
         self.log_path: Optional[Path | str] = params.log_path
         self.encoding: str = params.encoding.encoding
         self.data_compression_alg: Optional[str] = params.data_compression_alg
+        self.chunk_size: Optional[int] = params.chunk_size
 
         self.perfect_btype: bool = self.btype in E2TypesConversion.available_btypes()
 
