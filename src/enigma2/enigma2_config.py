@@ -8,8 +8,7 @@ class E2Config(_E2Config):
     """
     def __init__(self, params: E2Params) -> None:
         super().__init__(params)
-        # must be true by default to enable compression
-        # self.perfect_btype = True
+        self.data_compression_alg = params.data_compression_alg
 
 class E2Generator(_E2Generator):
     """

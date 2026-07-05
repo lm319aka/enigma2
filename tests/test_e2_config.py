@@ -289,6 +289,11 @@ class Test_E2Config(unittest.TestCase):
         self.assertTrue(new_generator == self.generator)
         self.assertEqual(new_generator.config, self.generator.config)
 
+    def test_compression_forbidden_in_raw_params(self):
+        """Verifies that data_compression_alg is forbidden in _E2Params."""
+        with self.assertRaises(ValidationError):
+            _E2Params(pwd=self.pwd, data_compression_alg="gzip")
+
 
 if __name__ == "__main__":
     unittest.main()

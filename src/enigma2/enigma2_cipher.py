@@ -1,5 +1,6 @@
 import numpy as np
 import logging
+from typing import Union
 
 from ._e2_cipher import _E2
 from .enigma2_config import E2Config
@@ -35,6 +36,22 @@ class E2(_E2):
         """Applies a single rotor decryption step."""
         res = rotor[data_array]
         return res - rotation
+
+    def preprocess_encrypt_data(self, data_array: Union[np.ndarray, bytes]) -> np.ndarray:
+        data_array = self.check_entry_data(data_array)
+        if self.config.data_compression_alg is not None:
+            from .compression import Compressor
+            data_array = Compressor.compress_nparray(data_array, self.config.data_compression_alg)
+        return data_array
+
+    def decrypt(self, 
+                data_array: Union[np.ndarray, bytes], 
+                start_op_index: int = 0) -> np.ndarray:
+        data_array = self._decrypt(data_array, start_op_index)
+        if self.config.data_compression_alg is not None:
+            from .compression import Compressor
+            data_array = Compressor.decompress_nparray(data_array, self.config.data_compression_alg)
+        return data_array
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(config={self.config!r})"

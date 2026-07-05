@@ -60,6 +60,9 @@ def cli_init_cipher(
 
     # Initialize configuration
     if odd_btype or args.original_enigma:
+        if args.compression is not None:
+            raise ValueError("Cannot use data compression with non-perfect btype (an odd-btype)")
+
         config_params = _E2Params(
             pwd=pwd_bytes,
             btype=bt,
@@ -67,7 +70,6 @@ def cli_init_cipher(
             original_rotations=orig_rtts,
             start_op_index=args.start_op_index,
             chunk_size=args.chunk_size,
-            data_compression_alg=args.compression,
             elements_creation_params=elements_creation
         )
         

@@ -72,13 +72,7 @@ class _E2Config:
         self.verbose: bool = params.verbose
         self.log_path: Optional[Path | str] = params.log_path
         self.encoding: str = params.encoding.encoding
-        self.data_compression_alg: Optional[str] = params.data_compression_alg
         self.chunk_size: Optional[int] = params.chunk_size
-
-        self.perfect_btype: bool = self.btype in E2TypesConversion.available_btypes()
-
-        if not self.perfect_btype and self.data_compression_alg is not None:
-            raise E2Error("Cannot use data compression with non-perfect btype (an odd-btype)")
 
         # Derive seeds and parameters from password hash if not explicitly provided
         self._derive_params_from_hash()

@@ -250,6 +250,13 @@ class Test_E2(unittest.TestCase):
         self.assertEqual(cipher_copy.config, self._e2.config)
         self.assertTrue(cipher_copy == self._e2)
 
+    def test_underscore_encrypt_decrypt_methods(self):
+        """Verifies that _encrypt and _decrypt exist and work properly in _E2."""
+        data = np.array([1, 2, 3, 4], dtype=np.uint8)
+        enc = self._e2._encrypt(data)
+        dec = self._e2._decrypt(enc)
+        np.testing.assert_array_equal(dec, data)
+
     @unittest.skip("Too slow")
     def test_cipher_all_btypes_encoding(self): # for usual checking better comment to avoid wasting a ton of time
         """
