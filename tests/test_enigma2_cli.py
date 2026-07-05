@@ -156,7 +156,7 @@ class TestEnigma2CLI(unittest.TestCase):
 
     def test_original_enigma_cli(self):
         """Test encryption and decryption using the --original-enigma flag (no pwd required)."""
-        message = "Test message for original Enigma mode."
+        message = "test message for original enigma mode"
         
         # 1. Encrypt
         enc_res = self.run_cli([

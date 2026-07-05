@@ -108,6 +108,7 @@ On this document you will find the different features of past, present and futur
 - [X] make copy function to create a new instance of the cipher with the same state
 - [X] modify encryption/decryption functions to add data compression before any operation
 - [ ] Solve confusion between start_op_index on Params class and start_op_index on encrypt/decrypt functions
+(The one in E2Params should be the global start idx and the one in encrypt/decrypt should be the local one)
 - [ ] Rename encrypt/decrypt functions on underscore e2 classes to _encrypt/_decrypt to differentiate them from the main ones and avoid confusion
 
 - [X] create dedicated file for enigma2 cli (to avoid import Errors/loops)
