@@ -144,7 +144,7 @@ class _E2Params(BaseModel):
     btype: Optional[PositiveInt] = None
     elements_creation_params: _E2ElementsCreationParams = _E2ElementsCreationParams()
     original_rotations: bool = False
-    start_op_index: int = 0
+    global_start_op_index: int = 0
     avoid_validation: bool = False
     verbose: bool = False
     log_path: Optional[Union[Path, str]] = None
@@ -194,6 +194,10 @@ class _E2Params(BaseModel):
         return str(dtype)
     
     def essential_params_validation(self):
+        # Ensure global_start_op_index is greater than 0
+        if self.global_start_op_index < 0:
+            raise NegativeGlobalStartOpIndexError(self.global_start_op_index)
+
         # Ensure there is a pwd
         if not self.pwd:
             raise NoPasswordFoundError()

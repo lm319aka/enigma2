@@ -46,8 +46,8 @@ class E2(_E2):
 
     def decrypt(self, 
                 data_array: Union[np.ndarray, bytes], 
-                start_op_index: int = 0) -> np.ndarray:
-        data_array = self._decrypt(data_array, start_op_index)
+                local_start_op_index: int = 0) -> np.ndarray:
+        data_array = self._decrypt(data_array, local_start_op_index)
         if self.config.data_compression_alg is not None:
             from .compression import Compressor
             data_array = Compressor.decompress_nparray(data_array, self.config.data_compression_alg)

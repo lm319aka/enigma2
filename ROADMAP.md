@@ -115,7 +115,14 @@ On this document you will find the different features of past, present and futur
 - [X] add flag on cli to set data-chunk-size for file encryption/decryption [although for decryption it could be automatically detected using the metadata]
 - [X] add flag on cli to enable compression with given algorithm (default None)
 
-- [ ] Solve confusion between start_op_index on Params class and start_op_index on encrypt/decrypt functions
+- [X] Solve confusion between start_op_index on Params class and start_op_index on encrypt/decrypt functions
+
+- [ ] Add warning if rotors could reset to initial state due to data size
+- [ ] Guarantee a minimum level of security (only using one or two rotors is a very insecure practice. Instead of 1-16 rotors created from hash -> 3-18)
+
+- [ ] verify pwd is hex
+- [ ] enable multiple pwd lengths (128, 256, 512, 1024, 2048, 4096, ...)
+- [ ] try to create custom hash algorithm that can match the all possible elements combinations on e2
 
 - [ ] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
 - [ ] create metadata class for encrypted files with all the information needed to decrypt them and methods to dump to file or load from file

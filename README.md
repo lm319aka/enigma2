@@ -41,6 +41,7 @@ pip install "git+https://github.com/lm319aka/enigma2.git"
   - `--chunk-size`: Set custom block size for file operations.
   - `--compression`: Enable compression with native algorithms (`gzip`, `bz2`, `lzma`, `zlib`).
 - **Decoupled Compression**: Shifted validation and execution of compression from raw `_E2`/`_E2Params` to the high-level `E2`/`E2Params`, restricting compression strictly to perfect `btypes`.
+- **Global and Local Start Index Distinction**: Separated the start operation index concept into `global_start_op_index` (configured at the instance level via parameters) and `local_start_op_index` (passed dynamically when calling encryption/decryption methods to reset RNG offset locally).
 - **Method Cleanups**: Renamed lower-level encrypt/decrypt methods to `_encrypt`/`_decrypt`, and exposed clean `encrypt`/`decrypt` delegator methods.
 
 ## BACKGROUND: THE ORIGINAL ENIGMA
@@ -373,7 +374,7 @@ decrypted_data = enigma2_cipher.decrypt(encrypted_data)
 print(f"Decrypted: {decrypted_data.tobytes()}")
 ```
 
-#### Data Encryption & Decryption in Chunks (using start_op_index)
+#### Data Encryption & Decryption in Chunks (using local_start_op_index and global_start_op_index)
 
 ```python
 # code example encrypting message and then decrypting it in chunks
@@ -391,8 +392,9 @@ print("start_idx", start_idx)
 encrypted_data = enigma2_cipher.encrypt(msg)
 print(f"Total Encrypted: {encrypted_data}")
 
-encrypted_data_p1 = enigma2_cipher.encrypt(msg[:start_idx+1], 0)
-encrypted_data_p2 = enigma2_cipher.encrypt(msg[start_idx+1:], start_idx)
+# Pass local_start_op_index to start encryption from specific offsets
+encrypted_data_p1 = enigma2_cipher.encrypt(msg[:start_idx+1], local_start_op_index=0)
+encrypted_data_p2 = enigma2_cipher.encrypt(msg[start_idx+1:], local_start_op_index=start_idx)
 print(f"Partial Encrypted: {encrypted_data_p1} {encrypted_data_p2}")
 
 decrypted_data = enigma2_cipher.decrypt(
@@ -402,14 +404,18 @@ print(f"Total Decrypted: {decrypted_data}")
 
 decrypted_data_p1 = enigma2_cipher.decrypt(
     encrypted_data_p1,
-    start_op_index=0
+    local_start_op_index=0
 )
 decrypted_data_p2 = enigma2_cipher.decrypt(
     encrypted_data_p2,
-    start_op_index=start_idx
+    local_start_op_index=start_idx
 )
 print(f"Partial Decrypted: {decrypted_data_p1} {decrypted_data_p2}")
 ```
+
+##### Difference between Local and Global Start Indexes:
+- **`global_start_op_index`**: Configured globally in the cipher parameters (`E2Params` / `_E2Params`). It sets the base reset/advance state index for the random number generators (RNG) of a `_E2` instance (and its subclasses, e.g., `E2`).
+- **`local_start_op_index`**: Passed dynamically when invoking operation methods like `encrypt` and `decrypt` (and their async/file equivalents). It specifies a local offset that is added to the `global_start_op_index` (`final_idx = global_start_op_index + local_start_op_index`). This determines the actual reset/advance position of the generators ONLY during that specific call.
 
 ### 3. Synchronous Encryption & Decryption (`_E2`)
 
@@ -565,7 +571,7 @@ The `E2Params` class (and its sub-model `elements_creation_params`) provides sev
   - `plugboard_size`: Length of the plugboard array (1-16 pairs -> 2-32).
   - `rotations_seed`, `rotors_seed`, `plugboard_seed`, `noise_seed`: Optional manual seeds.
 - `original_rotations`: If `True`, uses deterministic rotations similar to the original mechanical Enigma.
-- `start_op_index`: Starting index for operations and RNG state offset (useful for processing streams or chunks).
+- `global_start_op_index`: Configured globally at the instance level. It defines the base reset/advance state index of the random number generators for a cipher instance.
 - `avoid_validation`: If `True`, skips parameter range checks (not recommended).
 - `verbose`: If `True`, enables logging output.
 - `log_path`: Optional path to write log output.

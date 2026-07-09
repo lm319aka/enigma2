@@ -8,7 +8,7 @@ import logging
 from .encodings_getter import encoding_dtype_map, find_file_encoding, E2Encoding#, E2EncodingModel
 from ._e2_config import _E2Config, _E2Generator
 from .model_params import E2TypesConversion
-from .e2_exceptions import StartOpIndexError
+from .e2_exceptions import StartOpIndexError, NegativeLocalStartOpIndexError
 
 
 
@@ -72,9 +72,11 @@ class _E2:
         """Generates a random key of specified length."""
         return os.urandom(len_bytes)
     
-    def reset_rng(self, start_index: int = 0) -> None:
-        """Resets the internal random number generators."""
-        self.generator._init_rng(start_index)
+    def reset_rng(self, start_index: int = 0) -> int:
+        """Resets the internal random number generators to global start index."""
+        final_idx = self.config.global_start_op_index + start_index
+        self.generator._init_rng(final_idx)
+        return final_idx
 
     def mod_add(self, a: np.ndarray, b: np.ndarray, m: int):
         higher_encoding = E2TypesConversion.superior_dtype(self.config.dtype)
@@ -125,28 +127,28 @@ class _E2:
     @timed
     def _encrypt(self, 
                  data_array: Union[np.ndarray, bytes], 
-                 start_op_index: int = 0) -> np.ndarray:
+                 local_start_op_index: int = 0) -> np.ndarray:
         """
         Encrypts a numpy array or bytes using the Enigma2 algorithm.
 
         :param data_array: Input data to encrypt.
-        :param start_op_index: Starting index for the operation (affects RNG).
+        :param local_start_op_index: Starting index for the operation (affects RNG).
         :return: Encrypted numpy array.
         """
         
-        if start_op_index < 0:
-            raise StartOpIndexError("start_op_index must be >= 0")
+        if local_start_op_index < 0:
+            raise NegativeLocalStartOpIndexError(local_start_op_index)
                 
         data_array = self.preprocess_encrypt_data(data_array)
                 
         # Reset RNG to ensure consistency across operations
-        self.reset_rng(start_op_index)
+        self.reset_rng(local_start_op_index)
         
         # Generate rotations and noise for this specific data size
         rotations_array = self.generator.generate_rotations(
                                                 data_array.size, 
                                                 original_type=self.config.original_rotations,
-                                                initial_rotations_index=start_op_index
+                                                initial_rotations_index=local_start_op_index
                                                 )
         
         noise_array = self.generator.generate_noise(data_array.size)
@@ -163,21 +165,21 @@ class _E2:
 
     def encrypt(self, 
                 data_array: Union[np.ndarray, bytes], 
-                start_op_index: int = 0) -> np.ndarray:
-        return self._encrypt(data_array, start_op_index)
+                local_start_op_index: int = 0) -> np.ndarray:
+        return self._encrypt(data_array, local_start_op_index)
 
     def encrypt_file(self, 
                      file_path: Union[str, Path], 
                      output_path: Optional[Union[str, Path]] = None,
                      detect_encoding: bool = False,
-                     start_op_index: int = 0) -> Path:
+                     local_start_op_index: int = 0) -> Path:
         """
         Encrypts a file and saves the result as a .npy file.
 
         :param file_path: Path to the input file.
         :param output_path: Path to the output directory or file.
         :param detect_encoding: If True, attempts to auto-detect file encoding.
-        :param start_op_index: Starting index for the operation.
+        :param local_start_op_index: Starting index for the operation.
         :return: Path to the created encrypted file.
         """
 
@@ -199,7 +201,7 @@ class _E2:
         else:
             data = np.fromfile(file_path, dtype=self.config.dtype)
 
-        encrypted_data = self.encrypt(data, start_op_index)
+        encrypted_data = self.encrypt(data, local_start_op_index)
         np.save(output_path, encrypted_data)
         
         return output_path
@@ -207,27 +209,27 @@ class _E2:
     @timed
     def _decrypt(self, 
                  data_array: Union[np.ndarray, bytes],
-                 start_op_index: int = 0) -> np.ndarray:
+                 local_start_op_index: int = 0) -> np.ndarray:
         """
         Decrypts a numpy array or bytes using the Enigma2 algorithm.
 
         :param data_array: Input data to decrypt.
-        :param start_op_index: Starting index for the operation.
+        :param local_start_op_index: Starting index for the operation.
         :return: Decrypted numpy array.
         """
         
-        if start_op_index < 0:
-            raise StartOpIndexError("start_op_index must be >= 0")
+        if local_start_op_index < 0:
+            raise NegativeLocalStartOpIndexError(local_start_op_index)
         
         data_array = self.check_entry_data(data_array)
         
         # Reset RNG to ensure consistency across operations        
-        self.reset_rng(start_op_index)
+        self.reset_rng(local_start_op_index)
 
         rotations_array = self.generator.generate_rotations(
                                                 data_array.size, 
                                                 original_type=self.config.original_rotations,
-                                                initial_rotations_index=start_op_index
+                                                initial_rotations_index=local_start_op_index
                                                 )
         
         noise_array = self.generator.generate_noise(data_array.size)
@@ -250,19 +252,19 @@ class _E2:
 
     def decrypt(self, 
                 data_array: Union[np.ndarray, bytes], 
-                start_op_index: int = 0) -> np.ndarray:
-        return self._decrypt(data_array, start_op_index)
+                local_start_op_index: int = 0) -> np.ndarray:
+        return self._decrypt(data_array, local_start_op_index)
 
     def decrypt_file(self, 
                      file_path: Union[str, Path], 
                      output_path: Optional[Union[str, Path]] = None,
-                     start_op_index: int = 0) -> Path:
+                     local_start_op_index: int = 0) -> Path:
         """
         Decrypts a .npy file and saves the result in its original format.
 
         :param file_path: Path to the encrypted .npy file.
         :param output_path: Path to the output directory or file.
-        :param start_op_index: Starting index for the operation.
+        :param local_start_op_index: Starting index for the operation.
         :return: Path to the decrypted file.
         """
 
@@ -279,7 +281,7 @@ class _E2:
 
         # Load encrypted data from .npy file
         data = np.load(file_path)
-        decrypted_data = self.decrypt(data, start_op_index)
+        decrypted_data = self.decrypt(data, local_start_op_index)
         
         # Write decrypted bytes to file
         with open(output_path, "wb") as f:

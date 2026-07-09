@@ -17,6 +17,7 @@ from .e2_exceptions import (
     SeedRangeError,
     PlugboardSizeError,
     NoiseSizeError,
+    StartOpIndexOverflowError,
 )
 
 class _E2Config:
@@ -67,7 +68,7 @@ class _E2Config:
         self.noise_seed: Optional[int] = params.elements_creation_params.noise_seed
 
         self.original_rotations: bool = params.original_rotations
-        self.start_op_index: int = params.start_op_index
+        self.global_start_op_index: int = params.global_start_op_index
         self.avoid_validation: bool = params.avoid_validation
         self.verbose: bool = params.verbose
         self.log_path: Optional[Path | str] = params.log_path
@@ -149,6 +150,10 @@ class _E2Config:
         if not (16**len_noise_size_hash_part > self.noise_size >= 0):
             raise NoiseSizeError(f"Noise size out of range: {self.noise_size}")
 
+        # Check global start index overflow in original rotations mode
+        if self.original_rotations and self.global_start_op_index >= self.btype**self.number_rotors:
+            raise StartOpIndexOverflowError(self.global_start_op_index, self.btype**self.number_rotors)
+
     @property
     def hash_alg(self) -> str:
         """Returns the hash algorithm used for password hashing."""
@@ -193,7 +198,7 @@ class _E2Config:
             f"plugboard_size={self.plugboard_size}, "
             f"noise_size={self.noise_size}, "
             f"original_rotations={self.original_rotations}, "
-            f"start_op_index={self.start_op_index}, "
+            f"start_op_index={self.global_start_op_index}, "
             f"encoding={self.encoding!r}"
             f")"
         )
@@ -222,6 +227,10 @@ class _E2Generator:
     
     def _init_rng(self, start_index: int = 0) -> None:
         """Initializes or resets the random number generators."""
+        # Validate start index
+        if self.config.original_rotations and start_index >= self.config.btype**self.config.number_rotors:
+            raise StartOpIndexOverflowError(start_index, self.config.btype**self.config.number_rotors)
+        
         # Concepto Educativo (CSPRNG vs PRNG):
         # Los generadores por defecto de NumPy (como PCG64) son generadores pseudoaleatorios (PRNG) no criptográficos
         # optimizados para simulación estadística. Para aplicaciones criptográficas de producción, las semillas deben

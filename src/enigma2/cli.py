@@ -68,7 +68,7 @@ def cli_init_cipher(
             btype=bt,
             encoding=args.encoding,
             original_rotations=orig_rtts,
-            start_op_index=args.start_op_index,
+            global_start_op_index=args.start_op_index,
             chunk_size=args.chunk_size,
             elements_creation_params=elements_creation
         )
@@ -84,7 +84,7 @@ def cli_init_cipher(
             btype=bt,
             encoding=args.encoding,
             original_rotations=orig_rtts,
-            start_op_index=args.start_op_index,
+            global_start_op_index=args.start_op_index,
             chunk_size=args.chunk_size,
             data_compression_alg=args.compression
         )
@@ -162,14 +162,14 @@ def main() -> None:
 
         # Handle direct data input
         if cipher_operation == CipherOperation.ENCRYPT:
-            result = codec.encrypt(input_data, start_op_index=args.start_op_index)
+            result = codec.encrypt(input_data, local_start_op_index=args.start_op_index)
             print(f"Encrypted data: {result.tolist()}")
 
             if args.original_enigma:
                 print(f">> {OriginalEnigmaData.decode(result)}")
 
         elif cipher_operation == CipherOperation.DECRYPT:
-            result = codec.decrypt(input_data, start_op_index=args.start_op_index)
+            result = codec.decrypt(input_data, local_start_op_index=args.start_op_index)
             if args.output_array:
                 print(f"Decrypted data: {result.tolist()}")
             elif args.original_enigma:
@@ -180,9 +180,9 @@ def main() -> None:
     elif args.fpath:
         # Handle file input
         if cipher_operation == CipherOperation.ENCRYPT:
-            codec.encrypt_file(args.fpath, args.out_path, detect_encoding=False, start_op_index=args.start_op_index)
+            codec.encrypt_file(args.fpath, args.out_path, detect_encoding=False, local_start_op_index=args.start_op_index)
         elif cipher_operation == CipherOperation.DECRYPT:
-            codec.decrypt_file(args.fpath, args.out_path, start_op_index=args.start_op_index)
+            codec.decrypt_file(args.fpath, args.out_path, local_start_op_index=args.start_op_index)
 
     else:
         raise ValueError("Either --data or --fpath must be provided.")
