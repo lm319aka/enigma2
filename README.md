@@ -413,7 +413,8 @@ decrypted_data_p2 = enigma2_cipher.decrypt(
 print(f"Partial Decrypted: {decrypted_data_p1} {decrypted_data_p2}")
 ```
 
-##### Difference between Local and Global Start Indexes:
+##### Difference between Local and Global Start Indexes
+
 - **`global_start_op_index`**: Configured globally in the cipher parameters (`E2Params` / `_E2Params`). It sets the base reset/advance state index for the random number generators (RNG) of a `_E2` instance (and its subclasses, e.g., `E2`).
 - **`local_start_op_index`**: Passed dynamically when invoking operation methods like `encrypt` and `decrypt` (and their async/file equivalents). It specifies a local offset that is added to the `global_start_op_index` (`final_idx = global_start_op_index + local_start_op_index`). This determines the actual reset/advance position of the generators ONLY during that specific call.
 

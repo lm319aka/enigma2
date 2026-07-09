@@ -40,8 +40,20 @@ class RotorsNumberError(E2Error):
 class SeedRangeError(E2Error):
     pass
 
+class RotorOverflowError(E2Error):
+    pass
+
 class StartOpIndexError(E2ValueError):
     pass
+
+class StartOpIndexOverflowWarning(E2Warning):
+    def __init__(self, start_op_index: int, threshold: int):
+        self.start_op_index = start_op_index
+        self.threshold = threshold
+        super().__init__(self._build_message())
+
+    def _build_message(self):
+        return f"start index out of range: {self.start_op_index} >= {self.threshold}"
 
 class StartOpIndexOverflowError(StartOpIndexError):
     def __init__(self, start_op_index: int, threshold: int):

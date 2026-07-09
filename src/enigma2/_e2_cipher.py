@@ -8,7 +8,7 @@ import logging
 from .encodings_getter import encoding_dtype_map, find_file_encoding, E2Encoding#, E2EncodingModel
 from ._e2_config import _E2Config, _E2Generator
 from .model_params import E2TypesConversion
-from .e2_exceptions import StartOpIndexError, NegativeLocalStartOpIndexError
+from .e2_exceptions import StartOpIndexError, NegativeLocalStartOpIndexError, RotorOverflowError
 
 
 
@@ -118,6 +118,19 @@ class _E2:
         
         if np.any(data_array >= self.config.btype):
             raise ValueError(f"Data values must be less than {self.config.btype}")
+        
+        elif np.any(data_array < 0):
+            raise ValueError("Data values must be non-negative")
+        
+        elif data_array.size == 0:
+            raise ValueError("Data array is empty")
+        
+        elif self.config.original_rotations and data_array.size > self.config.btype**self.config.number_rotors:
+            raise RotorOverflowError(
+                f"""Data array size is greater than maximum available rotors can handle to ensure robust encryption: 
+                {data_array.size} > {self.config.btype**self.config.number_rotors}
+                """
+                )
 
         return data_array        
 
@@ -147,8 +160,7 @@ class _E2:
         # Generate rotations and noise for this specific data size
         rotations_array = self.generator.generate_rotations(
                                                 data_array.size, 
-                                                original_type=self.config.original_rotations,
-                                                initial_rotations_index=local_start_op_index
+                                                initial_rotations_index=local_start_op_index + self.config.global_start_op_index
                                                 )
         
         noise_array = self.generator.generate_noise(data_array.size)
@@ -228,8 +240,7 @@ class _E2:
 
         rotations_array = self.generator.generate_rotations(
                                                 data_array.size, 
-                                                original_type=self.config.original_rotations,
-                                                initial_rotations_index=local_start_op_index
+                                                initial_rotations_index=local_start_op_index + self.config.global_start_op_index
                                                 )
         
         noise_array = self.generator.generate_noise(data_array.size)

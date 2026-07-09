@@ -24,6 +24,8 @@ class E2(_E2):
         if not isinstance(config, E2Config):
             raise TypeError(f"config must be an instance of E2Config, not {type(config)}")
         
+        self.data_compression_alg = config.data_compression_alg
+        
         super().__init__(config)
 
     def rotor_encryption(self, data_array: np.ndarray, rotor: np.ndarray, rotation: np.ndarray) -> np.ndarray:
@@ -41,7 +43,7 @@ class E2(_E2):
         data_array = self.check_entry_data(data_array)
         if self.config.data_compression_alg is not None:
             from .compression import Compressor
-            data_array = Compressor.compress_nparray(data_array, self.config.data_compression_alg)
+            data_array = Compressor.compress_nparray(data_array, self.data_compression_alg)
         return data_array
 
     def decrypt(self, 
@@ -50,7 +52,7 @@ class E2(_E2):
         data_array = self._decrypt(data_array, local_start_op_index)
         if self.config.data_compression_alg is not None:
             from .compression import Compressor
-            data_array = Compressor.decompress_nparray(data_array, self.config.data_compression_alg)
+            data_array = Compressor.decompress_nparray(data_array, self.data_compression_alg)
         return data_array
 
     def __repr__(self) -> str:

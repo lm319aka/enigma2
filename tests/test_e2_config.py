@@ -7,7 +7,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from enigma2._e2_config import _E2Config, _E2Generator
-from enigma2.model_params import _E2Params
+from enigma2.model_params import _E2Params, _E2ElementsCreationParams
 from enigma2._e2_exceptions import (
     E2ValueError,
     NoPasswordFoundError,
@@ -15,7 +15,9 @@ from enigma2._e2_exceptions import (
     PlugboardOddSizeError,
     NoiseSizeError,
     PasswordLengthError,
-    PlugboardSizeError
+    PlugboardSizeError,
+    StartOpIndexOverflowError,
+    StartOpIndexOverflowWarning
 )
 
 class Test_E2Config(unittest.TestCase):
@@ -294,6 +296,50 @@ class Test_E2Config(unittest.TestCase):
         with self.assertRaises(ValidationError):
             _E2Params(pwd=self.pwd, data_compression_alg="gzip")
 
+    def test_forbiden_global_start_op_index(self):
+        """Verifies that using a global_start_op_index greater than maximum is forbidden."""
+        actual_btype = 100
+        primary_elements = _E2ElementsCreationParams(
+            number_rotors=3, 
+            plugboard_size=0, 
+            noise_size=0, 
+        )
+        e2_start_idx_params = _E2Params(
+            pwd=self.pwd, 
+            btype=actual_btype, 
+            dtype=np.uint8, 
+            global_start_op_index=actual_btype**primary_elements.number_rotors + 1,
+            elements_creation_params=primary_elements,
+            original_rotations=True # The warning will be raised only in original_rotations mode
+            # that is because in e2 mode rotations are created using a random number generator
+        )
+
+        with self.assertRaises(StartOpIndexOverflowError):
+            _E2Config(e2_start_idx_params)
+
+    def test_forbiden_generator_start_op_index(self):
+        """Verifies that using a global_start_op_index greater than maximum is forbidden."""
+        actual_btype = 100
+        primary_elements = _E2ElementsCreationParams(
+            number_rotors=3, 
+            plugboard_size=0, 
+            noise_size=0, 
+        )
+        e2_start_idx_params = _E2Params(
+            pwd=self.pwd, 
+            btype=actual_btype, 
+            dtype=np.uint8, 
+            global_start_op_index= 0, # actual_btype**primary_elements.number_rotors + 1,
+            elements_creation_params=primary_elements,
+            original_rotations=True # The warning will be raised only in original_rotations mode
+            # that is because in e2 mode rotations are created using a random number generator
+        )
+
+        with self.assertRaises(StartOpIndexOverflowWarning):
+            _E2Generator(e2_start_idx_params).generate_rotations(
+                rotations_size=200,
+                initial_rotations_index=actual_btype**primary_elements.number_rotors + 1
+            )
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,8 +8,9 @@ import random
 from enigma2._e2_cipher import _E2
 from enigma2._e2_config import _E2Config
 from enigma2.model_params import _E2Params
-from enigma2._e2_exceptions import E2ValueError
+from enigma2._e2_exceptions import *
 from enigma2.model_params import E2TypesConversion
+from enigma2 import create_cipher
 
 class Test_E2(unittest.TestCase):
     def setUp(self):
@@ -255,7 +256,18 @@ class Test_E2(unittest.TestCase):
         data = np.array([1, 2, 3, 4], dtype=np.uint8)
         enc = self._e2._encrypt(data)
         dec = self._e2._decrypt(enc)
-        np.testing.assert_array_equal(dec, data)
+        self.assertTrue(np.array_equal(dec, data))
+
+    def test_rotor_overflow(self):
+        """Ensures encryption raises RotorOverflowError if data is too large."""
+        original_e2_params = self._params.model_copy(update={"original_rotations": True})
+        original_e2 = create_cipher(original_e2_params)
+        rng = np.random.default_rng(42)
+        data_array = rng.integers(0, self._config.btype, 
+                                  size=self._config.btype**self._config.number_rotors + 1, # data should be too large to handle using the actual rotors without causing overflow/reset on them
+                                  dtype=self._config.dtype)
+        with self.assertRaises(RotorOverflowError):
+            original_e2.encrypt(data_array)
 
     @unittest.skip("Too slow")
     def test_cipher_all_btypes_encoding(self): # for usual checking better comment to avoid wasting a ton of time

@@ -117,8 +117,10 @@ On this document you will find the different features of past, present and futur
 
 - [X] Solve confusion between start_op_index on Params class and start_op_index on encrypt/decrypt functions
 
-- [ ] Add warning if rotors could reset to initial state due to data size
+- [X] Add warning if rotors could reset to initial state due to data size
 - [ ] Guarantee a minimum level of security (only using one or two rotors is a very insecure practice. Instead of 1-16 rotors created from hash -> 3-18)
+
+- [ ] Try to apply xor function to data (or data chunks) using an IV
 
 - [ ] verify pwd is hex
 - [ ] enable multiple pwd lengths (128, 256, 512, 1024, 2048, 4096, ...)

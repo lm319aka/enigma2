@@ -17,7 +17,10 @@ from .e2_exceptions import (
     SeedRangeError,
     PlugboardSizeError,
     NoiseSizeError,
+    StartOpIndexError,
+    NegativeLocalStartOpIndexError,
     StartOpIndexOverflowError,
+    StartOpIndexOverflowWarning
 )
 
 class _E2Config:
@@ -227,9 +230,6 @@ class _E2Generator:
     
     def _init_rng(self, start_index: int = 0) -> None:
         """Initializes or resets the random number generators."""
-        # Validate start index
-        if self.config.original_rotations and start_index >= self.config.btype**self.config.number_rotors:
-            raise StartOpIndexOverflowError(start_index, self.config.btype**self.config.number_rotors)
         
         # Concepto Educativo (CSPRNG vs PRNG):
         # Los generadores por defecto de NumPy (como PCG64) son generadores pseudoaleatorios (PRNG) no criptográficos
@@ -285,7 +285,6 @@ class _E2Generator:
 
     def generate_rotations(self, 
                          rotations_size: int, 
-                         original_type: bool = False, 
                          initial_rotations_index: int = 0) -> np.ndarray:
         """
         Generates rotation offsets for each rotor.
@@ -295,8 +294,21 @@ class _E2Generator:
         :param initial_rotations_index: Starting index for the rotations.
         :return: A 2D numpy array of rotations.
         """
+        if initial_rotations_index < 0:
+            raise NegativeLocalStartOpIndexError(initial_rotations_index)
+        
         rotations_array = np.empty(shape=(self.config.number_rotors, rotations_size), dtype=self.config.dtype)
-        if original_type:
+        if self.config.original_rotations:
+            # Validate start index
+            if initial_rotations_index >= self.config.btype**self.config.number_rotors:
+                # raise StartOpIndexOverflowError(
+                #     initial_rotations_index, 
+                #     self.config.btype**self.config.number_rotors
+                # )
+                raise StartOpIndexOverflowWarning(
+                    initial_rotations_index, 
+                    self.config.btype**self.config.number_rotors
+                )
             # Deterministic rotations like original Enigma
             indexes = np.arange(rotations_size, dtype=np.uint64) + initial_rotations_index
             for rotation_index in range(self.config.number_rotors):
