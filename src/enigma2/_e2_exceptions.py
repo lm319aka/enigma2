@@ -40,6 +40,12 @@ class RotorsNumberError(E2Error):
 class SeedRangeError(E2Error):
     pass
 
+class InvalidHashAlgorithmError(E2Error):
+    pass
+
+class HashLengthError(E2Error):
+    pass
+
 class RotorOverflowError(E2Error):
     pass
 

@@ -87,7 +87,7 @@ class testE2Config(unittest.TestCase):
 
             rotors = generator.generate_rotors()
             encryption_plugboard, decryption_plugboard = generator.generate_plugboards()
-            rotations = generator.generate_rotations(config.number_rotations, initial_rotations_index=start_index)
+            rotations = generator.generate_rotations(config.number_rotors, initial_rotations_index=start_index)
             noise = generator.generate_noise(config.noise_size)
 
             generator._init_rng(start_index)
@@ -100,7 +100,7 @@ class testE2Config(unittest.TestCase):
             self.assertTrue(np.all(encryption_plugboard == new_encryption_plugboard))
             self.assertTrue(np.all(decryption_plugboard == new_decryption_plugboard))
 
-            new_rotations = generator.generate_rotations(config.number_rotations, initial_rotations_index=start_index)
+            new_rotations = generator.generate_rotations(config.number_rotors, initial_rotations_index=start_index)
             for original_rotation, new_rotation in zip(rotations, new_rotations):
                 self.assertTrue(np.all(original_rotation == new_rotation))
 
@@ -141,7 +141,7 @@ class testE2Config(unittest.TestCase):
         self.generator._init_rng(0)
         rotations_size = 100
         rotations = self.generator.generate_rotations(rotations_size=rotations_size, initial_rotations_index=0)
-        self.assertEqual(rotations.shape, (self.config.number_rotations, rotations_size))
+        self.assertEqual(rotations.shape, (self.config.number_rotors, rotations_size))
         for rotation in rotations:
             self.assertEqual(rotation.dtype, self.config.dtype)
             self.assertEqual(rotation.size, rotations_size)

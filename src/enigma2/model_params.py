@@ -120,8 +120,8 @@ class _E2ElementsCreationParams(BaseModel):
         if value is not None:
             if value < 0:
                 raise PlugboardSizeError(f"Invalid plugboard size: {value}")
-            elif value%2 != 0:
-                raise PlugboardOddSizeError(value)
+            # elif value%2 != 0:
+            #     raise PlugboardOddSizeError(value)
         return value
 
     @field_validator("noise_size", mode="before")

@@ -15,6 +15,7 @@ from enigma2._e2_exceptions import (
     NegativeGlobalStartOpIndexError,
     NegativeLocalStartOpIndexError,
     StartOpIndexOverflowError,
+    StartOpIndexOverflowWarning,
 )
 
 class TestStartIndex(unittest.IsolatedAsyncioTestCase):
@@ -169,7 +170,7 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
             _E2Config(params_overflow)
 
     def test_original_rotations_overflow_on_operation(self):
-        """In original_rotations mode, sum of global and local index >= threshold should raise StartOpIndexOverflowError during operation."""
+        """In original_rotations mode, sum of global and local index >= threshold should raise StartOpIndexOverflowWarning during operation."""
         # Threshold: btype=100, rotors=2 => threshold = 10000
         params = _E2Params(
             global_start_op_index=9900,
@@ -181,10 +182,10 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
         data = np.arange(20, dtype=np.uint8)
 
         # G + L = 9900 + 150 = 10050 >= 10000
-        with self.assertRaises(StartOpIndexOverflowError):
+        with self.assertRaises(StartOpIndexOverflowWarning):
             cipher.encrypt(data.copy(), local_start_op_index=150)
 
-        with self.assertRaises(StartOpIndexOverflowError):
+        with self.assertRaises(StartOpIndexOverflowWarning):
             cipher.decrypt(data.copy(), local_start_op_index=100)
 
     async def test_async_operations_with_local_start_index(self):

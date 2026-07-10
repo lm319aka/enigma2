@@ -122,8 +122,8 @@ On this document you will find the different features of past, present and futur
 
 - [ ] Try to apply xor function to data (or data chunks) using an IV
 
-- [ ] verify pwd is hex
-- [ ] enable multiple pwd lengths (128, 256, 512, 1024, 2048, 4096, ...)
+- [X] verify pwd is hex
+- [ ] enable multiple pwd hash lengths (128, 256, 512, 1024, 2048, 4096, ...)
 - [ ] try to create custom hash algorithm that can match the all possible elements combinations on e2
 
 - [ ] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)

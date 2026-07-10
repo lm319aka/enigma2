@@ -7,6 +7,8 @@ from typing import Optional, Tuple, Dict, Any
 
 from .encodings_getter import E2Encoding #, E2EncodingModel
 from .model_params import _E2Params, E2TypesConversion
+from .pwd_hashing import PwdBitChainSlicer
+
 # Concepto Educativo (Namespace Pollution):
 # Importar con asterisco (`from .e2_exceptions import *`) contamina el espacio de nombres, dificulta
 # el rastreo del origen de los símbolos y previene optimizaciones de linters/analizadores estáticos.
@@ -47,14 +49,8 @@ class _E2Config:
         # Concepto Educativo: Las KDFs (Key Derivation Functions) agregan sal (salt) para evitar ataques con tablas arcoíris
         # y aplican estiramiento de claves (key stretching mediante iteraciones) para encarecer ataques de fuerza bruta.
         self.pwd: bytes = params.pwd
-        salt = hashlib.sha256(self.pwd).digest()
-        derived_key = hashlib.pbkdf2_hmac(
-            hash_name="sha512",
-            password=self.pwd,
-            salt=salt,
-            iterations=100_000
-        )
-        self.hash_pwd: str = derived_key.hex()
+        self.pwd_slicer = PwdBitChainSlicer(self.pwd)
+        self.hash_pwd: str = self.pwd_slicer.derived_key.hex()
 
         # Core encryption parameters derived from params
         self.dtype: np.dtype = np.dtype(params.dtype)
@@ -84,8 +80,6 @@ class _E2Config:
         # Final validation if not explicitly avoided
         if not self.avoid_validation:
             self._validate_derived_params()
-
-        self.number_rotations: int = self.number_rotors
 
     def _derive_params_from_hash(self) -> None:
         """
