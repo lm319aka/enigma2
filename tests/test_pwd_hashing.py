@@ -79,33 +79,31 @@ class TestPwdHashing(unittest.TestCase):
         params = slicer.slices()
         self.assertIsInstance(params, _E2ElementsCreationParams)
         
-        bitchain = slicer.get_bitchain
-        hash_len = len(bitchain)
-        seeds_number = 4
-        seeds_space_on_hash = 0.9
-        main_seeds_len = int((hash_len * seeds_space_on_hash) // seeds_number)
+        hash_name = "sha512"
+        derived_key = slicer.derived_key
+        hash_func = lambda data: hashlib.new(hash_name, data).digest()
         
-        # Replicate slices logic
-        hex_chains = []
-        for i in range(seeds_number):
-            start = i * main_seeds_len
-            end = (i + 1) * main_seeds_len
-            hex_chains.append(bitchain[start:end])
-            
-        hex_chains.append(bitchain[main_seeds_len * seeds_number:])
-            
-        expected_rotations_seed = int(hex_chains[0], 2)
-        expected_rotors_seed = int(hex_chains[1], 2)
-        expected_plugboard_seed = int(hex_chains[2], 2)
-        expected_noise_seed = int(hex_chains[3], 2)
+        seed_1_bytes = hash_func(derived_key)
+        seed_2_bytes = hash_func(seed_1_bytes)
+        seed_3_bytes = hash_func(seed_2_bytes)
+        seed_4_bytes = hash_func(seed_3_bytes)
+        seed_5_bytes = hash_func(seed_4_bytes)
+
+        expected_rotations_seed = int.from_bytes(seed_1_bytes, byteorder="big")
+        expected_rotors_seed = int.from_bytes(seed_2_bytes, byteorder="big")
+        expected_plugboard_seed = int.from_bytes(seed_3_bytes, byteorder="big")
+        expected_noise_seed = int.from_bytes(seed_4_bytes, byteorder="big")
+
+        seed_5_bitchain = "".join([f"{byte:08b}" for byte in seed_5_bytes])
+        hash_len = len(seed_5_bitchain)
         
         from math import log2
         end_idx_number_rotors = hash_len // 128
         end_idx_plugboard_size = int(log2(btype // 2)) + end_idx_number_rotors
         
-        expected_number_rotors = int(hex_chains[4][0:end_idx_number_rotors], 2) + 3
-        expected_plugboard_size = int(hex_chains[4][end_idx_number_rotors:end_idx_plugboard_size], 2)
-        expected_noise_size = int(hex_chains[4][end_idx_plugboard_size:], 2)
+        expected_number_rotors = int(seed_5_bitchain[0:end_idx_number_rotors], 2) + 3
+        expected_plugboard_size = int(seed_5_bitchain[end_idx_number_rotors:end_idx_plugboard_size], 2)
+        expected_noise_size = int(seed_5_bitchain[end_idx_plugboard_size:], 2)
         
         self.assertEqual(params.rotations_seed, expected_rotations_seed)
         self.assertEqual(params.rotors_seed, expected_rotors_seed)
@@ -150,15 +148,9 @@ class TestPwdHashing(unittest.TestCase):
         local_btype = 100
         for hash_alg in hbl._hash_algorithms:
             hash_len: int = HashBitesLength()[hash_alg]
-            seeds_number: int = 4
-            seeds_space_on_hash: float = 0.9
-            main_seeds_len: int = int((hash_len * seeds_space_on_hash) // seeds_number)
-
             max_number_rotors = 2**(hash_len // 128) + 3
 
-            log2_max_noise_size = (hash_len - (main_seeds_len * 4)) - (hash_len // 128) - int(log2(local_btype//2))
-
-            # max_noise_size = 2**log2_max_noise_size
+            log2_max_noise_size = hash_len - (hash_len // 128) - int(log2(local_btype//2))
 
             for _ in range(10):
                 pwd = os.urandom(32)
@@ -169,15 +161,14 @@ class TestPwdHashing(unittest.TestCase):
                         hash_alg=hash_alg,
                     )
                 except ValueError:
-                    # print(hash_alg)
                     continue
                 params = slicer.slices()
                 
-                # Use bit_length() to prevent math domain error when value is 0
-                self.assertTrue(params.rotations_seed.bit_length() <= main_seeds_len)
-                self.assertTrue(params.rotors_seed.bit_length() <= main_seeds_len)
-                self.assertTrue(params.plugboard_seed.bit_length() <= main_seeds_len)
-                self.assertTrue(params.noise_seed.bit_length() <= main_seeds_len)
+                # Under Proposal 2, seeds are full hash digests
+                self.assertTrue(params.rotations_seed.bit_length() <= hash_len)
+                self.assertTrue(params.rotors_seed.bit_length() <= hash_len)
+                self.assertTrue(params.plugboard_seed.bit_length() <= hash_len)
+                self.assertTrue(params.noise_seed.bit_length() <= hash_len)
                 
                 self.assertTrue(3 <= params.number_rotors <= max_number_rotors)
                 self.assertTrue(0 <= params.plugboard_size <= local_btype//2)

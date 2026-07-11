@@ -78,8 +78,13 @@ class PwdBitChainSlicer:
 
     @property
     def get_max_noise_size(self) -> int:
-        return 2**(self.__hash_len - (self.__main_seeds_len * 4)) - (self.__hash_len // 128) - int(log2(self.__btype//2))
+        remaining_bits = self.__hash_len - (self.__hash_len // 128) - int(log2(self.__btype//2))
+        return 2**remaining_bits
     
+    @property
+    def get_hash_len(self) -> int:
+        return self.__hash_len
+
     def __generate_bitchain(self) -> str:
         return "".join([f"{byte:08b}" for byte in self.derived_key])
     
@@ -87,38 +92,43 @@ class PwdBitChainSlicer:
 
         elements_creation_params = _E2ElementsCreationParams()
 
-        # Split hash into chains for different parameters
-        hex_chains = []
-        for i in range(self.__seeds_number):
-            start = i * self.__main_seeds_len
-            end = (i + 1) * self.__main_seeds_len # if (i + 1) < self.__seeds_number else len(self.__bitchain)
-            hex_chains.append(self.__bitchain[start:end])
-
-        hex_chains.append(self.__bitchain[
-            self.__main_seeds_len * self.__seeds_number:
-        ])
+        # Successive chained hashing (Proposal 2)
+        # seed_1 = Hash(derived_key)
+        # seed_2 = Hash(seed_1)
+        # seed_3 = Hash(seed_2)
+        # seed_4 = Hash(seed_3)
+        # seed_5 = Hash(seed_4)
+        
+        hash_func = lambda data: hashlib.new(self.__hash_alg, data).digest()
+        
+        seed_1_bytes = hash_func(self.derived_key)
+        seed_2_bytes = hash_func(seed_1_bytes)
+        seed_3_bytes = hash_func(seed_2_bytes)
+        seed_4_bytes = hash_func(seed_3_bytes)
+        seed_5_bytes = hash_func(seed_4_bytes)
 
         # Assign seeds from hash chains if they were not provided in params
         if elements_creation_params.rotations_seed is None:
-            elements_creation_params.rotations_seed = int(hex_chains[0], 2)
+            elements_creation_params.rotations_seed = int.from_bytes(seed_1_bytes, byteorder="big")
         if elements_creation_params.rotors_seed is None:
-            elements_creation_params.rotors_seed = int(hex_chains[1], 2)
+            elements_creation_params.rotors_seed = int.from_bytes(seed_2_bytes, byteorder="big")
         if elements_creation_params.plugboard_seed is None:
-            elements_creation_params.plugboard_seed = int(hex_chains[2], 2)
+            elements_creation_params.plugboard_seed = int.from_bytes(seed_3_bytes, byteorder="big")
         if elements_creation_params.noise_seed is None:
-            elements_creation_params.noise_seed = int(hex_chains[3], 2)
+            elements_creation_params.noise_seed = int.from_bytes(seed_4_bytes, byteorder="big")
         
-        # Optional parameters derived from the last part of the hash
-        # Since hex_chains[4] contains bits, 4 bits represent 1 hex character (0-15)
-
+        # Optional parameters derived from the last part of the hash (seed_5)
+        seed_5_bitchain = "".join([f"{byte:08b}" for byte in seed_5_bytes])
+        
         end_idx_number_rotors = self.__hash_len // 128
         end_idx_plugboard_size = int(log2(self.__btype//2)) + end_idx_number_rotors
 
         if elements_creation_params.number_rotors is None:
-            elements_creation_params.number_rotors = int(hex_chains[4][0:end_idx_number_rotors], 2) + 3
+            elements_creation_params.number_rotors = int(seed_5_bitchain[0:end_idx_number_rotors], 2) + 3
         if elements_creation_params.plugboard_size is None:
-            elements_creation_params.plugboard_size = int(hex_chains[4][end_idx_number_rotors:end_idx_plugboard_size], 2)
+            elements_creation_params.plugboard_size = int(seed_5_bitchain[end_idx_number_rotors:end_idx_plugboard_size], 2)
         if elements_creation_params.noise_size is None:
-            elements_creation_params.noise_size = int(hex_chains[4][end_idx_plugboard_size:], 2)
+            noise_part = seed_5_bitchain[end_idx_plugboard_size:]
+            elements_creation_params.noise_size = int(noise_part, 2) if noise_part else 0
 
         return elements_creation_params

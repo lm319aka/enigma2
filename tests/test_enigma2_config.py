@@ -48,34 +48,31 @@ class testE2Config(unittest.TestCase):
         pwd_hash = derived_key.hex()
         self.assertEqual(self.config.hash_pwd, pwd_hash)
 
-        # Correctly derive expected values from hash using bitchain slicing (as in PwdBitChainSlicer)
-        bitchain = "".join([f"{byte:08b}" for byte in derived_key])
-        hash_len = len(bitchain)
-        seeds_number = 4
-        seeds_space_on_hash = 0.9
-        main_seeds_len = int((hash_len * seeds_space_on_hash) // seeds_number)
+        # Chained hashing expected values (Proposal 2)
+        hash_func = lambda data: hashlib.new(hash_name, data).digest()
         
-        hex_chains = []
-        for i in range(seeds_number):
-            start = i * main_seeds_len
-            end = (i + 1) * main_seeds_len
-            hex_chains.append(bitchain[start:end])
-            
-        hex_chains.append(bitchain[main_seeds_len * seeds_number:])
-            
-        expected_rotations_seed = int(hex_chains[0], 2)
-        expected_rotors_seed = int(hex_chains[1], 2)
-        expected_plugboard_seed = int(hex_chains[2], 2)
-        expected_noise_seed = int(hex_chains[3], 2)
+        seed_1_bytes = hash_func(derived_key)
+        seed_2_bytes = hash_func(seed_1_bytes)
+        seed_3_bytes = hash_func(seed_2_bytes)
+        seed_4_bytes = hash_func(seed_3_bytes)
+        seed_5_bytes = hash_func(seed_4_bytes)
+
+        expected_rotations_seed = int.from_bytes(seed_1_bytes, byteorder="big")
+        expected_rotors_seed = int.from_bytes(seed_2_bytes, byteorder="big")
+        expected_plugboard_seed = int.from_bytes(seed_3_bytes, byteorder="big")
+        expected_noise_seed = int.from_bytes(seed_4_bytes, byteorder="big")
+
+        seed_5_bitchain = "".join([f"{byte:08b}" for byte in seed_5_bytes])
+        hash_len = len(seed_5_bitchain)
         
         from math import log2
         btype = self.config.btype
         end_idx_number_rotors = hash_len // 128
         end_idx_plugboard_size = int(log2(btype // 2)) + end_idx_number_rotors
         
-        expected_number_rotors = int(hex_chains[4][0:end_idx_number_rotors], 2) + 3
-        expected_plugboard_size = int(hex_chains[4][end_idx_number_rotors:end_idx_plugboard_size], 2)
-        expected_noise_size = int(hex_chains[4][end_idx_plugboard_size:], 2)
+        expected_number_rotors = int(seed_5_bitchain[0:end_idx_number_rotors], 2) + 3
+        expected_plugboard_size = int(seed_5_bitchain[end_idx_number_rotors:end_idx_plugboard_size], 2)
+        expected_noise_size = int(seed_5_bitchain[end_idx_plugboard_size:], 2)
 
         self.assertEqual(self.config.rotations_seed, expected_rotations_seed)
         self.assertEqual(self.config.rotors_seed, expected_rotors_seed)

@@ -105,7 +105,7 @@ class _E2Config:
             raise RotorsNumberError(f"Number of rotors must be in range (1, {self.pwd_slicer.get_number_rotors_range[1]}): {self.number_rotors}")
         
         # Seed range checks based on the expected length from hash chains
-        max_seed_val = 2**self.pwd_slicer.get_main_seeds_len
+        max_seed_val = 2**self.pwd_slicer.get_hash_len
         if not (max_seed_val > self.rotations_seed >= 0):
             raise SeedRangeError(f"Rotations seed out of range: {self.rotations_seed}")
         if not (max_seed_val > self.rotors_seed >= 0):
