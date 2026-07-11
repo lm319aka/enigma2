@@ -188,13 +188,13 @@ def find_encoding(data: bytes) -> str:
         return file_encoding
     raise NoEncodingMatchFoundError(f"Could not find encoding for data: {data}")
 
-def find_file_encoding(obj: Union[str, Path]) -> str:
+def find_file_encoding(obj: Union[str, Path], chunk_len: int = 32768) -> str:
     """
     finds the encoding in which the file data is encoded
     """
     if os.path.exists(obj) and os.path.isfile(obj):
         with open(obj, 'rb') as f:
-            data = f.read(32768) # we don't need to read all the file to find the encoding, 32k is enough
+            data = f.read(chunk_len) # we don't need to read all the file to find the encoding, 32k is enough
     else:
         raise FileNotFoundError(f"File {obj} does not exist")
     

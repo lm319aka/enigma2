@@ -183,5 +183,15 @@ class TestPwdHashing(unittest.TestCase):
                 self.assertTrue(0 <= params.plugboard_size <= local_btype//2)
                 self.assertTrue(params.noise_size.bit_length() <= log2_max_noise_size)
 
+    def test_pwd_slicer_large_btype_overflow(self):
+        """
+        Triggers Bug 1.1: Slicing index overflow on large btype and/or small hash_len.
+        This test will fail/crash on the original buggy implementation and pass once fixed.
+        """
+        pwd = b"test_password"
+        slicer = PwdBitChainSlicer(pwd, btype=2**32, hash_alg="pbkdf2_sha256")
+        params = slicer.slices()
+        self.assertIsNotNone(params.noise_size)
+
 if __name__ == "__main__":
     unittest.main()

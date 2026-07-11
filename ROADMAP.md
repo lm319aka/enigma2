@@ -118,12 +118,12 @@ On this document you will find the different features of past, present and futur
 - [X] Solve confusion between start_op_index on Params class and start_op_index on encrypt/decrypt functions
 
 - [X] Add warning if rotors could reset to initial state due to data size
-- [ ] Guarantee a minimum level of security (only using one or two rotors is a very insecure practice. Instead of 1-16 rotors created from hash -> 3-18)
+- [X] Guarantee a minimum level of security (only using one or two rotors is a very insecure practice. Instead of 1-16 rotors created from hash -> 3-18)
 
 - [ ] Try to apply xor function to data (or data chunks) using an IV
 
 - [X] verify pwd is hex
-- [ ] enable multiple pwd hash lengths (128, 256, 512, 1024, 2048, 4096, ...)
+- [X] enable multiple pwd hash lengths (128, 256, 512, 1024, 2048, 4096, ...)
 - [ ] try to create custom hash algorithm that can match the all possible elements combinations on e2
 
 - [ ] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
@@ -143,6 +143,17 @@ On this document you will find the different features of past, present and futur
 
 - [ ] modify README.md to include all the new features
 - [ ] TODO: create installable enigma.exe (it can be executed everywhere on windows pc)
+
+- [ ] **Code Review & Performance Audit (from code_report_2026-07-11.md):**
+  - [ ] Fix Slicing Index crash in `PwdBitChainSlicer.slices()` on large `btype` and/or small `hash_len` configurations (handles empty subcadena safely).
+  - [ ] Implement secure random Initialization Vector (IV) generation to prevent Keystream Reuse (depth vulnerability).
+  - [ ] Shift from deterministic KDF salt (`SHA256(pwd)`) to cryptographically secure random salts stored in metadata/file header.
+  - [ ] Fix potential `ValueError` crash in `Compressor.compress_nparray` by treating compressed arrays as raw `np.uint8` bytes.
+  - [ ] Implement the missing `chunk_size` file encryption/decryption streaming logic to avoid loading entire files into memory.
+  - [ ] Eliminate CPU/memory bottleneck in `generate_noise` by replacing `noise_rng.choice(np.arange(size))` with `noise_rng.integers(0, size)`.
+  - [ ] Implement chunk-based processing to avoid generating massive random rotation arrays for large files.
+  - [ ] Pre-allocate temporary buffers and optimize `mod_sub` in `_E2` class base arithmetic to avoid repetitive memory allocation and casting.
+  - [ ] Optimize encoding auto-detection in `encrypt_file` by sampling only a partial prefix (e.g. 32 KB) instead of reading the entire file.
 
 ### Statistics
 
