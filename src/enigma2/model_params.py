@@ -149,6 +149,7 @@ class _E2Params(BaseModel):
     verbose: bool = False
     log_path: Optional[Union[Path, str]] = None
     chunk_size: Optional[PositiveInt] = None
+    hash_algorithm: str = "sha3_512"
     
     @field_validator("pwd", mode="before")
     @classmethod

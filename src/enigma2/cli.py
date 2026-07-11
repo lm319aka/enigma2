@@ -70,7 +70,8 @@ def cli_init_cipher(
             original_rotations=orig_rtts,
             global_start_op_index=args.start_op_index,
             chunk_size=args.chunk_size,
-            elements_creation_params=elements_creation
+            elements_creation_params=elements_creation,
+            hash_algorithm=args.hash_alg
         )
         
         config = _E2Config(config_params)
@@ -86,7 +87,8 @@ def cli_init_cipher(
             original_rotations=orig_rtts,
             global_start_op_index=args.start_op_index,
             chunk_size=args.chunk_size,
-            data_compression_alg=args.compression
+            data_compression_alg=args.compression,
+            hash_algorithm=args.hash_alg
         )
 
         config = E2Config(config_params)
@@ -116,6 +118,7 @@ def main() -> None:
     parser.add_argument("--original-enigma", action="store_true", help="Use original Enigma machine settings (3 fixed rotors, plugboard, original rotations, fixed password, no noise)")
     parser.add_argument("--chunk-size", type=int, default=None, help="Data chunk size for file encryption/decryption")
     parser.add_argument("--compression", type=str, default=None, choices=["gzip", "bz2", "lzma", "zlib"], help="Enable compression with given algorithm (gzip, bz2, lzma, zlib)")
+    parser.add_argument("--hash-alg", type=str, default="sha3_512", help="Hash algorithm to use for password hashing")
 
     # Parse command-line arguments
     args = parser.parse_args()

@@ -19,6 +19,7 @@ class PwdBitChainSlicer:
     def __init__(
             self, 
             pwd_bytes: bytes,
+            btype: int,
             hash_alg: str = "pbkdf2_sha512", # KDF algorithm identifier
             hash_iterations:int = 100_000
         ):
@@ -32,6 +33,7 @@ class PwdBitChainSlicer:
 
         self.__pwd_bytes = pwd_bytes
         self.__hash_alg = real_hash_alg
+        self.__btype = btype
 
         salt = hashlib.sha256(pwd_bytes).digest()
         self.derived_key = hashlib.pbkdf2_hmac(
@@ -51,17 +53,37 @@ class PwdBitChainSlicer:
             raise HashLengthError(f"Hash length must be at least {MIN_HASH_LEN} bits: {self.__hash_len} < {MIN_HASH_LEN}")
 
     @property
+    def get_seeds_number(self) -> int:
+        return self.__seeds_number
+    
+    @property
+    def get_main_seeds_len(self) -> int:
+        return self.__main_seeds_len
+    
+    @property
     def get_original_pwd(self) -> bytes:
         return self.__pwd_bytes
     
     @property
     def get_bitchain(self) -> str:
         return self.__bitchain
+    
+    @property
+    def get_max_plugboard_len(self) -> int:
+        return self.__btype//2
+    
+    @property
+    def get_number_rotors_range(self) -> tuple[int, int]:
+        return 3, 2**(self.__hash_len // 128)
 
+    @property
+    def get_max_noise_size(self) -> int:
+        return 2**(self.__hash_len - (self.__main_seeds_len * 4)) - (self.__hash_len // 128) - int(log2(self.__btype//2))
+    
     def __generate_bitchain(self) -> str:
         return "".join([f"{byte:08b}" for byte in self.derived_key])
     
-    def slices(self, btype: int) -> _E2ElementsCreationParams:
+    def slices(self) -> _E2ElementsCreationParams:
 
         elements_creation_params = _E2ElementsCreationParams()
 
@@ -90,7 +112,7 @@ class PwdBitChainSlicer:
         # Since hex_chains[4] contains bits, 4 bits represent 1 hex character (0-15)
 
         end_idx_number_rotors = self.__hash_len // 128
-        end_idx_plugboard_size = int(log2(btype//2)) + end_idx_number_rotors
+        end_idx_plugboard_size = int(log2(self.__btype//2)) + end_idx_number_rotors
 
         if elements_creation_params.number_rotors is None:
             elements_creation_params.number_rotors = int(hex_chains[4][0:end_idx_number_rotors], 2) + 3

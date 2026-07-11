@@ -33,7 +33,7 @@ class TestPwdHashing(unittest.TestCase):
     def test_pwd_bit_chain_slicer_init_and_properties(self):
         """Test PwdBitChainSlicer initialization and properties."""
         pwd = b"mysecretpassword"
-        slicer = PwdBitChainSlicer(pwd)
+        slicer = PwdBitChainSlicer(pwd, 256)
         
         # Check original password property
         self.assertEqual(slicer.get_original_pwd, pwd)
@@ -57,25 +57,26 @@ class TestPwdHashing(unittest.TestCase):
         pwd = b"mysecretpassword"
         
         # Valid algorithms (standard and pbkdf2-prefixed)
-        slicer_sha256 = PwdBitChainSlicer(pwd, hash_alg="sha256")
+        slicer_sha256 = PwdBitChainSlicer(pwd, btype=256, hash_alg="sha256")
         self.assertEqual(len(slicer_sha256.derived_key), 32)
         self.assertEqual(len(slicer_sha256.get_bitchain), 256)
         
-        slicer_pbkdf2_sha256 = PwdBitChainSlicer(pwd, hash_alg="pbkdf2_sha256")
+        slicer_pbkdf2_sha256 = PwdBitChainSlicer(pwd, 256, hash_alg="pbkdf2_sha256")
         self.assertEqual(len(slicer_pbkdf2_sha256.derived_key), 32)
         self.assertEqual(len(slicer_pbkdf2_sha256.get_bitchain), 256)
         
         # Invalid algorithm
         with self.assertRaises(InvalidHashAlgorithmError):
-            PwdBitChainSlicer(pwd, hash_alg="invalid_algorithm_name")
+            PwdBitChainSlicer(pwd, 256, hash_alg="invalid_algorithm_name")
 
     def test_pwd_bit_chain_slicer_slices(self):
         """Test slicing logic of PwdBitChainSlicer."""
         pwd = b"secure_password_123"
-        slicer = PwdBitChainSlicer(pwd, hash_alg="pbkdf2_sha512")
-        
         btype = 256
-        params = slicer.slices(btype)
+
+        slicer = PwdBitChainSlicer(pwd, btype, hash_alg="pbkdf2_sha512")
+        
+        params = slicer.slices()
         self.assertIsInstance(params, _E2ElementsCreationParams)
         
         bitchain = slicer.get_bitchain
@@ -119,13 +120,13 @@ class TestPwdHashing(unittest.TestCase):
         pwd1 = b"password_one"
         pwd2 = b"password_two"
         
-        slicer1_a = PwdBitChainSlicer(pwd1)
-        slicer1_b = PwdBitChainSlicer(pwd1)
-        slicer2 = PwdBitChainSlicer(pwd2)
+        slicer1_a = PwdBitChainSlicer(pwd1, 256)
+        slicer1_b = PwdBitChainSlicer(pwd1, 256)
+        slicer2 = PwdBitChainSlicer(pwd2, 256)
         
-        params1_a = slicer1_a.slices(256)
-        params1_b = slicer1_b.slices(256)
-        params2 = slicer2.slices(256)
+        params1_a = slicer1_a.slices()
+        params1_b = slicer1_b.slices()
+        params2 = slicer2.slices()
         
         # Deterministic check
         self.assertEqual(params1_a.rotations_seed, params1_b.rotations_seed)
@@ -140,6 +141,7 @@ class TestPwdHashing(unittest.TestCase):
         self.assertNotEqual(slicer1_a.derived_key, slicer2.derived_key)
         self.assertNotEqual(params1_a.rotations_seed, params2.rotations_seed)
 
+    # @unittest.skip("Too slow")
     def test_pwd_slicer_params_are_in_range(self):
         """Test that sliced parameters are within valid ranges."""
         import os
@@ -163,12 +165,13 @@ class TestPwdHashing(unittest.TestCase):
                 try:
                     slicer = PwdBitChainSlicer(
                         pwd_bytes=pwd,
+                        btype=local_btype,
                         hash_alg=hash_alg,
                     )
                 except ValueError:
-                    print(hash_alg)
+                    # print(hash_alg)
                     continue
-                params = slicer.slices(local_btype)
+                params = slicer.slices()
                 
                 # Use bit_length() to prevent math domain error when value is 0
                 self.assertTrue(params.rotations_seed.bit_length() <= main_seeds_len)

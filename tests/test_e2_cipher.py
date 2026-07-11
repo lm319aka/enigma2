@@ -269,7 +269,7 @@ class Test_E2(unittest.TestCase):
         with self.assertRaises(RotorOverflowError):
             original_e2.encrypt(data_array)
 
-    @unittest.skip("Too slow")
+    # @unittest.skip("Too slow")
     def test_cipher_all_btypes_encoding(self): # for usual checking better comment to avoid wasting a ton of time
         """
         Tests identity across different supported dtypes and encodings with every possible 
@@ -289,6 +289,7 @@ class Test_E2(unittest.TestCase):
         local_pwd = "testpassword"
         for c, (uint_dtype, encoding) in enumerate(zip(all_valid_dtypes, dtypes_valid_encodings)):
             for local_btype in range(8, E2TypesConversion.dtype2btype(uint_dtype) + 1, 2):
+                print(c, local_btype)
                 local_config_data = {
                     "pwd": local_pwd.encode(encoding),
                     "btype": local_btype,  # Custom odd btype
