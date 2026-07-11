@@ -51,28 +51,37 @@ class testE2Config(unittest.TestCase):
         # Chained hashing expected values (Proposal 2)
         hash_func = lambda data: hashlib.new(hash_name, data).digest()
         
-        seed_1_bytes = hash_func(derived_key)
-        seed_2_bytes = hash_func(seed_1_bytes)
-        seed_3_bytes = hash_func(seed_2_bytes)
-        seed_4_bytes = hash_func(seed_3_bytes)
-        seed_5_bytes = hash_func(seed_4_bytes)
+        seed_1_bytes = hash_func(derived_key + b"rotations_seed")
+        seed_2_bytes = hash_func(seed_1_bytes + b"rotors_seed")
+        seed_3_bytes = hash_func(seed_2_bytes + b"plugboard_seed")
+        seed_4_bytes = hash_func(seed_3_bytes + b"noise_seed")
+        seed_5_bytes = hash_func(seed_4_bytes + b"number_rotors")
+        seed_6_bytes = hash_func(seed_5_bytes + b"plugboard_size")
+        seed_7_bytes = hash_func(seed_6_bytes + b"noise_size")
 
         expected_rotations_seed = int.from_bytes(seed_1_bytes, byteorder="big")
         expected_rotors_seed = int.from_bytes(seed_2_bytes, byteorder="big")
         expected_plugboard_seed = int.from_bytes(seed_3_bytes, byteorder="big")
         expected_noise_seed = int.from_bytes(seed_4_bytes, byteorder="big")
 
-        seed_5_bitchain = "".join([f"{byte:08b}" for byte in seed_5_bytes])
+        def generate_bitchain(key: bytes) -> str:
+            return "".join([f"{byte:08b}" for byte in key])
+
+        seed_5_bitchain = generate_bitchain(seed_5_bytes)
+        seed_6_bitchain = generate_bitchain(seed_6_bytes)
+        seed_7_bitchain = generate_bitchain(seed_7_bytes)
         hash_len = len(seed_5_bitchain)
         
         from math import log2
         btype = self.config.btype
         end_idx_number_rotors = hash_len // 128
-        end_idx_plugboard_size = int(log2(btype // 2)) + end_idx_number_rotors
+        end_idx_plugboard_size = int(log2(btype // 2))
+        max_noise_size = 2**(int(log2(hash_len)) * 2)
+        end_idx_noise_size = int(log2(max_noise_size))
         
-        expected_number_rotors = int(seed_5_bitchain[0:end_idx_number_rotors], 2) + 3
-        expected_plugboard_size = int(seed_5_bitchain[end_idx_number_rotors:end_idx_plugboard_size], 2)
-        expected_noise_size = int(seed_5_bitchain[end_idx_plugboard_size:], 2)
+        expected_number_rotors = int(seed_5_bitchain[:end_idx_number_rotors], 2) + 3
+        expected_plugboard_size = int(seed_6_bitchain[:end_idx_plugboard_size], 2)
+        expected_noise_size = int(seed_7_bitchain[:end_idx_noise_size], 2)
 
         self.assertEqual(self.config.rotations_seed, expected_rotations_seed)
         self.assertEqual(self.config.rotors_seed, expected_rotors_seed)

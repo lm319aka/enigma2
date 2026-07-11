@@ -105,7 +105,7 @@ class _E2Config:
             raise RotorsNumberError(f"Number of rotors must be in range (1, {self.pwd_slicer.get_number_rotors_range[1]}): {self.number_rotors}")
         
         # Seed range checks based on the expected length from hash chains
-        max_seed_val = 2**self.pwd_slicer.get_hash_len
+        max_seed_val = 2**self.pwd_slicer.get_hash_bit_len
         if not (max_seed_val > self.rotations_seed >= 0):
             raise SeedRangeError(f"Rotations seed out of range: {self.rotations_seed}")
         if not (max_seed_val > self.rotors_seed >= 0):
@@ -115,9 +115,8 @@ class _E2Config:
         if not (max_seed_val > self.plugboard_seed >= 0):
             raise SeedRangeError(f"Plugboard seed out of range: {self.plugboard_seed}")
         
-        max_plugboard = self.btype // 2
-        if not (max_plugboard >= self.plugboard_size >= 0):
-            raise PlugboardSizeError(f"Plugboard size must be in range [0, {max_plugboard}]: {self.plugboard_size}")
+        if not (self.pwd_slicer.get_max_plugboard_len >= self.plugboard_size >= 0):
+            raise PlugboardSizeError(f"Plugboard size must be in range [0, {self.pwd_slicer.get_max_plugboard_len}]: {self.plugboard_size}")
         
         # Noise size range check
         # len_noise_size_hash_part = len(self.hash_pwd[self.__main_seeds_len*4 + 2:])
@@ -127,16 +126,6 @@ class _E2Config:
         # Check global start index overflow in original rotations mode
         if self.original_rotations and self.global_start_op_index >= self.btype**self.number_rotors:
             raise StartOpIndexOverflowError(self.global_start_op_index, self.btype**self.number_rotors)
-     
-    @property
-    def main_seeds_len(self) -> int:
-        """Returns the length of the chains used for seed derivation."""
-        return self.__main_seeds_len
-     
-    @property
-    def seeds_number(self) -> int:
-        """Returns the number of seeds derived from the hash."""
-        return self.__seeds_number
           
     def dump_json(self, path: str | Path) -> None:
         """Saves the configuration to a JSON file."""
@@ -153,7 +142,7 @@ class _E2Config:
     def copy(self) -> "_E2Config":
         return self.__class__(self.params.model_copy())
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other: "_E2Config") -> bool:
         if type(self) is not type(other):
             return False
         return self.params == other.params

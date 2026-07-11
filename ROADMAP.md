@@ -145,15 +145,15 @@ On this document you will find the different features of past, present and futur
 - [ ] TODO: create installable enigma.exe (it can be executed everywhere on windows pc)
 
 - [ ] **Code Review & Performance Audit (from code_report_2026-07-11.md):**
-  - [ ] Fix Slicing Index crash in `PwdBitChainSlicer.slices()` on large `btype` and/or small `hash_len` configurations (handles empty subcadena safely).
+  - [X] Fix Slicing Index crash in `PwdBitChainSlicer.slices()` on large `btype` and/or small `hash_len` configurations (handles empty subcadena safely).
   - [ ] Implement secure random Initialization Vector (IV) generation to prevent Keystream Reuse (depth vulnerability).
   - [ ] Shift from deterministic KDF salt (`SHA256(pwd)`) to cryptographically secure random salts stored in metadata/file header.
-  - [ ] Fix potential `ValueError` crash in `Compressor.compress_nparray` by treating compressed arrays as raw `np.uint8` bytes.
+  - [x] Fix potential `ValueError` crash in `Compressor.compress_nparray` by treating compressed arrays as raw `np.uint8` bytes.
   - [ ] Implement the missing `chunk_size` file encryption/decryption streaming logic to avoid loading entire files into memory.
   - [ ] Eliminate CPU/memory bottleneck in `generate_noise` by replacing `noise_rng.choice(np.arange(size))` with `noise_rng.integers(0, size)`.
   - [ ] Implement chunk-based processing to avoid generating massive random rotation arrays for large files.
   - [ ] Pre-allocate temporary buffers and optimize `mod_sub` in `_E2` class base arithmetic to avoid repetitive memory allocation and casting.
-  - [ ] Optimize encoding auto-detection in `encrypt_file` by sampling only a partial prefix (e.g. 32 KB) instead of reading the entire file.
+  - [X] Optimize encoding auto-detection in `encrypt_file` by sampling only a partial prefix (e.g. 32 KB) instead of reading the entire file.
 
 ### Statistics
 

@@ -4,6 +4,7 @@ from ..utils._e2_exceptions import *
 from math import log2
 
 MIN_HASH_LEN: int = 64
+MIN_NUMBER_ROTORS: int = 3
 
 class HashBitesLength:
     def __init__(self):
@@ -43,7 +44,7 @@ class PwdBitChainSlicer:
             iterations=hash_iterations
         )
 
-        self.__bitchain = self.__generate_bitchain()
+        self.__bitchain = self.generate_bitchain(self.derived_key)
         self.__seeds_number: int = 4
         self.__seeds_space_on_hash: float = 0.9
         self.__main_seeds_len: int = int((len(self.__bitchain) * self.__seeds_space_on_hash) // self.__seeds_number)
@@ -74,19 +75,18 @@ class PwdBitChainSlicer:
     
     @property
     def get_number_rotors_range(self) -> tuple[int, int]:
-        return 3, 2**(self.__hash_len // 128)
+        return MIN_NUMBER_ROTORS, 2**(self.__hash_len // 128) + MIN_NUMBER_ROTORS
 
     @property
     def get_max_noise_size(self) -> int:
-        remaining_bits = self.__hash_len - (self.__hash_len // 128) - int(log2(self.__btype//2))
-        return 2**remaining_bits
+        return 2**(int(log2(self.__hash_len)) * 2)
     
     @property
-    def get_hash_len(self) -> int:
+    def get_hash_bit_len(self) -> int:
         return self.__hash_len
 
-    def __generate_bitchain(self) -> str:
-        return "".join([f"{byte:08b}" for byte in self.derived_key])
+    def generate_bitchain(self, key: bytes) -> str:
+        return "".join([f"{byte:08b}" for byte in key])
     
     def slices(self) -> _E2ElementsCreationParams:
 
@@ -101,11 +101,14 @@ class PwdBitChainSlicer:
         
         hash_func = lambda data: hashlib.new(self.__hash_alg, data).digest()
         
-        seed_1_bytes = hash_func(self.derived_key)
-        seed_2_bytes = hash_func(seed_1_bytes)
-        seed_3_bytes = hash_func(seed_2_bytes)
-        seed_4_bytes = hash_func(seed_3_bytes)
-        seed_5_bytes = hash_func(seed_4_bytes)
+        # Adding a little bit of salt to each hash iteration
+        seed_1_bytes = hash_func(self.derived_key + b"rotations_seed")
+        seed_2_bytes = hash_func(seed_1_bytes + b"rotors_seed")
+        seed_3_bytes = hash_func(seed_2_bytes + b"plugboard_seed")
+        seed_4_bytes = hash_func(seed_3_bytes + b"noise_seed")
+        seed_5_bytes = hash_func(seed_4_bytes + b"number_rotors")
+        seed_6_bytes = hash_func(seed_5_bytes + b"plugboard_size")
+        seed_7_bytes = hash_func(seed_6_bytes + b"noise_size")
 
         # Assign seeds from hash chains if they were not provided in params
         if elements_creation_params.rotations_seed is None:
@@ -117,18 +120,20 @@ class PwdBitChainSlicer:
         if elements_creation_params.noise_seed is None:
             elements_creation_params.noise_seed = int.from_bytes(seed_4_bytes, byteorder="big")
         
-        # Optional parameters derived from the last part of the hash (seed_5)
-        seed_5_bitchain = "".join([f"{byte:08b}" for byte in seed_5_bytes])
+        # Size parameters derived from the last part of the hash (seed_5)
+        seed_5_bitchain = self.generate_bitchain(seed_5_bytes)
+        seed_6_bitchain = self.generate_bitchain(seed_6_bytes)
+        seed_7_bitchain = self.generate_bitchain(seed_7_bytes)
         
         end_idx_number_rotors = self.__hash_len // 128
-        end_idx_plugboard_size = int(log2(self.__btype//2)) + end_idx_number_rotors
+        end_idx_plugboard_size = int(log2(self.get_max_plugboard_len))
+        end_idx_noise_size = int(log2(self.get_max_noise_size))
 
         if elements_creation_params.number_rotors is None:
-            elements_creation_params.number_rotors = int(seed_5_bitchain[0:end_idx_number_rotors], 2) + 3
+            elements_creation_params.number_rotors = int(seed_5_bitchain[:end_idx_number_rotors], 2) + MIN_NUMBER_ROTORS
         if elements_creation_params.plugboard_size is None:
-            elements_creation_params.plugboard_size = int(seed_5_bitchain[end_idx_number_rotors:end_idx_plugboard_size], 2)
+            elements_creation_params.plugboard_size = int(seed_6_bitchain[:end_idx_plugboard_size], 2)
         if elements_creation_params.noise_size is None:
-            noise_part = seed_5_bitchain[end_idx_plugboard_size:]
-            elements_creation_params.noise_size = int(noise_part, 2) if noise_part else 0
+            elements_creation_params.noise_size = int(seed_7_bitchain[:end_idx_noise_size], 2)
 
         return elements_creation_params

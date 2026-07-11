@@ -35,7 +35,6 @@ pip install "git+https://github.com/lm319aka/enigma2.git"
 ## What's New in v2.4.2
 
 - **Constructor Initialization Signature Refactor**: Replaced KDF overhead by initializing primary classes (`E2`, `_E2`, `E2Async`, `_E2Async`) directly with parameter objects (`E2Params` / `_E2Params`) instead of configuration objects. Configuration is now evaluated once internally. Generators (`E2Generator` / `_E2Generator`) are initialized directly with `Config` objects. This eliminates double KDF calculations, achieving a **~50% startup speedup**.
-- **Chained Hashing Key Derivation (Proposal 2)**: Solved index slicing out-of-bounds crash (Bug 1.1) in `PwdBitChainSlicer` by implementing chained hashing for key/seed derivation, ensuring robust parameter extraction for all keys/block types.
 - **Directory Structure Reorganization**: Grouped modules into clear subpackages to scale development and improve codebase readability:
   - `core/` for cipher engine worker classes.
   - `config/` for validation models and configuration builders.
