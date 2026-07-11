@@ -44,51 +44,59 @@ pip install "git+https://github.com/lm319aka/enigma2.git"
 
 ## Project Structure & Organization
 
-Enigma2's source code is organized into dedicated subpackages as shown below:
+Enigma2's source code and test suite are organized symmetrically into dedicated subpackages:
 
 ```
-src/enigma2/
-├── __init__.py             # Package entrypoint and create_cipher factory
-├── __main__.py             # Executable entrypoint for python -m enigma2
-├── cli.py                  # Command-line interface definition and parsing
-├── config/                 # Configuration and parameter management
-│   ├── __init__.py
-│   ├── _e2_config.py       # Core configuration validation and RNG generator setup
-│   ├── enigma2_config.py   # Public E2Config and E2Generator classes
-│   └── model_params.py     # Pydantic parameter definitions (E2Params, _E2Params)
-├── core/                   # Main cipher engine logic
-│   ├── __init__.py
-│   ├── _e2_async_cipher.py # Base asynchronous cipher worker class
-│   ├── _e2_cipher.py       # Base synchronous cipher worker class
-│   ├── enigma2_async_cipher.py # Public E2Async class with native compression
-│   └── enigma2_cipher.py   # Public E2 class with native compression
-├── hashing/                # Cryptographic hashing & key derivation
-│   ├── __init__.py
-│   └── pwd_hashing.py      # Password hashing & seed slicing (PwdBitChainSlicer)
-└── utils/                  # Core utility modules and helpers
+enigma2/
+├── src/enigma2/            # Production source code
+│   ├── __init__.py         # Package entrypoint and create_cipher factory
+│   ├── __main__.py         # Executable entrypoint for python -m enigma2
+│   ├── cli.py              # Command-line interface definition and parsing
+│   ├── config/             # Configuration and parameter management
+│   │   ├── __init__.py
+│   │   ├── _e2_config.py   # Core config validation and RNG generator setup
+│   │   ├── enigma2_config.py # Public E2Config and E2Generator classes
+│   │   └── model_params.py # Pydantic parameter definitions (E2Params, _E2Params)
+│   ├── core/               # Main cipher engine logic
+│   │   ├── __init__.py
+│   │   ├── _e2_async_cipher.py # Base asynchronous cipher worker class
+│   │   ├── _e2_cipher.py   # Base synchronous cipher worker class
+│   │   ├── enigma2_async_cipher.py # Public E2Async class with native compression
+│   │   └── enigma2_cipher.py # Public E2 class with native compression
+│   ├── hashing/            # Cryptographic hashing & key derivation
+│   │   ├── __init__.py
+│   │   └── pwd_hashing.py  # Password hashing & seed slicing (PwdBitChainSlicer)
+│   └── utils/              # Core utility modules and helpers
+│       ├── __init__.py
+│       ├── _e2_exceptions.py # Base exception classes
+│       ├── compression.py  # Native compression wrapper interface
+│       ├── e2_exceptions.py # Type-mismatch exceptions
+│       └── encodings_getter.py # Encodings helper with automatic chardet sampling
+└── tests/                  # Symmetrical test suite mirroring src/
     ├── __init__.py
-    ├── _e2_exceptions.py   # Base exception classes
-    ├── compression.py      # Native compression wrapper interface
-    ├── e2_exceptions.py    # Type-mismatch exceptions
-    └── encodings_getter.py # Encodings helper with automatic chardet sampling
+    ├── cli/                # Command-line integration tests
+    │   ├── __init__.py
+    │   └── test_enigma2_cli.py
+    ├── config/             # Configuration validation and parameter tests
+    │   ├── __init__.py
+    │   ├── test_e2_config.py
+    │   └── test_enigma2_config.py
+    ├── core/               # Main cipher logic and RNG index tests
+    │   ├── __init__.py
+    │   ├── test_e2_cipher.py
+    │   ├── test_enigma2_async_cipher.py
+    │   ├── test_enigma2_cipher.py
+    │   └── test_start_index.py
+    └── hashing/            # Key derivation and slicing logic tests
+        ├── __init__.py
+        └── test_pwd_hashing.py
 ```
 
-- **`core/`**: Houses the main encryption/decryption engines (`_E2`, `E2`, and their asynchronous equivalents `_E2Async`, `E2Async`), containing the rotor path tracing and data mapping algorithms.
-- **`config/`**: Contains the configurations and Pydantic validation parameters. `model_params.py` handles input parsing and constraints, while configuration generators validate dependencies.
-- **`hashing/`**: Dedicated to seed generation and password key derivation function (KDF) stretching.
-- **`utils/`**: Groups auxiliary components like compression, custom exception classes, and character set encoding detectors.
-
-## What's New in v2.4.1
-
-- **Refactored `copy` and `__eq__` Methods**: Replaced duplicate methods with a single class-generic implementation (`self.__class__`) in base classes (`_E2Config`, `_E2Generator`, `_E2`). Subclasses inherit them automatically, and a bug in `_E2Generator.copy` was resolved.
-- **Separated CLI Logic**: Extracted command-line interface logic from `enigma2_cipher.py` into a dedicated [cli.py](file:///C:/CODE_FOLDER/enigma2/src/enigma2/cli.py) module, keeping core cipher classes focused.
-- **New CLI Flags**:
-  - `--original-enigma`: Emulates the original Enigma machine setup (3 fixed rotors, plugboard, Enigma-style rotations, fixed password, no noise, no `--pwd` flag required).
-  - `--chunk-size`: Set custom block size for file operations.
-  - `--compression`: Enable compression with native algorithms (`gzip`, `bz2`, `lzma`, `zlib`).
-- **Decoupled Compression**: Shifted validation and execution of compression from raw `_E2`/`_E2Params` to the high-level `E2`/`E2Params`, restricting compression strictly to perfect `btypes`.
-- **Global and Local Start Index Distinction**: Separated the start operation index concept into `global_start_op_index` (configured at the instance level via parameters) and `local_start_op_index` (passed dynamically when calling encryption/decryption methods to reset RNG offset locally).
-- **Method Cleanups**: Renamed lower-level encrypt/decrypt methods to `_encrypt`/`_decrypt`, and exposed clean `encrypt`/`decrypt` delegator methods.
+- **`core`**: Houses the main encryption/decryption engines (`_E2`, `E2`, and their asynchronous equivalents `_E2Async`, `E2Async`), containing the rotor path tracing and data mapping algorithms, along with their unit tests.
+- **`config`**: Contains the configurations and Pydantic validation parameters. `model_params.py` handles input parsing and constraints, while configuration generators validate dependencies, with their corresponding parameter verification tests.
+- **`hashing`**: Dedicated to seed generation and password key derivation function (KDF) stretching, and tests covering all corner cases.
+- **`utils`**: Groups auxiliary components like compression, custom exception classes, and character set encoding detectors.
+- **`cli`**: Handles CLI flag parsing, execution logic, and integration tests.
 
 ## BACKGROUND: THE ORIGINAL ENIGMA
 

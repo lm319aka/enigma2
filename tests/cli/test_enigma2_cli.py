@@ -12,7 +12,7 @@ class TestEnigma2CLI(unittest.TestCase):
         # When running with subprocess, we pass the current env updated with PYTHONPATH="src"
         self.env = os.environ.copy()
         # Get absolute path to the project root directory
-        self.project_root = Path(__file__).parent.parent.resolve()
+        self.project_root = Path(__file__).parent.parent.parent.resolve()
         self.tests_path = self.project_root / "tests"
         self.testing_files_path = str(self.tests_path / "testing_files")
         src_path = str(self.project_root / "src")
