@@ -27,15 +27,13 @@ def create_cipher(config_or_params: Any, async_mode: bool = False) -> Union[E2, 
     :return: An initialized cipher engine instance.
     """
     if isinstance(config_or_params, E2Config):
-        return E2Async(config_or_params) if async_mode else E2(config_or_params)
+        return E2Async(config_or_params.params) if async_mode else E2(config_or_params.params)
     elif isinstance(config_or_params, _E2Config):
-        return _E2Async(config_or_params) if async_mode else _E2(config_or_params)
+        return _E2Async(config_or_params.params) if async_mode else _E2(config_or_params.params)
     elif isinstance(config_or_params, E2Params):
-        cfg = E2Config(config_or_params)
-        return E2Async(cfg) if async_mode else E2(cfg)
+        return E2Async(config_or_params) if async_mode else E2(config_or_params)
     elif isinstance(config_or_params, _E2Params):
-        cfg = _E2Config(config_or_params)
-        return _E2Async(cfg) if async_mode else _E2(cfg)
+        return _E2Async(config_or_params) if async_mode else _E2(config_or_params)
     else:
         raise TypeError(f"Invalid config_or_params type: {type(config_or_params)}")
 

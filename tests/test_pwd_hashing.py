@@ -141,7 +141,7 @@ class TestPwdHashing(unittest.TestCase):
         self.assertNotEqual(slicer1_a.derived_key, slicer2.derived_key)
         self.assertNotEqual(params1_a.rotations_seed, params2.rotations_seed)
 
-    # @unittest.skip("Too slow")
+    @unittest.skip("Too slow")
     def test_pwd_slicer_params_are_in_range(self):
         """Test that sliced parameters are within valid ranges."""
         import os

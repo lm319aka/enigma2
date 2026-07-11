@@ -179,14 +179,14 @@ class _E2Generator:
     using the provided configuration and random number generators.
     """
 
-    def __init__(self, params: _E2Params) -> None:
+    def __init__(self, config: _E2Config) -> None:
         """
-        Initialize E2Generator with parameters.
+        Initialize E2Generator with configuration.
 
-        :param params: E2Params object containing the configuration.
+        :param config: _E2Config object containing the configuration.
         """
-        self.params = params
-        self.config = _E2Config(params)
+        self.config = config
+        self.params = config.params
         
         self.pwd: bytes = self.config.pwd
         self.hash_pwd_bytes: bytes = bytes.fromhex(self.config.hash_pwd)
@@ -355,7 +355,7 @@ class _E2Generator:
         return reversed_rotor
     
     def copy(self) -> "_E2Generator":
-        return self.__class__(self.params.model_copy())
+        return self.__class__(self.config.copy())
 
     def __eq__(self, other: object) -> bool:
         if type(self) is not type(other):

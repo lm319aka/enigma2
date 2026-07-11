@@ -28,7 +28,7 @@ class TestE2Async(unittest.IsolatedAsyncioTestCase):
         }
         self.params = E2Params(**self.config_data)
         self.config = E2Config(self.params)
-        self.e2_async = E2Async(config=self.config)
+        self.e2_async = E2Async(params=self.params)
 
         # Custom odd btype configuration for _E2Async
         self.odd_config_data = {
@@ -47,7 +47,7 @@ class TestE2Async(unittest.IsolatedAsyncioTestCase):
         }
         self.odd_params = _E2Params(**self.odd_config_data)
         self.odd_config = _E2Config(self.odd_params)
-        self._e2_async = _E2Async(config=self.odd_config)
+        self._e2_async = _E2Async(params=self.odd_params)
 
     async def test_e2_async_encrypt_decrypt_identity(self):
         """Verifies encrypt/decrypt identity asynchronously for E2Async."""

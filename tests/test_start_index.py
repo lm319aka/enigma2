@@ -65,8 +65,7 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
         # Perfect btype
         data_perfect = np.arange(50, dtype=np.uint8)
         params_perfect = E2Params(global_start_op_index=15, **self.config_data_perfect)
-        config_perfect = E2Config(params_perfect)
-        cipher_perfect = E2(config_perfect)
+        cipher_perfect = E2(params_perfect)
 
         enc_perfect = cipher_perfect.encrypt(data_perfect.copy())
         dec_perfect = cipher_perfect.decrypt(enc_perfect.copy())
@@ -75,8 +74,7 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
         # Odd btype
         data_odd = np.arange(50, dtype=np.uint8)
         params_odd = _E2Params(global_start_op_index=45, **self.config_data_odd)
-        config_odd = _E2Config(params_odd)
-        cipher_odd = _E2(config_odd)
+        cipher_odd = _E2(params_odd)
 
         enc_odd = cipher_odd.encrypt(data_odd.copy())
         dec_odd = cipher_odd.decrypt(enc_odd.copy())
@@ -87,8 +85,7 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
         # Perfect btype
         data_perfect = np.arange(50, dtype=np.uint8)
         params_perfect = E2Params(global_start_op_index=0, **self.config_data_perfect)
-        config_perfect = E2Config(params_perfect)
-        cipher_perfect = E2(config_perfect)
+        cipher_perfect = E2(params_perfect)
 
         enc_perfect = cipher_perfect.encrypt(data_perfect.copy(), local_start_op_index=25)
         dec_perfect = cipher_perfect.decrypt(enc_perfect.copy(), local_start_op_index=25)
@@ -97,8 +94,7 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
         # Odd btype
         data_odd = np.arange(50, dtype=np.uint8)
         params_odd = _E2Params(global_start_op_index=0, **self.config_data_odd)
-        config_odd = _E2Config(params_odd)
-        cipher_odd = _E2(config_odd)
+        cipher_odd = _E2(params_odd)
 
         enc_odd = cipher_odd.encrypt(data_odd.copy(), local_start_op_index=75)
         dec_odd = cipher_odd.decrypt(enc_odd.copy(), local_start_op_index=75)
@@ -112,17 +108,17 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
 
         # Case 1: global = G, local = L
         params1 = E2Params(global_start_op_index=G, **self.config_data_perfect)
-        cipher1 = E2(E2Config(params1))
+        cipher1 = E2(params1)
         enc1 = cipher1.encrypt(data.copy(), local_start_op_index=L)
 
         # Case 2: global = 0, local = G + L
         params2 = E2Params(global_start_op_index=0, **self.config_data_perfect)
-        cipher2 = E2(E2Config(params2))
+        cipher2 = E2(params2)
         enc2 = cipher2.encrypt(data.copy(), local_start_op_index=G + L)
 
         # Case 3: global = G + L, local = 0
         params3 = E2Params(global_start_op_index=G + L, **self.config_data_perfect)
-        cipher3 = E2(E2Config(params3))
+        cipher3 = E2(params3)
         enc3 = cipher3.encrypt(data.copy(), local_start_op_index=0)
 
         # All ciphertexts must be exactly identical
@@ -147,7 +143,7 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
     def test_negative_local_index(self):
         """Verify that a negative local_start_op_index raises NegativeLocalStartOpIndexError."""
         params_perfect = E2Params(global_start_op_index=0, **self.config_data_perfect)
-        cipher_perfect = E2(E2Config(params_perfect))
+        cipher_perfect = E2(params_perfect)
         data = np.arange(20, dtype=np.uint8)
 
         with self.assertRaises(NegativeLocalStartOpIndexError):
@@ -178,7 +174,7 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
             **self.config_data_odd
         )
         config = _E2Config(params)
-        cipher = _E2(config)
+        cipher = _E2(params)
         data = np.arange(20, dtype=np.uint8)
 
         # G + L = 9900 + 150 = 10050 >= 10000
@@ -192,7 +188,7 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
         """Verify that async ciphers work correctly with custom local_start_op_index."""
         # E2Async (perfect btype)
         params_perfect = E2Params(global_start_op_index=10, **self.config_data_perfect)
-        cipher_async = E2Async(E2Config(params_perfect))
+        cipher_async = E2Async(params_perfect)
         data_perfect = np.arange(30, dtype=np.uint8)
 
         enc_perfect = await cipher_async.encrypt_async(data_perfect.copy(), local_start_op_index=5)
@@ -201,7 +197,7 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
 
         # _E2Async (odd btype)
         params_odd = _E2Params(global_start_op_index=20, **self.config_data_odd)
-        _cipher_async = _E2Async(_E2Config(params_odd))
+        _cipher_async = _E2Async(params_odd)
         data_odd = np.arange(30, dtype=np.uint8)
 
         enc_odd = await _cipher_async.encrypt_async(data_odd.copy(), local_start_op_index=15)
@@ -211,8 +207,8 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
     async def test_file_operations_with_local_start_index(self):
         """Verify that sync and async file operations work correctly with local_start_op_index."""
         params = E2Params(global_start_op_index=5, **self.config_data_perfect)
-        cipher = E2(E2Config(params))
-        cipher_async = E2Async(E2Config(params))
+        cipher = E2(params)
+        cipher_async = E2Async(params)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)

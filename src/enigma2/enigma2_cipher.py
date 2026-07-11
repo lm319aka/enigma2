@@ -4,6 +4,7 @@ from typing import Union
 
 from ._e2_cipher import _E2
 from .enigma2_config import E2Config
+from .model_params import E2Params
 
 # Setup logging
 logging.Logger(__name__).addHandler(logging.NullHandler())
@@ -15,18 +16,18 @@ class E2(_E2):
     Main Enigma2 class for encryption and decryption of data and files.
     """
 
-    def __init__(self, config: E2Config) -> None:
+    def __init__(self, params: E2Params) -> None:
         """
-        Initialize E2 with a configuration object.
+        Initialize E2 with a parameters object.
 
-        :param config: An instance of E2Config containing the operational parameters.
+        :param params: An instance of E2Params containing the operational parameters.
         """
-        if not isinstance(config, E2Config):
-            raise TypeError(f"config must be an instance of E2Config, not {type(config)}")
+        if not isinstance(params, E2Params):
+            raise TypeError(f"params must be an instance of E2Params, not {type(params)}")
         
-        self.data_compression_alg = config.data_compression_alg
+        self.data_compression_alg = params.data_compression_alg
         
-        super().__init__(config)
+        super().__init__(params)
 
     def rotor_encryption(self, data_array: np.ndarray, rotor: np.ndarray, rotation: np.ndarray) -> np.ndarray:
         """Applies a single rotor encryption step."""

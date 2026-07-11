@@ -314,8 +314,7 @@ params = E2Params(
 cipher_sync: E2 = create_cipher(params, async_mode=False) # True to initialize asynchronous cipher instance
 
 # # Could be initialized from E2:
-# config = E2Config(params)
-# cipher_sync = E2(config)
+# cipher_sync = E2(params)
 ```
 
 ### 2. Synchronous Encryption & Decryption (`E2`)
@@ -535,8 +534,7 @@ params = _E2Params(
 _sync_cipher = e2.create_cipher(params) # create synchronous raw e2 cipher
 
 # Another way to create raw _E2 cipher
-# config = _E2Config(params)
-# _sync_cipher = _E2(config)
+# _sync_cipher = _E2(params)
 
 print(_sync_cipher)
 def_rng = np.random.default_rng(1234)

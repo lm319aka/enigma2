@@ -30,7 +30,7 @@ class TestE2(unittest.TestCase):
         }
         self.params = E2Params(**self.config_data)
         self.config = E2Config(self.params)
-        self.e2 = E2(config=self.config)
+        self.e2 = E2(params=self.params)
         self.testing_files_path = Path(__file__).parent / "testing_files"
 
     def test_random_key_generation(self):
@@ -78,7 +78,7 @@ class TestE2(unittest.TestCase):
         """Verifies identity when using original Enigma-style rotations."""
         params_orig = self.params.model_copy(update={"original_rotations": True})
         config_orig = E2Config(params_orig)
-        e2_original = E2(config=config_orig)
+        e2_original = E2(params=params_orig)
         data = np.arange(20, dtype=e2_original.config.dtype)
         encrypted_original = e2_original.encrypt(data.copy())
         decrypted_original = e2_original.decrypt(encrypted_original.copy())
@@ -122,7 +122,7 @@ class TestE2(unittest.TestCase):
             }
             params = E2Params(**config_data)
             config = E2Config(params)    
-            e2 = E2(config=config)
+            e2 = E2(params=params)
             
             random_rng = np.random.default_rng(42)
             data = random_rng.integers(0, config.btype, size=20, dtype=config.dtype)

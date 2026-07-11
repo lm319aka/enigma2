@@ -32,7 +32,7 @@ class Test_E2Config(unittest.TestCase):
         # Use _E2Params for initialization with odd btype
         self.params = _E2Params(pwd=self.pwd, btype=100, dtype=np.uint8)
         self.config = _E2Config(self.params)
-        self.generator = _E2Generator(self.params)
+        self.generator = _E2Generator(self.config)
 
     def test_pydantic_params_integration(self):
         """
@@ -44,9 +44,9 @@ class Test_E2Config(unittest.TestCase):
         self.assertEqual(config.number_rotors, 3)
         self.assertEqual(config.btype, 150)
         
-        generator = _E2Generator(params)
+        generator = _E2Generator(config)
         self.assertEqual(generator.pwd, self.pwd)
-        self.assertEqual(generator.config.params, params)
+        self.assertEqual(generator.config, config)
 
     def test_btype_validation_edge_cases(self):
         """Tests custom btype validation specific to _E2Params."""
@@ -164,7 +164,7 @@ class Test_E2Config(unittest.TestCase):
         }
         params = _E2Params(**config_dict)
         config = _E2Config(params)
-        generator = _E2Generator(params)
+        generator = _E2Generator(config)
         
         for _ in range(5):
             start_index = random.randint(0, config.btype)
@@ -249,7 +249,7 @@ class Test_E2Config(unittest.TestCase):
 
         # 2. plugboard_size = 0 case
         params_zero = _E2Params(pwd=self.pwd, btype=100, dtype=np.uint8, elements_creation_params={"plugboard_size": 0})
-        generator_zero = _E2Generator(params_zero)
+        generator_zero = _E2Generator(_E2Config(params_zero))
         plug_zero, rev_plug_zero = generator_zero.generate_plugboards()
         np.testing.assert_array_equal(plug_zero, np.arange(100, dtype=np.uint8))
         np.testing.assert_array_equal(rev_plug_zero, np.arange(100, dtype=np.uint8))
@@ -258,19 +258,19 @@ class Test_E2Config(unittest.TestCase):
         # For btype=10, max plugboard_size is 5. We test plugboard_size = 6 (which is even).
         params_oob = _E2Params(pwd=self.pwd, btype=10, dtype=np.uint8, elements_creation_params={"plugboard_size": 6})
         with self.assertRaises(PlugboardSizeError):
-            _E2Generator(params_oob)
+            _E2Config(params_oob)
 
     def test_E2Generator_generate_noise_edge_cases(self):
         """Tests noise generation logic including no-noise and noise wrapping."""
         # 1. noise_size = 0
         params_no_noise = _E2Params(pwd=self.pwd, btype=100, dtype=np.uint8, elements_creation_params={"noise_size": 0})
-        generator_no_noise = _E2Generator(params_no_noise)
+        generator_no_noise = _E2Generator(_E2Config(params_no_noise))
         noise = generator_no_noise.generate_noise(50)
         np.testing.assert_array_equal(noise, np.zeros(50, dtype=np.uint8))
 
         # 2. noise_size > size (should trigger noise_size reduction to data size)
         params_large_noise = _E2Params(pwd=self.pwd, btype=100, dtype=np.uint8, elements_creation_params={"noise_size": 60})
-        generator_large_noise = _E2Generator(params_large_noise)
+        generator_large_noise = _E2Generator(_E2Config(params_large_noise))
         # size is 50, actual_noise_size = 50
         noise_large = generator_large_noise.generate_noise(50)
         self.assertEqual(noise_large.shape, (50,))
@@ -359,7 +359,7 @@ class Test_E2Config(unittest.TestCase):
         )
 
         with self.assertRaises(StartOpIndexOverflowWarning):
-            _E2Generator(e2_start_idx_params).generate_rotations(
+            _E2Generator(_E2Config(e2_start_idx_params)).generate_rotations(
                 rotations_size=200,
                 initial_rotations_index=actual_btype**primary_elements.number_rotors + 1
             )

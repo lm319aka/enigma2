@@ -75,11 +75,10 @@ def cli_init_cipher(
             hash_algorithm=args.hash_alg
         )
         
-        config = _E2Config(config_params)
         print("Config params _E2 (raw E2):")
         for p in config_params.__dict__:
             print(f"{p}: {getattr(config_params, p)}")
-        codec = _E2(config)
+        codec = _E2(config_params)
     else:
         config_params = E2Params(
             pwd=pwd_bytes,
@@ -92,11 +91,10 @@ def cli_init_cipher(
             hash_algorithm=args.hash_alg
         )
 
-        config = E2Config(config_params)
         print("Config params E2:")
         for p in config_params.__dict__:
             print(f"{p}: {getattr(config_params, p)}")
-        codec = E2(config)
+        codec = E2(config_params)
 
     return codec
 

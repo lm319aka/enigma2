@@ -19,8 +19,8 @@ class testE2Config(unittest.TestCase):
         self.params = E2Params(pwd=self.pwd)
         self.config = E2Config(self.params)
         
-        # Generator also takes params now
-        self.generator = E2Generator(self.params)
+        # Generator takes config now
+        self.generator = E2Generator(self.config)
 
     def test_pydantic_params_integration(self):
         """
@@ -31,10 +31,10 @@ class testE2Config(unittest.TestCase):
         self.assertEqual(config.pwd, self.pwd)
         self.assertEqual(config.number_rotors, 3)
         
-        generator = E2Generator(params)
+        generator = E2Generator(config)
         self.assertEqual(generator.pwd, self.pwd)
         # generator.config.params because it wraps it
-        self.assertEqual(generator.config.params, params)
+        self.assertEqual(generator.config, config)
 
     def test_pwd_hash_parsing(self):
         self.generator._init_rng(0)
@@ -102,7 +102,7 @@ class testE2Config(unittest.TestCase):
         }
         params = E2Params(**config_dict)
         config = E2Config(params)
-        generator = E2Generator(params)
+        generator = E2Generator(config)
         
         for _ in range(5):
             start_index = random.randint(0, config.btype)

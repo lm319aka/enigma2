@@ -7,7 +7,7 @@ import logging
 
 from .encodings_getter import encoding_dtype_map, find_file_encoding, E2Encoding#, E2EncodingModel
 from ._e2_config import _E2Config, _E2Generator
-from .model_params import E2TypesConversion
+from .model_params import _E2Params, E2Params, E2TypesConversion
 from .e2_exceptions import StartOpIndexError, NegativeLocalStartOpIndexError, RotorOverflowError
 
 
@@ -33,25 +33,29 @@ class _E2:
     Enigma2 class for encryption and decryption of data and files with odd btypes.
     """
 
-    def __init__(self, config: _E2Config) -> None:
+    def __init__(self, params: _E2Params) -> None:
         """
-        Initialize E2 with a configuration object.
+        Initialize E2 with a parameters object.
 
-        :param config: An instance of E2Config containing the operational parameters.
+        :param params: An instance of _E2Params containing the operational parameters.
         """
-        if not isinstance(config, _E2Config):
-            raise TypeError(f"config must be an instance of E2Config, not {type(config)}")
+        if not isinstance(params, _E2Params):
+            raise TypeError(f"params must be an instance of _E2Params, not {type(params)}")
         
-        self.config = config
+        if isinstance(params, E2Params):
+            from .enigma2_config import E2Config
+            self.config = E2Config(params)
+        else:
+            self.config = _E2Config(params)
         
-        # Initialize the generator with params from config
-        self.generator = _E2Generator(self.config.params)
+        # Initialize the generator with config
+        self.generator = _E2Generator(self.config)
         
         # Configure logging based on verbosity setting
-        if config.verbose:
+        if self.config.verbose:
             logging.basicConfig(
                 level=logging.INFO,
-                filename=config.log_path if config.log_path is not None else None,
+                filename=self.config.log_path if self.config.log_path is not None else None,
                 format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
                 datefmt="%Y-%m-%d %H:%M:%S"
             )
@@ -301,7 +305,7 @@ class _E2:
         return output_path
     
     def copy(self) -> "_E2":
-        return self.__class__(self.config.copy())
+        return self.__class__(self.config.params.model_copy())
     
     def __eq__(self, other: object) -> bool:
         if type(self) is not type(other):

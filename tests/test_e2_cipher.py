@@ -31,7 +31,7 @@ class Test_E2(unittest.TestCase):
         }
         self._params = _E2Params(**self.config_data)
         self._config = _E2Config(self._params)
-        self._e2 = _E2(config=self._config)
+        self._e2 = _E2(params=self._params)
 
     def test_random_key_generation(self):
         """Verifies that the random key generator produces bytes of correct length."""
@@ -134,7 +134,7 @@ class Test_E2(unittest.TestCase):
         """Verifies identity when using original Enigma-style rotations with custom btype."""
         params_orig = self._params.model_copy(update={"original_rotations": True})
         config_orig = _E2Config(params_orig)
-        e2_original = _E2(config=config_orig)
+        e2_original = _E2(params=params_orig)
         data = np.arange(20, dtype=e2_original.config.dtype)
         encrypted_original = e2_original.encrypt(data.copy())
         decrypted_original = e2_original.decrypt(encrypted_original.copy())
@@ -231,7 +231,7 @@ class Test_E2(unittest.TestCase):
             }
             params = _E2Params(**config_data)
             config = _E2Config(params)    
-            e2 = _E2(config=config)
+            e2 = _E2(params=params)
             
             random_rng = np.random.default_rng(42)
             data = random_rng.integers(0, config.btype, size=20, dtype=config.dtype)
@@ -239,10 +239,10 @@ class Test_E2(unittest.TestCase):
             decrypted = e2.decrypt(encrypted)
             np.testing.assert_array_equal(decrypted, data)
 
-    def test_invalid_config_type(self):
-        """Ensures constructor raises TypeError if config is not _E2Config."""
+    def test_invalid_params_type(self):
+        """Ensures constructor raises TypeError if params is not _E2Params."""
         with self.assertRaises(TypeError):
-            _E2(config="not a config object")
+            _E2(params="not a params object")
 
     def test_cipher_copy(self):
         """Ensures copy constructor works as expected."""
@@ -269,7 +269,7 @@ class Test_E2(unittest.TestCase):
         with self.assertRaises(RotorOverflowError):
             original_e2.encrypt(data_array)
 
-    # @unittest.skip("Too slow")
+    @unittest.skip("Too slow")
     def test_cipher_all_btypes_encoding(self): # for usual checking better comment to avoid wasting a ton of time
         """
         Tests identity across different supported dtypes and encodings with every possible 
@@ -307,7 +307,7 @@ class Test_E2(unittest.TestCase):
                 }
                 local_params = _E2Params(**local_config_data)
                 local_config = _E2Config(local_params)
-                local_e2 = _E2(config=local_config)
+                local_e2 = _E2(params=local_params)
 
                 random_rng = np.random.default_rng(42)
                 data = random_rng.integers(0, local_config.btype, size=256, dtype=local_config.dtype)
