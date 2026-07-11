@@ -5,11 +5,10 @@ import tempfile
 import os
 import random
 
-from enigma2._e2_cipher import _E2
-from enigma2._e2_config import _E2Config
-from enigma2.model_params import _E2Params
-from enigma2._e2_exceptions import *
-from enigma2.model_params import E2TypesConversion
+from enigma2.core._e2_cipher import _E2
+from enigma2.config._e2_config import _E2Config
+from enigma2.config.model_params import _E2Params, E2TypesConversion
+from enigma2.utils._e2_exceptions import *
 from enigma2 import create_cipher
 
 class Test_E2(unittest.TestCase):

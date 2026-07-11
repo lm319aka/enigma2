@@ -1,8 +1,8 @@
 import unittest
 import hashlib
-from enigma2.pwd_hashing import HashBitesLength, PwdBitChainSlicer
-from enigma2._e2_exceptions import InvalidHashAlgorithmError
-from enigma2.model_params import _E2ElementsCreationParams
+from enigma2.hashing.pwd_hashing import HashBitesLength, PwdBitChainSlicer
+from enigma2.utils._e2_exceptions import InvalidHashAlgorithmError
+from enigma2.config.model_params import _E2ElementsCreationParams
 
 class TestPwdHashing(unittest.TestCase):
 

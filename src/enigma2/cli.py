@@ -3,14 +3,13 @@ from enum import Enum
 import re
 import numpy as np
 
-from .model_params import _E2ElementsCreationParams
-from ._e2_cipher import _E2
-from ._e2_config import _E2Config
-from .enigma2_config import E2Config
-from .enigma2_cipher import E2
-from .model_params import E2Params, _E2Params, E2TypesConversion
-from .encodings_getter import encoding_dtype_map
-from .pwd_hashing import HashBitesLength
+from .config.model_params import _E2ElementsCreationParams, E2Params, _E2Params, E2TypesConversion
+from .core._e2_cipher import _E2
+from .config._e2_config import _E2Config
+from .config.enigma2_config import E2Config
+from .core.enigma2_cipher import E2
+from .utils.encodings_getter import encoding_dtype_map
+from .hashing.pwd_hashing import HashBitesLength
 
 
 class CipherOperation(Enum):

@@ -2,11 +2,11 @@ import unittest
 import numpy as np
 import tempfile
 from pathlib import Path
-from enigma2._e2_async_cipher import _E2Async
-from enigma2.enigma2_async_cipher import E2Async
-from enigma2._e2_config import _E2Config
-from enigma2.enigma2_config import E2Config
-from enigma2.model_params import _E2Params, E2Params
+from enigma2.core._e2_async_cipher import _E2Async
+from enigma2.core.enigma2_async_cipher import E2Async
+from enigma2.config._e2_config import _E2Config
+from enigma2.config.enigma2_config import E2Config
+from enigma2.config.model_params import _E2Params, E2Params
 
 class TestE2Async(unittest.IsolatedAsyncioTestCase):
     def setUp(self):

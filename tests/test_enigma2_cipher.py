@@ -4,10 +4,10 @@ import os
 from pathlib import Path
 import random
 
-from enigma2.enigma2_cipher import E2
-from enigma2.enigma2_config import E2Config
-from enigma2.model_params import E2Params
-from enigma2.compression import Compressor
+from enigma2.core.enigma2_cipher import E2
+from enigma2.config.enigma2_config import E2Config
+from enigma2.config.model_params import E2Params
+from enigma2.utils.compression import Compressor
 from enigma2 import create_cipher
 
 class TestE2(unittest.TestCase):

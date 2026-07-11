@@ -1,6 +1,6 @@
 import hashlib
-from .model_params import _E2ElementsCreationParams
-from ._e2_exceptions import *
+from ..config.model_params import _E2ElementsCreationParams
+from ..utils._e2_exceptions import *
 from math import log2
 
 MIN_HASH_LEN: int = 64

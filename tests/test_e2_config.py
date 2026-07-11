@@ -6,9 +6,9 @@ import tempfile
 from pathlib import Path
 from pydantic import ValidationError
 
-from enigma2._e2_config import _E2Config, _E2Generator
-from enigma2.model_params import _E2Params, _E2ElementsCreationParams
-from enigma2._e2_exceptions import (
+from enigma2.config._e2_config import _E2Config, _E2Generator
+from enigma2.config.model_params import _E2Params, _E2ElementsCreationParams
+from enigma2.utils._e2_exceptions import (
     E2ValueError,
     NoPasswordFoundError,
     PasswordEncodingMismatchError,

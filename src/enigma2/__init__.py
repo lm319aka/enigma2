@@ -8,14 +8,14 @@ warnings.filterwarnings(
     message=".*found in sys.modules after import of package.*"
 )
 
-from ._e2_cipher import _E2
-from .enigma2_cipher import E2
-from ._e2_async_cipher import _E2Async
-from .enigma2_async_cipher import E2Async
-from .encodings_getter import encoding_dtype_map, find_encoding
-from ._e2_config import _E2Config, _E2Generator
-from .enigma2_config import E2Config, E2Generator
-from .model_params import E2Params, _E2Params
+from .core._e2_cipher import _E2
+from .core.enigma2_cipher import E2
+from .core._e2_async_cipher import _E2Async
+from .core.enigma2_async_cipher import E2Async
+from .utils.encodings_getter import encoding_dtype_map, find_encoding
+from .config._e2_config import _E2Config, _E2Generator
+from .config.enigma2_config import E2Config, E2Generator
+from .config.model_params import E2Params, _E2Params
 from typing import Any, Union
 
 def create_cipher(config_or_params: Any, async_mode: bool = False) -> Union[E2, _E2, E2Async, _E2Async]:

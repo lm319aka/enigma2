@@ -41,7 +41,7 @@ class TestEnigma2CLI(unittest.TestCase):
     def test_help_commands(self):
         """Test that --help commands work and output usage information."""
         # Test direct module execution
-        res1 = self.run_cli(["-m", "enigma2.enigma2_cipher", "--help"])
+        res1 = self.run_cli(["-m", "enigma2.core.enigma2_cipher", "--help"])
         self.assertEqual(res1.returncode, 0)
         self.assertIn("usage: enigma2_cipher", res1.stdout)
 

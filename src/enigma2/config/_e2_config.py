@@ -5,14 +5,14 @@ import json
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
 
-from .encodings_getter import E2Encoding #, E2EncodingModel
+from ..utils.encodings_getter import E2Encoding #, E2EncodingModel
 from .model_params import _E2Params, E2TypesConversion, _E2ElementsCreationParams
-from .pwd_hashing import PwdBitChainSlicer
+from ..hashing.pwd_hashing import PwdBitChainSlicer
 
 # Concepto Educativo (Namespace Pollution):
 # Importar con asterisco (`from .e2_exceptions import *`) contamina el espacio de nombres, dificulta
 # el rastreo del origen de los símbolos y previene optimizaciones de linters/analizadores estáticos.
-from .e2_exceptions import (
+from ..utils.e2_exceptions import (
     E2Error,
     PasswordLengthError,
     RotorsNumberError,

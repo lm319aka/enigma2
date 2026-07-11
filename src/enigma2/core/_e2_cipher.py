@@ -5,10 +5,10 @@ from pathlib import Path
 import time
 import logging
 
-from .encodings_getter import encoding_dtype_map, find_file_encoding, E2Encoding#, E2EncodingModel
-from ._e2_config import _E2Config, _E2Generator
-from .model_params import _E2Params, E2Params, E2TypesConversion
-from .e2_exceptions import StartOpIndexError, NegativeLocalStartOpIndexError, RotorOverflowError
+from ..utils.encodings_getter import encoding_dtype_map, find_file_encoding, E2Encoding#, E2EncodingModel
+from ..config._e2_config import _E2Config, _E2Generator
+from ..config.model_params import _E2Params, E2Params, E2TypesConversion
+from ..utils.e2_exceptions import StartOpIndexError, NegativeLocalStartOpIndexError, RotorOverflowError
 
 
 
@@ -43,7 +43,7 @@ class _E2:
             raise TypeError(f"params must be an instance of _E2Params, not {type(params)}")
         
         if isinstance(params, E2Params):
-            from .enigma2_config import E2Config
+            from ..config.enigma2_config import E2Config
             self.config = E2Config(params)
         else:
             self.config = _E2Config(params)

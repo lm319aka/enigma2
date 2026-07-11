@@ -3,8 +3,8 @@ import numpy as np
 import random
 import hashlib
 
-from enigma2.enigma2_config import E2Config, E2Generator
-from enigma2.model_params import E2Params
+from enigma2.config.enigma2_config import E2Config, E2Generator
+from enigma2.config.model_params import E2Params
 
 class testE2Config(unittest.TestCase):
 

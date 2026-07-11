@@ -6,9 +6,9 @@ import numpy as np
 from typing import get_args
 import chardet
 
-from .encodings_getter import E2Encoding, find_encoding
-from .e2_exceptions import *
-from .compression import Compressor
+from ..utils.encodings_getter import E2Encoding, find_encoding
+from ..utils.e2_exceptions import *
+from ..utils.compression import Compressor
 
 standard_model_config = ConfigDict(
     extra="forbid", # fields passed that are not in the model will raise error
