@@ -50,7 +50,7 @@ class _E2Config:
         # Concepto Educativo: Las KDFs (Key Derivation Functions) agregan sal (salt) para evitar ataques con tablas arcoíris
         # y aplican estiramiento de claves (key stretching mediante iteraciones) para encarecer ataques de fuerza bruta.
         self.pwd: bytes = params.pwd
-        self.pwd_slicer = PwdBitChainSlicer(self.pwd, self.btype)
+        self.pwd_slicer = PwdBitChainSlicer(self.pwd, self.btype, hash_alg=params.hash_algorithm)
         self.hash_pwd: str = self.pwd_slicer.derived_key.hex()
 
         # Initialize seeds and other operational parameters

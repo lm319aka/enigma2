@@ -39,7 +39,12 @@ class testE2Config(unittest.TestCase):
     def test_pwd_hash_parsing(self):
         self.generator._init_rng(0)
         salt = hashlib.sha256(self.pwd).digest()
-        derived_key = hashlib.pbkdf2_hmac("sha512", self.pwd, salt, 100_000)
+
+        hash_name = self.config.params.hash_algorithm
+        if hash_name.startswith("pbkdf2_"):
+            hash_name = hash_name[7:]
+
+        derived_key = hashlib.pbkdf2_hmac(hash_name, self.pwd, salt, 100_000)
         pwd_hash = derived_key.hex()
         self.assertEqual(self.config.hash_pwd, pwd_hash)
 

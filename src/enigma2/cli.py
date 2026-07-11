@@ -10,6 +10,7 @@ from .enigma2_config import E2Config
 from .enigma2_cipher import E2
 from .model_params import E2Params, _E2Params, E2TypesConversion
 from .encodings_getter import encoding_dtype_map
+from .pwd_hashing import HashBitesLength
 
 
 class CipherOperation(Enum):
@@ -118,7 +119,7 @@ def main() -> None:
     parser.add_argument("--original-enigma", action="store_true", help="Use original Enigma machine settings (3 fixed rotors, plugboard, original rotations, fixed password, no noise)")
     parser.add_argument("--chunk-size", type=int, default=None, help="Data chunk size for file encryption/decryption")
     parser.add_argument("--compression", type=str, default=None, choices=["gzip", "bz2", "lzma", "zlib"], help="Enable compression with given algorithm (gzip, bz2, lzma, zlib)")
-    parser.add_argument("--hash-alg", type=str, default="sha3_512", help="Hash algorithm to use for password hashing")
+    parser.add_argument("--hash-alg", type=str, default="sha3_512", help=f"Hash algorithm to use for password hashing. Available: {HashBitesLength()._hash_algorithms}")
 
     # Parse command-line arguments
     args = parser.parse_args()
