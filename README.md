@@ -1,6 +1,6 @@
 # ENIGMA2
 
-================ done by lm319aka ================ (Updated for v2.4)
+================ done by lm319aka ================ (Updated for v2.4.3)
 
 Enigma2 is a Python package that provides a simple and efficient way to encrypt and decrypt data using a custom encryption algorithm. The package is designed to be easy to use and provides a range of features to make it suitable for a variety of applications.
 
@@ -31,6 +31,75 @@ To install as a package for a project:
 ```bash
 pip install "git+https://github.com/lm319aka/enigma2.git"
 ```
+
+## What's New in v2.4.3
+
+- **Independent Password Slicer Seed Derivation**: Switched from slicing a single seed bitchain to deriving each parameter from its own dedicated hash iteration/stage, with distinct salt strings (e.g., `b"rotations_seed"`, `b"rotors_seed"`, `b"plugboard_seed"`, `b"noise_seed"`, `b"number_rotors"`, `b"plugboard_size"`, `b"noise_size"`) appended to each hash. This prevents correlation or structural bias between derived parameters and enhances the security of the parameter space.
+- **Professional Multi-line Class Representations (`__repr__`)**: Re-architected class string representation formats. Introduced a `format_repr` utility (`enigma2/utils/repr_helper.py`) that outputs configuration fields dynamically, with one parameter per line and proper indentation. Nested objects and parameters are formatted cleanly, improving readability across all key classes (`E2`, `_E2`, `_E2Config`, `_E2Generator`, `_E2Params`, `_E2ElementsCreationParams`).
+- **Advanced CLI Enhancements**:
+  - Replaced the optional `--data` flag with a positional `data` argument, making it the first and primary CLI parameter.
+  - Enabled standard input (stdin) piping support. Users can now pipe data directly into the CLI tool (e.g., `echo "hello" | enigma2-cipher ...`).
+  - Streamlined CLI print formatting by removing descriptive prefixes (e.g., `"Encrypted data: "`), leaving only the raw encrypted or decrypted arrays/strings to facilitate seamless shell scripting.
+  - Introduced a new `--verbose` flag for detailed logging of execution steps, and standardized command errors using `parser.error` instead of raising raw exceptions.
+- **Detailed Verbose Logging**: Integrated debug and info tracking across the encryption/decryption cycles, logging intermediate states such as rotor/plugboard shapes, RNG resets to start index, and detailed modulo operations (`mod_add`/`mod_sub` inputs and results).
+- **Test Suite Reorganization**: Reorganized unit and integration tests into dedicated subdirectories (`tests/core/`, `tests/config/`, `tests/hashing/`, `tests/cli/`) corresponding to the package layout, and added package-level `__init__.py` markers.
+- **chuck size still unimplemented**
+
+## Project Structure & Organization
+
+Enigma2's source code and test suite are organized symmetrically into dedicated subpackages:
+
+```python
+enigma2/
+├── src/enigma2/            # Production source code
+│   ├── __init__.py         # Package entrypoint and create_cipher factory
+│   ├── __main__.py         # Executable entrypoint for python -m enigma2
+│   ├── cli.py              # Command-line interface definition and parsing
+│   ├── config/             # Configuration and parameter management
+│   │   ├── __init__.py
+│   │   ├── _e2_config.py   # Core config validation and RNG generator setup
+│   │   ├── enigma2_config.py # Public E2Config and E2Generator classes
+│   │   └── model_params.py # Pydantic parameter definitions (E2Params, _E2Params)
+│   ├── core/               # Main cipher engine logic
+│   │   ├── __init__.py
+│   │   ├── _e2_async_cipher.py # Base asynchronous cipher worker class
+│   │   ├── _e2_cipher.py   # Base synchronous cipher worker class
+│   │   ├── enigma2_async_cipher.py # Public E2Async class with native compression
+│   │   └── enigma2_cipher.py # Public E2 class with native compression
+│   ├── hashing/            # Cryptographic hashing & key derivation
+│   │   ├── __init__.py
+│   │   └── pwd_hashing.py  # Password hashing & seed slicing (PwdBitChainSlicer)
+│   └── utils/              # Core utility modules and helpers
+│       ├── __init__.py
+│       ├── _e2_exceptions.py # Base exception classes
+│       ├── compression.py  # Native compression wrapper interface
+│       ├── e2_exceptions.py # Type-mismatch exceptions
+│       └── encodings_getter.py # Encodings helper with automatic chardet sampling
+└── tests/                  # Symmetrical test suite mirroring src/
+    ├── __init__.py
+    ├── cli/                # Command-line integration tests
+    │   ├── __init__.py
+    │   └── test_enigma2_cli.py
+    ├── config/             # Configuration validation and parameter tests
+    │   ├── __init__.py
+    │   ├── test_e2_config.py
+    │   └── test_enigma2_config.py
+    ├── core/               # Main cipher logic and RNG index tests
+    │   ├── __init__.py
+    │   ├── test_e2_cipher.py
+    │   ├── test_enigma2_async_cipher.py
+    │   ├── test_enigma2_cipher.py
+    │   └── test_start_index.py
+    └── hashing/            # Key derivation and slicing logic tests
+        ├── __init__.py
+        └── test_pwd_hashing.py
+```
+
+- **`core`**: Houses the main encryption/decryption engines (`_E2`, `E2`, and their asynchronous equivalents `_E2Async`, `E2Async`), containing the rotor path tracing and data mapping algorithms, along with their unit tests.
+- **`config`**: Contains the configurations and Pydantic validation parameters. `model_params.py` handles input parsing and constraints, while configuration generators validate dependencies, with their corresponding parameter verification tests.
+- **`hashing`**: Dedicated to seed generation and password key derivation function (KDF) stretching, and tests covering all corner cases.
+- **`utils`**: Groups auxiliary components like compression, custom exception classes, and character set encoding detectors.
+- **`cli`**: Handles CLI flag parsing, execution logic, and integration tests.
 
 ## BACKGROUND: THE ORIGINAL ENIGMA
 
@@ -110,9 +179,13 @@ python -m enigma2 --help
 If you run the command above, the following message will be displayed:
 
 ```bash
-usage: __main__.py [-h] [--data DATA] [--fpath FPATH] [--out-path OUT_PATH] --pwd PWD [--op {E,D}]
+usage: __main__.py [-h] [--data DATA] [--fpath FPATH] [--out-path OUT_PATH]
+                   [--pwd PWD] [--op {E,D}]
                    [--encoding {utf-8,utf-16,utf-32,ascii,utf-7,base64-codec,big5,big5hkscs,bz2-codec,cp037,cp1026,cp1125,cp1140,cp1250,cp1251,cp1252,cp1253,cp1254,cp1255,cp1256,cp1257,cp1258,cp273,cp424,cp437,cp500,cp720,cp737,cp775,cp850,cp852,cp855,cp856,cp857,cp858,cp860,cp861,cp862,cp863,cp864,cp865,cp866,cp869,cp874,cp875,cp932,cp949,cp950,euc-jis-2004,euc-jisx0213,euc-jp,euc-kr,gb18030,gb2312,gbk,hex-codec,hp-roman8,hz,idna,iso2022-jp,iso2022-jp-1,iso2022-jp-2,iso2022-jp-2004,iso2022-jp-3,iso2022-jp-ext,iso2022-kr,iso8859-1,iso8859-10,iso8859-11,iso8859-13,iso8859-14,iso8859-15,iso8859-16,iso8859-2,iso8859-3,iso8859-4,iso8859-5,iso8859-6,iso8859-7,iso8859-8,iso8859-9,johab,koi8-r,koi8-t,koi8-u,kz1048,mac-cyrillic,mac-greek,mac-iceland,mac-latin2,mac-roman,mac-turkish,ptcp154,quopri-codec,raw-unicode-escape,rot-13,shift-jis,shift-jis-2004,shift-jisx0213,tis-620,utf-16-be,utf-16-le,utf-32-be,utf-32-le,utf-8-sig,uu-codec,zlib-codec,latin-1}]
-                   [--orig-rtts] [--start-op-index START_OP_INDEX] [--input-array] [--output-array] [--btype BTYPE]
+                   [--orig-rtts] [--start-op-index START_OP_INDEX]
+                   [--input-array] [--output-array] [--btype BTYPE]
+                   [--original-enigma] [--chunk-size CHUNK_SIZE]
+                   [--compression {gzip,bz2,lzma,zlib}] [--hash-alg HASH_ALG]
 
 Enigma2 Encryption/Decryption CLI
 
@@ -131,6 +204,19 @@ options:
   --input-array         Defines input as numpy array
   --output-array        Defines output as numpy array
   --btype BTYPE         Custom btype for raw Enigma2
+  --original-enigma     Use original Enigma machine settings (3 fixed rotors,
+                        plugboard, original rotations, fixed password, no noise)
+  --chunk-size CHUNK_SIZE
+                        Data chunk size for file encryption/decryption
+  --compression {gzip,bz2,lzma,zlib}
+                        Enable compression with given algorithm (gzip, bz2,
+                        lzma, zlib)
+  --hash-alg HASH_ALG   Hash algorithm to use for password hashing. Available:
+                        {'sha3_512', 'sha512_256', 'sha512', 'sm3', 'md5',
+                        'sha3_384', 'md5-sha1', 'sha256', 'shake_128',
+                        'shake_256', 'sha3_224', 'ripemd160', 'sha384',
+                        'sha512_224', 'sha224', 'blake2b', 'sha1', 'sha3_256',
+                        'blake2s'}
 ```
 
 ### Examples
@@ -215,7 +301,44 @@ python -m enigma2 --data "Hello, World!" --pwd "my_secret_password" --btype 123
 python -m enigma2 --data "[68, 47, 21, 2, 8, 118, 75, 0, 85, 66, 104, 53, 29]" --pwd "my_secret_password" --btype 123 --op D
 ```
 
-The operations shown above can be combined in different ways within the same command.
+**Emulating the Original Enigma Machine:**
+
+```bash
+# Encrypt message (no password/--pwd required)
+python -m enigma2 --data "hello world" --original-enigma
+# Output:
+# Encrypted data: [20, 22, 17, 13, 18, 5, 14, 17, 2, 23, 17]
+# >> uwrnsforcxr
+
+# Decrypt message
+python -m enigma2 --data "uwrnsforcxr" --original-enigma --op D
+```
+
+**Using Data Compression:**
+
+```bash
+# Encrypt file with gzip compression (also works with --data)
+python -m enigma2 --fpath "large_file.txt" --pwd "my_secret_password" --compression gzip
+
+# Decrypt compressed file
+python -m enigma2 --fpath "large_file.txt.npy" --pwd "my_secret_password" --compression gzip --op D
+```
+
+**Using a Custom Chunk Size:**
+
+```bash
+# Encrypt using a custom file chunk size of 4096 bytes (also works with --data)
+python -m enigma2 --fpath "large_file.txt" --pwd "my_secret_password" --chunk-size 4096
+```
+
+**Using a Custom Password Hashing Algorithm:**
+
+```bash
+# Encrypt using SHA-256 for password hashing (instead of default pbkdf2_sha512)
+python -m enigma2 --data "Hello, World!" --pwd "my_secret_password" --hash-alg sha256
+```
+
+The operations shown above can be combined in different ways within the same command. (The only exception is the compression flag, it only works using bases (btype) that matches the data type (dtype), e.g. btype=256 and dtype=np.uint8 would work, but btype=123 and dtype=np.uint8 would not, program raises error)
 
 ## Usage from Python
 
@@ -248,8 +371,7 @@ params = E2Params(
 cipher_sync: E2 = create_cipher(params, async_mode=False) # True to initialize asynchronous cipher instance
 
 # # Could be initialized from E2:
-# config = E2Config(params)
-# cipher_sync = E2(config)
+# cipher_sync = E2(params)
 ```
 
 ### 2. Synchronous Encryption & Decryption (`E2`)
@@ -339,6 +461,29 @@ decrypted_data_utf16 = enigma2_cipher_utf16.decrypt(encrypted_data_utf16)
 print(f"Decrypted (UTF-16): {decrypted_data_utf16.tobytes().decode('utf-16')}")
 ```
 
+#### Data Encryption & Decryption with Compression, Custom Hash, and Chunk Size
+
+```python
+# Code example showing how to enable compression, change the hashing algorithm, and set file chunk sizes.
+pwd = b"my_secret_password"
+
+# Define parameters with the new features
+params = E2Params(
+    pwd=pwd,
+    data_compression_alg="gzip",      # Enable gzip compression (options: gzip, bz2, lzma, zlib)
+    hash_algorithm="sha256",          # Use SHA-256 for key derivation (default: sha3_512)
+    chunk_size=4096                   # Set 4KB chunk size for file operations
+)
+
+enigma2_cipher = create_cipher(params)
+encrypted_data = enigma2_cipher.encrypt(b"Hello, compressed World!")
+print(f"Encrypted: {encrypted_data}")
+
+enigma2_cipher.reset_rng()
+decrypted_data = enigma2_cipher.decrypt(encrypted_data)
+print(f"Decrypted: {decrypted_data.tobytes()}")
+```
+
 #### Data Encryption & Decryption with original enigma rotations
 
 ```python
@@ -362,7 +507,7 @@ decrypted_data = enigma2_cipher.decrypt(encrypted_data)
 print(f"Decrypted: {decrypted_data.tobytes()}")
 ```
 
-#### Data Encryption & Decryption in Chunks (using start_op_index)
+#### Data Encryption & Decryption in Chunks (using local_start_op_index and global_start_op_index)
 
 ```python
 # code example encrypting message and then decrypting it in chunks
@@ -380,8 +525,9 @@ print("start_idx", start_idx)
 encrypted_data = enigma2_cipher.encrypt(msg)
 print(f"Total Encrypted: {encrypted_data}")
 
-encrypted_data_p1 = enigma2_cipher.encrypt(msg[:start_idx+1], 0)
-encrypted_data_p2 = enigma2_cipher.encrypt(msg[start_idx+1:], start_idx)
+# Pass local_start_op_index to start encryption from specific offsets
+encrypted_data_p1 = enigma2_cipher.encrypt(msg[:start_idx+1], local_start_op_index=0)
+encrypted_data_p2 = enigma2_cipher.encrypt(msg[start_idx+1:], local_start_op_index=start_idx)
 print(f"Partial Encrypted: {encrypted_data_p1} {encrypted_data_p2}")
 
 decrypted_data = enigma2_cipher.decrypt(
@@ -391,14 +537,19 @@ print(f"Total Decrypted: {decrypted_data}")
 
 decrypted_data_p1 = enigma2_cipher.decrypt(
     encrypted_data_p1,
-    start_op_index=0
+    local_start_op_index=0
 )
 decrypted_data_p2 = enigma2_cipher.decrypt(
     encrypted_data_p2,
-    start_op_index=start_idx
+    local_start_op_index=start_idx
 )
 print(f"Partial Decrypted: {decrypted_data_p1} {decrypted_data_p2}")
 ```
+
+##### Difference between Local and Global Start Indexes
+
+- **`global_start_op_index`**: Configured globally in the cipher parameters (`E2Params` / `_E2Params`). It sets the base reset/advance state index for the random number generators (RNG) of a `_E2` instance (and its subclasses, e.g., `E2`).
+- **`local_start_op_index`**: Passed dynamically when invoking operation methods like `encrypt` and `decrypt` (and their async/file equivalents). It specifies a local offset that is added to the `global_start_op_index` (`final_idx = global_start_op_index + local_start_op_index`). This determines the actual reset/advance position of the generators ONLY during that specific call.
 
 ### 3. Synchronous Encryption & Decryption (`_E2`)
 
@@ -440,8 +591,7 @@ params = _E2Params(
 _sync_cipher = e2.create_cipher(params) # create synchronous raw e2 cipher
 
 # Another way to create raw _E2 cipher
-# config = _E2Config(params)
-# _sync_cipher = _E2(config)
+# _sync_cipher = _E2(params)
 
 print(_sync_cipher)
 def_rng = np.random.default_rng(1234)
@@ -554,7 +704,10 @@ The `E2Params` class (and its sub-model `elements_creation_params`) provides sev
   - `plugboard_size`: Length of the plugboard array (1-16 pairs -> 2-32).
   - `rotations_seed`, `rotors_seed`, `plugboard_seed`, `noise_seed`: Optional manual seeds.
 - `original_rotations`: If `True`, uses deterministic rotations similar to the original mechanical Enigma.
-- `start_op_index`: Starting index for operations and RNG state offset (useful for processing streams or chunks).
+- `global_start_op_index`: Configured globally at the instance level. It defines the base reset/advance state index of the random number generators for a cipher instance.
+- `data_compression_alg`: Optional string to enable compression prior to encryption. Supported values are `"gzip"`, `"bz2"`, `"lzma"`, and `"zlib"`. Only available in `E2Params` (for standard perfect btypes).
+- `hash_algorithm`: Hashing algorithm to use for password key derivation (default: `"sha3_512"`). Supports standard algorithms such as `"sha3_512"`, `"sha256"`, `"sha512"`, etc.
+- `chunk_size`: Optional integer specifying custom chunk size (in bytes) for file operations.
 - `avoid_validation`: If `True`, skips parameter range checks (not recommended).
 - `verbose`: If `True`, enables logging output.
 - `log_path`: Optional path to write log output.

@@ -4,9 +4,11 @@ import os
 from pathlib import Path
 import random
 
-from enigma2.enigma2_cipher import E2
-from enigma2.enigma2_config import E2Config
-from enigma2.model_params import E2Params
+from enigma2.core.enigma2_cipher import E2
+from enigma2.config.enigma2_config import E2Config
+from enigma2.config.model_params import E2Params
+from enigma2.utils.compression import Compressor
+from enigma2 import create_cipher
 
 class TestE2(unittest.TestCase):
     def setUp(self):
@@ -28,7 +30,7 @@ class TestE2(unittest.TestCase):
         }
         self.params = E2Params(**self.config_data)
         self.config = E2Config(self.params)
-        self.e2 = E2(config=self.config)
+        self.e2 = E2(params=self.params)
         self.testing_files_path = Path(__file__).parent / "testing_files"
 
     def test_random_key_generation(self):
@@ -76,7 +78,7 @@ class TestE2(unittest.TestCase):
         """Verifies identity when using original Enigma-style rotations."""
         params_orig = self.params.model_copy(update={"original_rotations": True})
         config_orig = E2Config(params_orig)
-        e2_original = E2(config=config_orig)
+        e2_original = E2(params=params_orig)
         data = np.arange(20, dtype=e2_original.config.dtype)
         encrypted_original = e2_original.encrypt(data.copy())
         decrypted_original = e2_original.decrypt(encrypted_original.copy())
@@ -120,13 +122,46 @@ class TestE2(unittest.TestCase):
             }
             params = E2Params(**config_data)
             config = E2Config(params)    
-            e2 = E2(config=config)
+            e2 = E2(params=params)
             
             random_rng = np.random.default_rng(42)
             data = random_rng.integers(0, config.btype, size=20, dtype=config.dtype)
             encrypted = e2.encrypt(data)
             decrypted = e2.decrypt(encrypted)
             np.testing.assert_array_equal(decrypted, data)
+
+    def test_cipher_copy(self):
+        """Ensures copy constructor and equality work as expected."""
+        cipher_copy = self.e2.copy()
+        self.assertEqual(cipher_copy, self.e2)
+        self.assertEqual(cipher_copy.config, self.e2.config)
+        self.assertTrue(cipher_copy == self.e2)
+
+    def test_cipher_with_enabled_compression(self):
+        """Tests encryption and decryption with compression enabled."""
+        for alg in Compressor.AVAILABLE_ALGORITHMS:
+            enc = "utf-8"
+            cipher_compression = create_cipher(E2Params(
+                pwd=b"testpassword",
+                encoding=enc,
+                data_compression_alg=alg
+            ))
+
+            # random_rng = np.random.default_rng(42)
+            # data = random_rng.integers(0, cipher_compression.config.btype, size=200, dtype=cipher_compression.config.dtype)
+            
+            data = """Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin sollicitudin odio nisl, in tempor orci aliquam quis. 
+            Donec non pharetra arcu, vitae sagittis enim. Cras lacinia augue nulla, vitae sollicitudin arcu tincidunt a. 
+            Aenean ut interdum risus. Maecenas vestibulum commodo nibh, ac posuere erat ullamcorper sit amet. 
+            In commodo imperdiet finibus. Suspendisse neque dui, pharetra sit amet tortor in, lacinia congue sapien. 
+            Aenean elit nibh, tincidunt quis turpis quis, porttitor bibendum arcu. Vestibulum fermentum urna et ullamcorper tristique. 
+            Sed interdum ligula vitae dui dignissim, nec congue nisl luctus. Donec lobortis sit amet magna non cursus. 
+            Proin eget risus rutrum, consequat justo imperdiet, scelerisque mauris. Phasellus dignissim sollicitudin tortor, 
+            auctor aliquam arcu varius nec.""".encode(enc)
+
+            encrypted = cipher_compression.encrypt(data)
+            decrypted = cipher_compression.decrypt(encrypted)
+            self.assertEqual(data, decrypted.tobytes())
 
 if __name__ == "__main__":
     unittest.main()

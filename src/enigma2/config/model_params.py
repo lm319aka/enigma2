@@ -6,8 +6,9 @@ import numpy as np
 from typing import get_args
 import chardet
 
-from .encodings_getter import E2Encoding, find_encoding
-from .e2_exceptions import *
+from ..utils.encodings_getter import E2Encoding, find_encoding
+from ..utils.e2_exceptions import *
+from ..utils.compression import Compressor
 
 standard_model_config = ConfigDict(
     extra="forbid", # fields passed that are not in the model will raise error
@@ -119,8 +120,8 @@ class _E2ElementsCreationParams(BaseModel):
         if value is not None:
             if value < 0:
                 raise PlugboardSizeError(f"Invalid plugboard size: {value}")
-            elif value%2 != 0:
-                raise PlugboardOddSizeError(value)
+            # elif value%2 != 0:
+            #     raise PlugboardOddSizeError(value)
         return value
 
     @field_validator("noise_size", mode="before")
@@ -130,6 +131,11 @@ class _E2ElementsCreationParams(BaseModel):
             if value < 0:
                 raise NoiseSizeError(f"Invalid noise size: {value}")
         return value
+
+    def __repr__(self) -> str:
+        from ..utils.repr_helper import format_repr
+        fields = {field: getattr(self, field) for field in self.__class__.model_fields}
+        return format_repr(self.__class__.__name__, fields)
 
 class _E2Params(BaseModel):
     """
@@ -143,10 +149,12 @@ class _E2Params(BaseModel):
     btype: Optional[PositiveInt] = None
     elements_creation_params: _E2ElementsCreationParams = _E2ElementsCreationParams()
     original_rotations: bool = False
-    start_op_index: int = 0
+    global_start_op_index: int = 0
     avoid_validation: bool = False
     verbose: bool = False
     log_path: Optional[Union[Path, str]] = None
+    chunk_size: Optional[PositiveInt] = None
+    hash_algorithm: str = "sha3_512"
     
     @field_validator("pwd", mode="before")
     @classmethod
@@ -192,6 +200,10 @@ class _E2Params(BaseModel):
         return str(dtype)
     
     def essential_params_validation(self):
+        # Ensure global_start_op_index is greater than 0
+        if self.global_start_op_index < 0:
+            raise NegativeGlobalStartOpIndexError(self.global_start_op_index)
+
         # Ensure there is a pwd
         if not self.pwd:
             raise NoPasswordFoundError()
@@ -246,10 +258,25 @@ class _E2Params(BaseModel):
         
         return self
 
+    def __repr__(self) -> str:
+        from ..utils.repr_helper import format_repr
+        fields = {field: getattr(self, field) for field in self.__class__.model_fields}
+        return format_repr(self.__class__.__name__, fields)
+
 class E2Params(_E2Params):
     """
     Strict configuration parameters for Enigma2, requiring exact btype/dtype match.
     """
+    data_compression_alg: Optional[str] = None
+
+    @field_validator("data_compression_alg", mode="before")
+    @classmethod
+    def check_data_compression(cls, value: Any):
+        if value is not None:
+            if value not in Compressor.AVAILABLE_ALGORITHMS:
+                raise UnavailableCompressionAlgorithmError(value, Compressor.AVAILABLE_ALGORITHMS)
+        return value
+
     @model_validator(mode="after")
     def validate_params(self) -> E2Params:
         self.essential_params_validation()

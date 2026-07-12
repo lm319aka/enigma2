@@ -2,11 +2,11 @@ import unittest
 import numpy as np
 import tempfile
 from pathlib import Path
-from enigma2._e2_async_cipher import _E2Async
-from enigma2.enigma2_async_cipher import E2Async
-from enigma2._e2_config import _E2Config
-from enigma2.enigma2_config import E2Config
-from enigma2.model_params import _E2Params, E2Params
+from enigma2.core._e2_async_cipher import _E2Async
+from enigma2.core.enigma2_async_cipher import E2Async
+from enigma2.config._e2_config import _E2Config
+from enigma2.config.enigma2_config import E2Config
+from enigma2.config.model_params import _E2Params, E2Params
 
 class TestE2Async(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -28,7 +28,7 @@ class TestE2Async(unittest.IsolatedAsyncioTestCase):
         }
         self.params = E2Params(**self.config_data)
         self.config = E2Config(self.params)
-        self.e2_async = E2Async(config=self.config)
+        self.e2_async = E2Async(params=self.params)
 
         # Custom odd btype configuration for _E2Async
         self.odd_config_data = {
@@ -47,7 +47,7 @@ class TestE2Async(unittest.IsolatedAsyncioTestCase):
         }
         self.odd_params = _E2Params(**self.odd_config_data)
         self.odd_config = _E2Config(self.odd_params)
-        self._e2_async = _E2Async(config=self.odd_config)
+        self._e2_async = _E2Async(params=self.odd_params)
 
     async def test_e2_async_encrypt_decrypt_identity(self):
         """Verifies encrypt/decrypt identity asynchronously for E2Async."""
@@ -109,6 +109,18 @@ class TestE2Async(unittest.IsolatedAsyncioTestCase):
 
             # Check identity
             self.assertEqual(source_file.read_bytes(), decrypted_path.read_bytes())
+
+    def test_async_cipher_copy(self):
+        """Ensures copy constructor and equality work as expected for async ciphers."""
+        copy_e2 = self.e2_async.copy()
+        self.assertEqual(copy_e2, self.e2_async)
+        self.assertEqual(copy_e2.config, self.e2_async.config)
+        self.assertTrue(copy_e2 == self.e2_async)
+
+        copy_raw_e2 = self._e2_async.copy()
+        self.assertEqual(copy_raw_e2, self._e2_async)
+        self.assertEqual(copy_raw_e2.config, self._e2_async.config)
+        self.assertTrue(copy_raw_e2 == self._e2_async)
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,7 +12,7 @@ class TestEnigma2CLI(unittest.TestCase):
         # When running with subprocess, we pass the current env updated with PYTHONPATH="src"
         self.env = os.environ.copy()
         # Get absolute path to the project root directory
-        self.project_root = Path(__file__).parent.parent.resolve()
+        self.project_root = Path(__file__).parent.parent.parent.resolve()
         self.tests_path = self.project_root / "tests"
         self.testing_files_path = str(self.tests_path / "testing_files")
         src_path = str(self.project_root / "src")
@@ -41,7 +41,7 @@ class TestEnigma2CLI(unittest.TestCase):
     def test_help_commands(self):
         """Test that --help commands work and output usage information."""
         # Test direct module execution
-        res1 = self.run_cli(["-m", "enigma2.enigma2_cipher", "--help"])
+        res1 = self.run_cli(["-m", "enigma2.core.enigma2_cipher", "--help"])
         self.assertEqual(res1.returncode, 0)
         self.assertIn("usage: enigma2_cipher", res1.stdout)
 
@@ -57,31 +57,26 @@ class TestEnigma2CLI(unittest.TestCase):
         # 1. Encrypt the data
         enc_res = self.run_cli([
             "-m", "enigma2", 
-            "--data", message, 
+            message, 
             "--pwd", self.pwd, 
             "--op", "E", 
             "--encoding", "utf-8"
         ])
         
         self.assertEqual(enc_res.returncode, 0, msg=enc_res.stderr)
-        
-        # Find the line starting with "Encrypted data: "
-        match = re.search(r"Encrypted data:\s*(\[.*\])", enc_res.stdout)
-        self.assertTrue(match, f"Could not find encrypted list in stdout: {enc_res.stdout}")
-        
-        encrypted_list_str = match.group(1)
+        encrypted_list_str = enc_res.stdout.strip()
         
         # 2. Decrypt the data
         dec_res = self.run_cli([
             "-m", "enigma2",
-            "--data", encrypted_list_str,
+            encrypted_list_str,
             "--pwd", self.pwd,
             "--op", "D",
             "--encoding", "utf-8"
         ])
         
         self.assertEqual(dec_res.returncode, 0, msg=dec_res.stderr)
-        self.assertIn(f"Decrypted data: {message}", dec_res.stdout)
+        self.assertEqual(dec_res.stdout.strip(), message)
 
     def test_data_utf16_encrypt_decrypt_cli(self):
         """Test encryption and decryption of data via the CLI."""
@@ -90,31 +85,26 @@ class TestEnigma2CLI(unittest.TestCase):
         # 1. Encrypt the data
         enc_res = self.run_cli([
             "-m", "enigma2", 
-            "--data", message, 
+            message, 
             "--pwd", self.pwd, 
             "--op", "E", 
             "--encoding", "utf-16"
         ])
         
         self.assertEqual(enc_res.returncode, 0, msg=enc_res.stderr)
-        
-        # Find the line starting with "Encrypted data: "
-        match = re.search(r"Encrypted data:\s*(\[.*\])", enc_res.stdout)
-        self.assertTrue(match, f"Could not find encrypted list in stdout: {enc_res.stdout}")
-        
-        encrypted_list_str = match.group(1)
+        encrypted_list_str = enc_res.stdout.strip()
         
         # 2. Decrypt the data
         dec_res = self.run_cli([
             "-m", "enigma2",
-            "--data", encrypted_list_str,
+            encrypted_list_str,
             "--pwd", self.pwd,
             "--op", "D",
             "--encoding", "utf-16"
         ])
         
         self.assertEqual(dec_res.returncode, 0, msg=dec_res.stderr)
-        self.assertIn(f"Decrypted data: {message}", dec_res.stdout)
+        self.assertEqual(dec_res.stdout.strip(), message)
 
     def test_file_encrypt_decrypt_cli(self):
         """Test encryption and decryption of files via the CLI."""
@@ -153,6 +143,104 @@ class TestEnigma2CLI(unittest.TestCase):
             # Check original file has been restored and content matches
             self.assertTrue(temp_file.exists())
             self.assertEqual(temp_file.read_bytes(), content)
+
+    def test_original_enigma_cli(self):
+        """Test encryption and decryption using the --original-enigma flag (no pwd required)."""
+        message = "test message for original enigma mode"
+        
+        # 1. Encrypt
+        enc_res = self.run_cli([
+            "-m", "enigma2",
+            message,
+            "--original-enigma",
+            "--op", "E"
+        ])
+        self.assertEqual(enc_res.returncode, 0, msg=enc_res.stderr)
+        encrypted_list_str = enc_res.stdout.strip()
+        
+        # 2. Decrypt
+        dec_res = self.run_cli([
+            "-m", "enigma2",
+            encrypted_list_str,
+            "--original-enigma",
+            "--op", "D"
+        ])
+        self.assertEqual(dec_res.returncode, 0, msg=dec_res.stderr)
+        self.assertEqual(dec_res.stdout.strip(), message)
+
+    def test_compression_cli(self):
+        """Test that compression flag enables compression and encryption/decryption works."""
+        message = "Compression test string"
+        
+        # 1. Encrypt with gzip compression
+        enc_res = self.run_cli([
+            "-m", "enigma2",
+            message,
+            "--pwd", self.pwd,
+            "--compression", "gzip",
+            "--op", "E"
+        ])
+        self.assertEqual(enc_res.returncode, 0, msg=enc_res.stderr)
+        encrypted_list_str = enc_res.stdout.strip()
+        
+        # 2. Decrypt with gzip compression
+        dec_res = self.run_cli([
+            "-m", "enigma2",
+            encrypted_list_str,
+            "--pwd", self.pwd,
+            "--compression", "gzip",
+            "--op", "D"
+        ])
+        self.assertEqual(dec_res.returncode, 0, msg=dec_res.stderr)
+        self.assertEqual(dec_res.stdout.strip(), message)
+
+    def test_chunk_size_cli(self):
+        """Test encryption and decryption passing --chunk-size."""
+        message = "Testing chunk size flag"
+        
+        # 1. Encrypt
+        enc_res = self.run_cli([
+            "-m", "enigma2",
+            message,
+            "--pwd", self.pwd,
+            "--chunk-size", "100",
+            "--op", "E"
+        ])
+        self.assertEqual(enc_res.returncode, 0, msg=enc_res.stderr)
+        encrypted_list_str = enc_res.stdout.strip()
+        
+        # 2. Decrypt
+        dec_res = self.run_cli([
+            "-m", "enigma2",
+            encrypted_list_str,
+            "--pwd", self.pwd,
+            "--chunk-size", "100",
+            "--op", "D"
+        ])
+        self.assertEqual(dec_res.returncode, 0, msg=dec_res.stderr)
+        self.assertEqual(dec_res.stdout.strip(), message)
+
+    def test_piping_via_stdin(self):
+        """Test that data can be read from stdin when piping."""
+        message = "Piping test via stdin"
+        
+        # 1. Encrypt by passing stdin
+        enc_res = self.run_cli([
+            "-m", "enigma2",
+            "--pwd", self.pwd,
+            "--op", "E"
+        ], stdin=message)
+        self.assertEqual(enc_res.returncode, 0, msg=enc_res.stderr)
+        encrypted_list_str = enc_res.stdout.strip()
+        
+        # 2. Decrypt by passing stdin
+        dec_res = self.run_cli([
+            "-m", "enigma2",
+            "--pwd", self.pwd,
+            "--op", "D"
+        ], stdin=encrypted_list_str)
+        self.assertEqual(dec_res.returncode, 0, msg=dec_res.stderr)
+        self.assertEqual(dec_res.stdout.strip(), message)
 
 if __name__ == "__main__":
     unittest.main()

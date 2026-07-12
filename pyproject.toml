@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "enigma2"
-version = "2.4.0"
+version = "2.4.3"
 description = "Enigma2 encryption and decryption module"
 authors = [
     { name="r00st3r", email="s1llyr00st3r@gmail.com" }
@@ -22,7 +22,7 @@ package-dir = { "" = "src" }
 packages = ["enigma2"]
 
 [project.scripts]
-enigma2-cipher = "enigma2.enigma2_cipher:main"
+enigma2-cipher = "enigma2.core.enigma2_cipher:main"
 
 [tool.setuptools.package-data]
 "*" = ["LICENSE.txt"]

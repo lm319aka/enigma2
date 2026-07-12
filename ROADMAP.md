@@ -61,6 +61,7 @@ On this document you will find the different features of past, present and futur
 - [X] solve issue with noise size (when len(data) < noise_size, is executed noise_size = noise_size % len(data). The problem is that this generates colissions btwn the possible hashes that could be generated from different passwords, leading to different password to decrypt non-corresponding data) -> if condition is true, then noise_size = len(data) and continue as always.
 - [X] unite raw enigma2 with main enigma2
 - [X] Make an async version of enigma2
+- [X] separate random creation of cipher elements from proper functions that depend on variable params
 
 - [X] Not doing mod operation on sum of noise and data (adds more security and attackers are unable to tell reasonable actal btype)
 
@@ -102,19 +103,67 @@ On this document you will find the different features of past, present and futur
 - [X] Write broader enigma class with less restrictions to use it for lab testing (it will be able to use odd rotor aranges, noise sizes, etc...) -> _E2 ??
 - [X] Generate better code examples for readme
 
-### Tasks for e2 v2.4.1
+### Tasks for e2 v2.4.X
+
+- [X] make copy function to create a new instance of the cipher with the same state
+- [X] modify encryption/decryption functions to add data compression before any operation
+(The one in E2Params should be the global start idx and the one in encrypt/decrypt should be the local one)
+- [X] Rename encrypt/decrypt functions on underscore e2 classes to _encrypt/_decrypt to differentiate them from the main ones and avoid confusion
+
+- [X] create dedicated file for enigma2 cli (to avoid import Errors/loops)
+- [X] make new flag on cli to use the original enigma machine (it would have 3 fixed  rotors and a plugboard, using original rotations and a fixed password to avoid changing the machine state like the original enigma machine)
+- [X] add flag on cli to set data-chunk-size for file encryption/decryption [although for decryption it could be automatically detected using the metadata]
+- [X] add flag on cli to enable compression with given algorithm (default None)
+
+- [X] Solve confusion between start_op_index on Params class and start_op_index on encrypt/decrypt functions
+
+- [X] Add warning if rotors could reset to initial state due to data size
+- [X] Guarantee a minimum level of security (only using one or two rotors is a very insecure practice. Instead of 1-16 rotors created from hash -> 3-18)
+
+- [X] check use of verbose, logging and default class repr
+- [X] Change cli to make data (does not need a flag but can be optional because we can also use --fpath instead of entering data through console) first and most important param and pwd optional if --original-enigma flag is used
+
+- [ ] Try to apply xor function to data (or data chunks) using an IV
+
+- [X] verify pwd is hex
+- [X] enable multiple pwd hash lengths (128, 256, 512, 1024, 2048, 4096, ...)
+- [ ] try to create custom hash algorithm that can match the all possible elements combinations on e2
+
+- [ ] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
+- [ ] create metadata class for encrypted files with all the information needed to decrypt them and methods to dump to file or load from file
+- [ ] Modifiy async enigma file encryption/decryption to support file encryption/decryption in chunks of x bytes to call encrypt_file/decrypt_file multiple times in parallel (multi-threading -> 4 threads or as many as cores the cpu has). A function that uses a for loop to call the cipher to proccess each x bytes every cycle, that coincides with the number of cores the cpu has.
+- [ ] TODO: improve speed using  and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**
+
+- [ ] create methods denaminated as "fast" on async enigma2 that use the parallel chucnk processing (for regular data and files)
+- [ ] solve issue of real time parallel writing of encrypted/decrypted files (when encrypting/decrypting in chunks, we want to write the processed data to the file in real time right after being returned, not waiting for the process to finish before writing the next processed chunk, without using buffers at all to store and transfer the final data into a file (it's a waste of resources) -> maybe too complex or just impossible to implement with asyncio, but we can wait to the different small async processes to finish before writing the big chunk they make saving some time but it wouldn't be as efficient as the other risky approach)
+- [ ] create function to add metadata to encrypted files to avoid having to enter some parameters to decrypt them (metadata: 0x00 chain 16 elements [indicates beginning of metadata], file-hash [or maybe only the first x bytes], data-chucnk-size [for decryption], original filetype, encoding, original rotations, use of compression, start rotation index, btype [if not redundant], etc..., 0xff chain [indicates end of metadata])
+- [ ] user can determine if a file can be decrypted with a cipher using the metadata or setting it manually
+- [ ] use metadata of encrypted files to automatically detect if an encrypted file can be decrypted with a cipher and if something is missing/wrong in the metadata before decrypting it
 
 - [ ] Try to eliminate attributes from E2Config and manage them from the params
-- [ ] TODO: improve speed using multi-threading and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**
-- [ ] separate random creation of cipher elements from proper functions that depend on variable params
-
-- [ ] Add some metadata to encrypted files **(like file type, encryption time, doc hash[to verify if file will be successfully decrypted], starting rotations index, original rotations used bool, etc...)**
-- [ ] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
-
-- [ ] Compare v2.3.2 with v2.4 in terms of performance
-- [ ] Finish plots/plot maker jupyter notebook
 - [ ] modify code to allow passing rotors and other static elements/arrays directly in config **(maybe implementing it is a waste of time)**
 - [ ] pass config as json in terminal **(well, you pass the path but nevermind)**
-- [ ] review code and implement better comments and logical structure if possible
+
 - [ ] modify README.md to include all the new features
 - [ ] TODO: create installable enigma.exe (it can be executed everywhere on windows pc)
+
+- [ ] **Code Review & Performance Audit (from code_report_2026-07-11.md):**
+  - [X] Fix Slicing Index crash in `PwdBitChainSlicer.slices()` on large `btype` and/or small `hash_len` configurations (handles empty subcadena safely).
+  - [ ] Implement secure random Initialization Vector (IV) generation to prevent Keystream Reuse (depth vulnerability).
+  - [ ] Shift from deterministic KDF salt (`SHA256(pwd)`) to cryptographically secure random salts stored in metadata/file header.
+  - [x] Fix potential `ValueError` crash in `Compressor.compress_nparray` by treating compressed arrays as raw `np.uint8` bytes.
+  - [ ] Implement the missing `chunk_size` file encryption/decryption streaming logic to avoid loading entire files into memory.
+  - [ ] Eliminate CPU/memory bottleneck in `generate_noise` by replacing `noise_rng.choice(np.arange(size))` with `noise_rng.integers(0, size)`.
+  - [ ] Implement chunk-based processing to avoid generating massive random rotation arrays for large files.
+  - [ ] Pre-allocate temporary buffers and optimize `mod_sub` in `_E2` class base arithmetic to avoid repetitive memory allocation and casting.
+  - [X] Optimize encoding auto-detection in `encrypt_file` by sampling only a partial prefix (e.g. 32 KB) instead of reading the entire file.
+
+### Statistics
+
+- [ ] Make statsFile own file and upgrade
+
+- [ ] Encryption vs decryption speed plot
+- [ ] Time vs memory usage plot
+- [ ] Compare async e2 with regular e2 in terms of speed and memory usage
+
+- [ ] review code and implement better comments and logical structure if possible

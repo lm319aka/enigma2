@@ -6,16 +6,18 @@ import tempfile
 from pathlib import Path
 from pydantic import ValidationError
 
-from enigma2._e2_config import _E2Config, _E2Generator
-from enigma2.model_params import _E2Params
-from enigma2._e2_exceptions import (
+from enigma2.config._e2_config import _E2Config, _E2Generator
+from enigma2.config.model_params import _E2Params, _E2ElementsCreationParams
+from enigma2.utils._e2_exceptions import (
     E2ValueError,
     NoPasswordFoundError,
     PasswordEncodingMismatchError,
     PlugboardOddSizeError,
     NoiseSizeError,
     PasswordLengthError,
-    PlugboardSizeError
+    PlugboardSizeError,
+    StartOpIndexOverflowError,
+    StartOpIndexOverflowWarning
 )
 
 class Test_E2Config(unittest.TestCase):
@@ -30,7 +32,7 @@ class Test_E2Config(unittest.TestCase):
         # Use _E2Params for initialization with odd btype
         self.params = _E2Params(pwd=self.pwd, btype=100, dtype=np.uint8)
         self.config = _E2Config(self.params)
-        self.generator = _E2Generator(self.params)
+        self.generator = _E2Generator(self.config)
 
     def test_pydantic_params_integration(self):
         """
@@ -42,9 +44,9 @@ class Test_E2Config(unittest.TestCase):
         self.assertEqual(config.number_rotors, 3)
         self.assertEqual(config.btype, 150)
         
-        generator = _E2Generator(params)
+        generator = _E2Generator(config)
         self.assertEqual(generator.pwd, self.pwd)
-        self.assertEqual(generator.config.params, params)
+        self.assertEqual(generator.config, config)
 
     def test_btype_validation_edge_cases(self):
         """Tests custom btype validation specific to _E2Params."""
@@ -78,9 +80,9 @@ class Test_E2Config(unittest.TestCase):
 
     def test_elements_params_validation(self):
         """Tests validations on elements creation parameters like plugboard size and noise size."""
-        # 1. Plugboard size odd
-        with self.assertRaises(PlugboardOddSizeError):
-            _E2Params(pwd=self.pwd, elements_creation_params={"plugboard_size": 3})
+        # 1. Plugboard size odd (commented out as it's no longer validated in model_params.py)
+        # with self.assertRaises(PlugboardOddSizeError):
+        #     _E2Params(pwd=self.pwd, elements_creation_params={"plugboard_size": 3})
 
         # 2. Plugboard size negative
         with self.assertRaises(PlugboardSizeError):
@@ -94,24 +96,53 @@ class Test_E2Config(unittest.TestCase):
         """Verifies correct derivation of seeds and params from password hash."""
         self.generator._init_rng(0)
         salt = hashlib.sha256(self.pwd).digest()
-        pwd_hash = hashlib.pbkdf2_hmac("sha512", self.pwd, salt, 100_000).hex()
-        main_seeds_len = 24
-        self.assertEqual(self.config.hash_pwd, pwd_hash)
-
-        # Correctly derive expected values from hash
-        expected_rotations_seed = int(pwd_hash[0:main_seeds_len], 16)
-        expected_rotors_seed = int(pwd_hash[main_seeds_len:main_seeds_len*2], 16)
-        expected_plugboard_seed = int(pwd_hash[main_seeds_len*2:main_seeds_len*3], 16)
-        expected_noise_seed = int(pwd_hash[main_seeds_len*3:main_seeds_len*4], 16)
-        
-        hex_part_5 = pwd_hash[main_seeds_len*4:]
-        expected_number_rotors = int(hex_part_5[0], 16) + 1
-        expected_plugboard_size = int(hex_part_5[1], 16) + 1
-        expected_noise_size = int(hex_part_5[2:], 16)
 
         # Initialize with no explicit seeds to trigger derivation
         params = _E2Params(pwd=self.pwd, dtype=np.uint8)
         config = _E2Config(params)
+
+        hash_name = params.hash_algorithm
+        if hash_name.startswith("pbkdf2_"):
+            hash_name = hash_name[7:]
+
+        derived_key = hashlib.pbkdf2_hmac(hash_name, self.pwd, salt, 100_000)
+        pwd_hash = derived_key.hex()
+        self.assertEqual(config.hash_pwd, pwd_hash)
+
+        # Chained hashing expected values (Proposal 2)
+        hash_func = lambda data: hashlib.new(hash_name, data).digest()
+        
+        seed_1_bytes = hash_func(derived_key + b"rotations_seed")
+        seed_2_bytes = hash_func(seed_1_bytes + b"rotors_seed")
+        seed_3_bytes = hash_func(seed_2_bytes + b"plugboard_seed")
+        seed_4_bytes = hash_func(seed_3_bytes + b"noise_seed")
+        seed_5_bytes = hash_func(seed_4_bytes + b"number_rotors")
+        seed_6_bytes = hash_func(seed_5_bytes + b"plugboard_size")
+        seed_7_bytes = hash_func(seed_6_bytes + b"noise_size")
+
+        expected_rotations_seed = int.from_bytes(seed_1_bytes, byteorder="big")
+        expected_rotors_seed = int.from_bytes(seed_2_bytes, byteorder="big")
+        expected_plugboard_seed = int.from_bytes(seed_3_bytes, byteorder="big")
+        expected_noise_seed = int.from_bytes(seed_4_bytes, byteorder="big")
+
+        def generate_bitchain(key: bytes) -> str:
+            return "".join([f"{byte:08b}" for byte in key])
+
+        seed_5_bitchain = generate_bitchain(seed_5_bytes)
+        seed_6_bitchain = generate_bitchain(seed_6_bytes)
+        seed_7_bitchain = generate_bitchain(seed_7_bytes)
+        hash_len = len(seed_5_bitchain)
+        
+        from math import log2
+        btype = config.btype
+        end_idx_number_rotors = hash_len // 128
+        end_idx_plugboard_size = int(log2(btype // 2))
+        max_noise_size = 2**(int(log2(hash_len)) * 2)
+        end_idx_noise_size = int(log2(max_noise_size))
+        
+        expected_number_rotors = int(seed_5_bitchain[:end_idx_number_rotors], 2) + 3
+        expected_plugboard_size = int(seed_6_bitchain[:end_idx_plugboard_size], 2)
+        expected_noise_size = int(seed_7_bitchain[:end_idx_noise_size], 2)
 
         self.assertEqual(config.rotations_seed, expected_rotations_seed)
         self.assertEqual(config.rotors_seed, expected_rotors_seed)
@@ -139,7 +170,7 @@ class Test_E2Config(unittest.TestCase):
         }
         params = _E2Params(**config_dict)
         config = _E2Config(params)
-        generator = _E2Generator(params)
+        generator = _E2Generator(config)
         
         for _ in range(5):
             start_index = random.randint(0, config.btype)
@@ -147,7 +178,7 @@ class Test_E2Config(unittest.TestCase):
 
             rotors = generator.generate_rotors()
             encryption_plugboard, decryption_plugboard = generator.generate_plugboards()
-            rotations = generator.generate_rotations(config.number_rotations, initial_rotations_index=start_index)
+            rotations = generator.generate_rotations(config.number_rotors, initial_rotations_index=start_index)
             noise = generator.generate_noise(config.noise_size)
 
             generator._init_rng(start_index)
@@ -160,7 +191,7 @@ class Test_E2Config(unittest.TestCase):
             self.assertTrue(np.all(encryption_plugboard == new_encryption_plugboard))
             self.assertTrue(np.all(decryption_plugboard == new_decryption_plugboard))
 
-            new_rotations = generator.generate_rotations(config.number_rotations, initial_rotations_index=start_index)
+            new_rotations = generator.generate_rotations(config.number_rotors, initial_rotations_index=start_index)
             for original_rotation, new_rotation in zip(rotations, new_rotations):
                 self.assertTrue(np.all(original_rotation == new_rotation))
 
@@ -205,7 +236,7 @@ class Test_E2Config(unittest.TestCase):
         self.generator._init_rng(0)
         rotations_size = 100
         rotations = self.generator.generate_rotations(rotations_size=rotations_size, initial_rotations_index=0)
-        self.assertEqual(rotations.shape, (self.config.number_rotations, rotations_size))
+        self.assertEqual(rotations.shape, (self.config.number_rotors, rotations_size))
         for rotation in rotations:
             self.assertEqual(rotation.dtype, self.config.dtype)
             self.assertEqual(rotation.size, rotations_size)
@@ -224,7 +255,7 @@ class Test_E2Config(unittest.TestCase):
 
         # 2. plugboard_size = 0 case
         params_zero = _E2Params(pwd=self.pwd, btype=100, dtype=np.uint8, elements_creation_params={"plugboard_size": 0})
-        generator_zero = _E2Generator(params_zero)
+        generator_zero = _E2Generator(_E2Config(params_zero))
         plug_zero, rev_plug_zero = generator_zero.generate_plugboards()
         np.testing.assert_array_equal(plug_zero, np.arange(100, dtype=np.uint8))
         np.testing.assert_array_equal(rev_plug_zero, np.arange(100, dtype=np.uint8))
@@ -233,19 +264,19 @@ class Test_E2Config(unittest.TestCase):
         # For btype=10, max plugboard_size is 5. We test plugboard_size = 6 (which is even).
         params_oob = _E2Params(pwd=self.pwd, btype=10, dtype=np.uint8, elements_creation_params={"plugboard_size": 6})
         with self.assertRaises(PlugboardSizeError):
-            _E2Generator(params_oob)
+            _E2Config(params_oob)
 
     def test_E2Generator_generate_noise_edge_cases(self):
         """Tests noise generation logic including no-noise and noise wrapping."""
         # 1. noise_size = 0
         params_no_noise = _E2Params(pwd=self.pwd, btype=100, dtype=np.uint8, elements_creation_params={"noise_size": 0})
-        generator_no_noise = _E2Generator(params_no_noise)
+        generator_no_noise = _E2Generator(_E2Config(params_no_noise))
         noise = generator_no_noise.generate_noise(50)
         np.testing.assert_array_equal(noise, np.zeros(50, dtype=np.uint8))
 
         # 2. noise_size > size (should trigger noise_size reduction to data size)
         params_large_noise = _E2Params(pwd=self.pwd, btype=100, dtype=np.uint8, elements_creation_params={"noise_size": 60})
-        generator_large_noise = _E2Generator(params_large_noise)
+        generator_large_noise = _E2Generator(_E2Config(params_large_noise))
         # size is 50, actual_noise_size = 50
         noise_large = generator_large_noise.generate_noise(50)
         self.assertEqual(noise_large.shape, (50,))
@@ -270,6 +301,74 @@ class Test_E2Config(unittest.TestCase):
             self.assertEqual(new_config.dtype, self.config.dtype)
             self.assertEqual(new_config.number_rotors, self.config.number_rotors)
             self.assertEqual(new_config.noise_size, self.config.noise_size)
+
+    def test_config_copy(self):
+        """Verifies config copy."""
+        new_config = self.config.copy()
+        self.assertEqual(new_config, self.config)
+        self.assertTrue(new_config == self.config)
+        self.assertEqual(new_config.pwd, self.config.pwd)
+        self.assertEqual(new_config.btype, self.config.btype)
+        self.assertEqual(new_config.dtype, self.config.dtype)
+        self.assertEqual(new_config.number_rotors, self.config.number_rotors)
+        self.assertEqual(new_config.noise_size, self.config.noise_size)
+
+    def test_generator_copy(self):
+        """Verifies generator copy."""
+        new_generator = self.generator.copy()
+        self.assertEqual(new_generator, self.generator)
+        self.assertTrue(new_generator == self.generator)
+        self.assertEqual(new_generator.config, self.generator.config)
+
+    def test_compression_forbidden_in_raw_params(self):
+        """Verifies that data_compression_alg is forbidden in _E2Params."""
+        with self.assertRaises(ValidationError):
+            _E2Params(pwd=self.pwd, data_compression_alg="gzip")
+
+    def test_forbiden_global_start_op_index(self):
+        """Verifies that using a global_start_op_index greater than maximum is forbidden."""
+        actual_btype = 100
+        primary_elements = _E2ElementsCreationParams(
+            number_rotors=3, 
+            plugboard_size=0, 
+            noise_size=0, 
+        )
+        e2_start_idx_params = _E2Params(
+            pwd=self.pwd, 
+            btype=actual_btype, 
+            dtype=np.uint8, 
+            global_start_op_index=actual_btype**primary_elements.number_rotors + 1,
+            elements_creation_params=primary_elements,
+            original_rotations=True # The warning will be raised only in original_rotations mode
+            # that is because in e2 mode rotations are created using a random number generator
+        )
+
+        with self.assertRaises(StartOpIndexOverflowError):
+            _E2Config(e2_start_idx_params)
+
+    def test_forbiden_generator_start_op_index(self):
+        """Verifies that using a global_start_op_index greater than maximum is forbidden."""
+        actual_btype = 100
+        primary_elements = _E2ElementsCreationParams(
+            number_rotors=3, 
+            plugboard_size=0, 
+            noise_size=0, 
+        )
+        e2_start_idx_params = _E2Params(
+            pwd=self.pwd, 
+            btype=actual_btype, 
+            dtype=np.uint8, 
+            global_start_op_index= 0, # actual_btype**primary_elements.number_rotors + 1,
+            elements_creation_params=primary_elements,
+            original_rotations=True # The warning will be raised only in original_rotations mode
+            # that is because in e2 mode rotations are created using a random number generator
+        )
+
+        with self.assertRaises(StartOpIndexOverflowWarning):
+            _E2Generator(_E2Config(e2_start_idx_params)).generate_rotations(
+                rotations_size=200,
+                initial_rotations_index=actual_btype**primary_elements.number_rotors + 1
+            )
 
 if __name__ == "__main__":
     unittest.main()

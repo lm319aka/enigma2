@@ -5,17 +5,24 @@ import json
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
 
-from .encodings_getter import E2Encoding #, E2EncodingModel
-from .model_params import _E2Params, E2TypesConversion
+from ..utils.encodings_getter import E2Encoding #, E2EncodingModel
+from .model_params import _E2Params, E2TypesConversion, _E2ElementsCreationParams
+from ..hashing.pwd_hashing import PwdBitChainSlicer
+
 # Concepto Educativo (Namespace Pollution):
 # Importar con asterisco (`from .e2_exceptions import *`) contamina el espacio de nombres, dificulta
 # el rastreo del origen de los símbolos y previene optimizaciones de linters/analizadores estáticos.
-from .e2_exceptions import (
+from ..utils.e2_exceptions import (
+    E2Error,
     PasswordLengthError,
     RotorsNumberError,
     SeedRangeError,
     PlugboardSizeError,
     NoiseSizeError,
+    StartOpIndexError,
+    NegativeLocalStartOpIndexError,
+    StartOpIndexOverflowError,
+    StartOpIndexOverflowWarning
 )
 
 class _E2Config:
@@ -31,31 +38,21 @@ class _E2Config:
 
         :param params: E2Params object containing all configuration settings.
         """
-        # Internal configuration for seed derivation
-        self.__main_seeds_len: int = 24
-        self.__seeds_number: int = 5
-        self.__hash_alg: str = "pbkdf2_sha512" # KDF algorithm identifier
 
         self.params = params
-        
-        # Initialize password and derive key using PBKDF2-HMAC-SHA512 for secure seed derivation.
-        # Concepto Educativo: Las KDFs (Key Derivation Functions) agregan sal (salt) para evitar ataques con tablas arcoíris
-        # y aplican estiramiento de claves (key stretching mediante iteraciones) para encarecer ataques de fuerza bruta.
-        self.pwd: bytes = params.pwd
-        salt = hashlib.sha256(self.pwd).digest()
-        derived_key = hashlib.pbkdf2_hmac(
-            hash_name="sha512",
-            password=self.pwd,
-            salt=salt,
-            iterations=100_000
-        )
-        self.hash_pwd: str = derived_key.hex()
-
+    
         # Core encryption parameters derived from params
         self.dtype: np.dtype = np.dtype(params.dtype)
         # The None edge-case is managed on the validate_params method on E2Params but is not a bad idea to add it here just in case
         self.btype: int = params.btype if params.btype is not None else E2TypesConversion.dtype2btype(self.dtype)
-        
+
+        # Initialize password and derive key using PBKDF2-HMAC-SHA512 for secure seed derivation.
+        # Concepto Educativo: Las KDFs (Key Derivation Functions) agregan sal (salt) para evitar ataques con tablas arcoíris
+        # y aplican estiramiento de claves (key stretching mediante iteraciones) para encarecer ataques de fuerza bruta.
+        self.pwd: bytes = params.pwd
+        self.pwd_slicer = PwdBitChainSlicer(self.pwd, self.btype, hash_alg=params.hash_algorithm)
+        self.hash_pwd: str = self.pwd_slicer.derived_key.hex()
+
         # Initialize seeds and other operational parameters
         self.rotations_seed: Optional[int] = params.elements_creation_params.rotations_seed
         self.number_rotors: Optional[int] = params.elements_creation_params.number_rotors
@@ -66,11 +63,13 @@ class _E2Config:
         self.noise_seed: Optional[int] = params.elements_creation_params.noise_seed
 
         self.original_rotations: bool = params.original_rotations
-        self.start_op_index: int = params.start_op_index
+        self.global_start_op_index: int = params.global_start_op_index
         self.avoid_validation: bool = params.avoid_validation
         self.verbose: bool = params.verbose
         self.log_path: Optional[Path | str] = params.log_path
         self.encoding: str = params.encoding.encoding
+        self.chunk_size: Optional[int] = params.chunk_size
+        self.hash_algorithm: str = params.hash_algorithm
 
         # Derive seeds and parameters from password hash if not explicitly provided
         self._derive_params_from_hash()
@@ -79,44 +78,23 @@ class _E2Config:
         if not self.avoid_validation:
             self._validate_derived_params()
 
-        self.number_rotations: int = self.number_rotors
-
     def _derive_params_from_hash(self) -> None:
         """
         Derives seeds and configuration parameters from the password hash.
         """
-        if len(self.hash_pwd) <= self.__main_seeds_len * self.__seeds_number:
+        if len(self.pwd_slicer.get_bitchain) <= self.pwd_slicer.get_main_seeds_len * self.pwd_slicer.get_seeds_number:
             raise PasswordLengthError("Password hash is too short")
         
-        # Split hash into chains for different parameters
-        hex_chains = []
-        for i in range(self.__seeds_number):
-            start = i * self.__main_seeds_len
-            end = (i + 1) * self.__main_seeds_len if (i + 1) < self.__seeds_number else len(self.hash_pwd)
-            hex_chains.append(self.hash_pwd[start:end])
-        
-        if len(hex_chains) < self.__seeds_number: 
-            raise IndexError("Password hash has not appropriate length")
-        if min([len(i) for i in hex_chains]) < self.__main_seeds_len: 
-            raise IndexError("Password hash chains have not appropriate length")
+        # set parameters using slicer
+        elements_vals: _E2ElementsCreationParams = self.pwd_slicer.slices()
 
-        # Assign seeds from hash chains if they were not provided in params
-        if self.rotations_seed is None:
-            self.rotations_seed = int(hex_chains[0], 16)
-        if self.rotors_seed is None:
-            self.rotors_seed = int(hex_chains[1], 16)
-        if self.plugboard_seed is None:
-            self.plugboard_seed = int(hex_chains[2], 16)
-        if self.noise_seed is None:
-            self.noise_seed = int(hex_chains[3], 16)
-        
-        # Optional parameters derived from the last part of the hash
-        if self.number_rotors is None:
-            self.number_rotors = int(hex_chains[4][0], 16) + 1 # 1-16
-        if self.plugboard_size is None:
-            self.plugboard_size = int(hex_chains[4][1], 16) + 1 # 1-16 -> 2-32 chars swapped
-        if self.noise_size is None:
-            self.noise_size = int(hex_chains[4][2:], 16)
+        self.rotations_seed = elements_vals.rotations_seed if self.rotations_seed is None else self.rotations_seed
+        self.number_rotors = elements_vals.number_rotors if self.number_rotors is None else self.number_rotors
+        self.rotors_seed = elements_vals.rotors_seed if self.rotors_seed is None else self.rotors_seed
+        self.plugboard_seed = elements_vals.plugboard_seed if self.plugboard_seed is None else self.plugboard_seed
+        self.plugboard_size = elements_vals.plugboard_size if self.plugboard_size is None else self.plugboard_size
+        self.noise_size = elements_vals.noise_size if self.noise_size is None else self.noise_size
+        self.noise_seed = elements_vals.noise_seed if self.noise_seed is None else self.noise_seed
 
     def _validate_derived_params(self) -> None:
         """
@@ -124,11 +102,11 @@ class _E2Config:
         Concepto Educativo: Reemplazar `assert` por `raise` con excepciones explícitas garantiza que las validaciones
         se ejecuten siempre en producción, incluso si Python se ejecuta en modo optimizado (-O).
         """
-        if not (16 >= self.number_rotors >= 1):
-            raise RotorsNumberError(f"Number of rotors must be in range [1, 16]: {self.number_rotors}")
+        if self.number_rotors < 1 or self.number_rotors > self.pwd_slicer.get_number_rotors_range[1]:
+            raise RotorsNumberError(f"Number of rotors must be in range (1, {self.pwd_slicer.get_number_rotors_range[1]}): {self.number_rotors}")
         
         # Seed range checks based on the expected length from hash chains
-        max_seed_val = 16**self.__main_seeds_len
+        max_seed_val = 2**self.pwd_slicer.get_hash_bit_len
         if not (max_seed_val > self.rotations_seed >= 0):
             raise SeedRangeError(f"Rotations seed out of range: {self.rotations_seed}")
         if not (max_seed_val > self.rotors_seed >= 0):
@@ -138,29 +116,17 @@ class _E2Config:
         if not (max_seed_val > self.plugboard_seed >= 0):
             raise SeedRangeError(f"Plugboard seed out of range: {self.plugboard_seed}")
         
-        max_plugboard = min(16, self.btype // 2)
-        if not (max_plugboard >= self.plugboard_size >= 0):
-            raise PlugboardSizeError(f"Plugboard size must be in range [0, {max_plugboard}]: {self.plugboard_size}")
+        if not (self.pwd_slicer.get_max_plugboard_len >= self.plugboard_size >= 0):
+            raise PlugboardSizeError(f"Plugboard size must be in range [0, {self.pwd_slicer.get_max_plugboard_len}]: {self.plugboard_size}")
         
         # Noise size range check
-        len_noise_size_hash_part = len(self.hash_pwd[self.__main_seeds_len*4 + 2:])
-        if not (16**len_noise_size_hash_part > self.noise_size >= 0):
+        # len_noise_size_hash_part = len(self.hash_pwd[self.__main_seeds_len*4 + 2:])
+        if not (self.pwd_slicer.get_max_noise_size > self.noise_size >= 0):
             raise NoiseSizeError(f"Noise size out of range: {self.noise_size}")
 
-    @property
-    def hash_alg(self) -> str:
-        """Returns the hash algorithm used for password hashing."""
-        return self.__hash_alg
-     
-    @property
-    def main_seeds_len(self) -> int:
-        """Returns the length of the chains used for seed derivation."""
-        return self.__main_seeds_len
-     
-    @property
-    def seeds_number(self) -> int:
-        """Returns the number of seeds derived from the hash."""
-        return self.__seeds_number
+        # Check global start index overflow in original rotations mode
+        if self.original_rotations and self.global_start_op_index >= self.btype**self.number_rotors:
+            raise StartOpIndexOverflowError(self.global_start_op_index, self.btype**self.number_rotors)
           
     def dump_json(self, path: str | Path) -> None:
         """Saves the configuration to a JSON file."""
@@ -174,19 +140,17 @@ class _E2Config:
             self.params = _E2Params(**data)
             self.__init__(self.params)
 
+    def copy(self) -> "_E2Config":
+        return self.__class__(self.params.model_copy())
+
+    def __eq__(self, other: "_E2Config") -> bool:
+        if type(self) is not type(other):
+            return False
+        return self.params == other.params
+    
     def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}("
-            f"dtype={self.dtype}, "
-            f"btype={self.btype}, "
-            f"number_rotors={self.number_rotors}, "
-            f"plugboard_size={self.plugboard_size}, "
-            f"noise_size={self.noise_size}, "
-            f"original_rotations={self.original_rotations}, "
-            f"start_op_index={self.start_op_index}, "
-            f"encoding={self.encoding!r}"
-            f")"
-        )
+        from ..utils.repr_helper import format_repr, get_config_fields
+        return format_repr(self.__class__.__name__, get_config_fields(self))
 
 
 class _E2Generator:
@@ -195,14 +159,14 @@ class _E2Generator:
     using the provided configuration and random number generators.
     """
 
-    def __init__(self, params: _E2Params) -> None:
+    def __init__(self, config: _E2Config) -> None:
         """
-        Initialize E2Generator with parameters.
+        Initialize E2Generator with configuration.
 
-        :param params: E2Params object containing the configuration.
+        :param config: _E2Config object containing the configuration.
         """
-        self.params = params
-        self.config = _E2Config(params)
+        self.config = config
+        self.params = config.params
         
         self.pwd: bytes = self.config.pwd
         self.hash_pwd_bytes: bytes = bytes.fromhex(self.config.hash_pwd)
@@ -212,6 +176,7 @@ class _E2Generator:
     
     def _init_rng(self, start_index: int = 0) -> None:
         """Initializes or resets the random number generators."""
+        
         # Concepto Educativo (CSPRNG vs PRNG):
         # Los generadores por defecto de NumPy (como PCG64) son generadores pseudoaleatorios (PRNG) no criptográficos
         # optimizados para simulación estadística. Para aplicaciones criptográficas de producción, las semillas deben
@@ -266,7 +231,6 @@ class _E2Generator:
 
     def generate_rotations(self, 
                          rotations_size: int, 
-                         original_type: bool = False, 
                          initial_rotations_index: int = 0) -> np.ndarray:
         """
         Generates rotation offsets for each rotor.
@@ -276,8 +240,21 @@ class _E2Generator:
         :param initial_rotations_index: Starting index for the rotations.
         :return: A 2D numpy array of rotations.
         """
+        if initial_rotations_index < 0:
+            raise NegativeLocalStartOpIndexError(initial_rotations_index)
+        
         rotations_array = np.empty(shape=(self.config.number_rotors, rotations_size), dtype=self.config.dtype)
-        if original_type:
+        if self.config.original_rotations:
+            # Validate start index
+            if initial_rotations_index >= self.config.btype**self.config.number_rotors:
+                # raise StartOpIndexOverflowError(
+                #     initial_rotations_index, 
+                #     self.config.btype**self.config.number_rotors
+                # )
+                raise StartOpIndexOverflowWarning(
+                    initial_rotations_index, 
+                    self.config.btype**self.config.number_rotors
+                )
             # Deterministic rotations like original Enigma
             indexes = np.arange(rotations_size, dtype=np.uint64) + initial_rotations_index
             for rotation_index in range(self.config.number_rotors):
@@ -356,6 +333,15 @@ class _E2Generator:
         reversed_rotor = np.empty_like(rotor)
         reversed_rotor[rotor] = np.arange(len(rotor), dtype=rotor.dtype)
         return reversed_rotor
-        
+    
+    def copy(self) -> "_E2Generator":
+        return self.__class__(self.config.copy())
+
+    def __eq__(self, other: object) -> bool:
+        if type(self) is not type(other):
+            return False
+        return self.config == other.config
+            
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(config={self.config!r})"
+        from ..utils.repr_helper import format_repr
+        return format_repr(self.__class__.__name__, {"config": self.config})

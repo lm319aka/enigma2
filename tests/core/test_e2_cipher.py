@@ -5,11 +5,11 @@ import tempfile
 import os
 import random
 
-from enigma2._e2_cipher import _E2
-from enigma2._e2_config import _E2Config
-from enigma2.model_params import _E2Params
-from enigma2._e2_exceptions import E2ValueError
-from enigma2.model_params import E2TypesConversion
+from enigma2.core._e2_cipher import _E2
+from enigma2.config._e2_config import _E2Config
+from enigma2.config.model_params import _E2Params, E2TypesConversion
+from enigma2.utils._e2_exceptions import *
+from enigma2 import create_cipher
 
 class Test_E2(unittest.TestCase):
     def setUp(self):
@@ -30,7 +30,7 @@ class Test_E2(unittest.TestCase):
         }
         self._params = _E2Params(**self.config_data)
         self._config = _E2Config(self._params)
-        self._e2 = _E2(config=self._config)
+        self._e2 = _E2(params=self._params)
 
     def test_random_key_generation(self):
         """Verifies that the random key generator produces bytes of correct length."""
@@ -133,7 +133,7 @@ class Test_E2(unittest.TestCase):
         """Verifies identity when using original Enigma-style rotations with custom btype."""
         params_orig = self._params.model_copy(update={"original_rotations": True})
         config_orig = _E2Config(params_orig)
-        e2_original = _E2(config=config_orig)
+        e2_original = _E2(params=params_orig)
         data = np.arange(20, dtype=e2_original.config.dtype)
         encrypted_original = e2_original.encrypt(data.copy())
         decrypted_original = e2_original.decrypt(encrypted_original.copy())
@@ -230,7 +230,7 @@ class Test_E2(unittest.TestCase):
             }
             params = _E2Params(**config_data)
             config = _E2Config(params)    
-            e2 = _E2(config=config)
+            e2 = _E2(params=params)
             
             random_rng = np.random.default_rng(42)
             data = random_rng.integers(0, config.btype, size=20, dtype=config.dtype)
@@ -238,10 +238,35 @@ class Test_E2(unittest.TestCase):
             decrypted = e2.decrypt(encrypted)
             np.testing.assert_array_equal(decrypted, data)
 
-    def test_invalid_config_type(self):
-        """Ensures constructor raises TypeError if config is not _E2Config."""
+    def test_invalid_params_type(self):
+        """Ensures constructor raises TypeError if params is not _E2Params."""
         with self.assertRaises(TypeError):
-            _E2(config="not a config object")
+            _E2(params="not a params object")
+
+    def test_cipher_copy(self):
+        """Ensures copy constructor works as expected."""
+        cipher_copy = self._e2.copy()
+        self.assertEqual(cipher_copy, self._e2)
+        self.assertEqual(cipher_copy.config, self._e2.config)
+        self.assertTrue(cipher_copy == self._e2)
+
+    def test_underscore_encrypt_decrypt_methods(self):
+        """Verifies that _encrypt and _decrypt exist and work properly in _E2."""
+        data = np.array([1, 2, 3, 4], dtype=np.uint8)
+        enc = self._e2._encrypt(data)
+        dec = self._e2._decrypt(enc)
+        self.assertTrue(np.array_equal(dec, data))
+
+    def test_rotor_overflow(self):
+        """Ensures encryption raises RotorOverflowError if data is too large."""
+        original_e2_params = self._params.model_copy(update={"original_rotations": True})
+        original_e2 = create_cipher(original_e2_params)
+        rng = np.random.default_rng(42)
+        data_array = rng.integers(0, self._config.btype, 
+                                  size=self._config.btype**self._config.number_rotors + 1, # data should be too large to handle using the actual rotors without causing overflow/reset on them
+                                  dtype=self._config.dtype)
+        with self.assertRaises(RotorOverflowError):
+            original_e2.encrypt(data_array)
 
     @unittest.skip("Too slow")
     def test_cipher_all_btypes_encoding(self): # for usual checking better comment to avoid wasting a ton of time
@@ -263,6 +288,7 @@ class Test_E2(unittest.TestCase):
         local_pwd = "testpassword"
         for c, (uint_dtype, encoding) in enumerate(zip(all_valid_dtypes, dtypes_valid_encodings)):
             for local_btype in range(8, E2TypesConversion.dtype2btype(uint_dtype) + 1, 2):
+                print(c, local_btype)
                 local_config_data = {
                     "pwd": local_pwd.encode(encoding),
                     "btype": local_btype,  # Custom odd btype
@@ -280,7 +306,7 @@ class Test_E2(unittest.TestCase):
                 }
                 local_params = _E2Params(**local_config_data)
                 local_config = _E2Config(local_params)
-                local_e2 = _E2(config=local_config)
+                local_e2 = _E2(params=local_params)
 
                 random_rng = np.random.default_rng(42)
                 data = random_rng.integers(0, local_config.btype, size=256, dtype=local_config.dtype)

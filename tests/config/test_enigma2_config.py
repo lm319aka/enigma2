@@ -3,8 +3,8 @@ import numpy as np
 import random
 import hashlib
 
-from enigma2.enigma2_config import E2Config, E2Generator
-from enigma2.model_params import E2Params
+from enigma2.config.enigma2_config import E2Config, E2Generator
+from enigma2.config.model_params import E2Params
 
 class testE2Config(unittest.TestCase):
 
@@ -19,8 +19,8 @@ class testE2Config(unittest.TestCase):
         self.params = E2Params(pwd=self.pwd)
         self.config = E2Config(self.params)
         
-        # Generator also takes params now
-        self.generator = E2Generator(self.params)
+        # Generator takes config now
+        self.generator = E2Generator(self.config)
 
     def test_pydantic_params_integration(self):
         """
@@ -31,28 +31,57 @@ class testE2Config(unittest.TestCase):
         self.assertEqual(config.pwd, self.pwd)
         self.assertEqual(config.number_rotors, 3)
         
-        generator = E2Generator(params)
+        generator = E2Generator(config)
         self.assertEqual(generator.pwd, self.pwd)
         # generator.config.params because it wraps it
-        self.assertEqual(generator.config.params, params)
+        self.assertEqual(generator.config, config)
 
     def test_pwd_hash_parsing(self):
         self.generator._init_rng(0)
         salt = hashlib.sha256(self.pwd).digest()
-        pwd_hash = hashlib.pbkdf2_hmac("sha512", self.pwd, salt, 100_000).hex()
-        main_seeds_len = 24
+
+        hash_name = self.config.params.hash_algorithm
+        if hash_name.startswith("pbkdf2_"):
+            hash_name = hash_name[7:]
+
+        derived_key = hashlib.pbkdf2_hmac(hash_name, self.pwd, salt, 100_000)
+        pwd_hash = derived_key.hex()
         self.assertEqual(self.config.hash_pwd, pwd_hash)
 
-        # Correctly derive expected values from hash
-        expected_rotations_seed = int(pwd_hash[0:main_seeds_len], 16)
-        expected_rotors_seed = int(pwd_hash[main_seeds_len:main_seeds_len*2], 16)
-        expected_plugboard_seed = int(pwd_hash[main_seeds_len*2:main_seeds_len*3], 16)
-        expected_noise_seed = int(pwd_hash[main_seeds_len*3:main_seeds_len*4], 16)
+        # Chained hashing expected values (Proposal 2)
+        hash_func = lambda data: hashlib.new(hash_name, data).digest()
         
-        hex_part_5 = pwd_hash[main_seeds_len*4:]
-        expected_number_rotors = int(hex_part_5[0], 16) + 1
-        expected_plugboard_size = int(hex_part_5[1], 16) + 1
-        expected_noise_size = int(hex_part_5[2:], 16)
+        seed_1_bytes = hash_func(derived_key + b"rotations_seed")
+        seed_2_bytes = hash_func(seed_1_bytes + b"rotors_seed")
+        seed_3_bytes = hash_func(seed_2_bytes + b"plugboard_seed")
+        seed_4_bytes = hash_func(seed_3_bytes + b"noise_seed")
+        seed_5_bytes = hash_func(seed_4_bytes + b"number_rotors")
+        seed_6_bytes = hash_func(seed_5_bytes + b"plugboard_size")
+        seed_7_bytes = hash_func(seed_6_bytes + b"noise_size")
+
+        expected_rotations_seed = int.from_bytes(seed_1_bytes, byteorder="big")
+        expected_rotors_seed = int.from_bytes(seed_2_bytes, byteorder="big")
+        expected_plugboard_seed = int.from_bytes(seed_3_bytes, byteorder="big")
+        expected_noise_seed = int.from_bytes(seed_4_bytes, byteorder="big")
+
+        def generate_bitchain(key: bytes) -> str:
+            return "".join([f"{byte:08b}" for byte in key])
+
+        seed_5_bitchain = generate_bitchain(seed_5_bytes)
+        seed_6_bitchain = generate_bitchain(seed_6_bytes)
+        seed_7_bitchain = generate_bitchain(seed_7_bytes)
+        hash_len = len(seed_5_bitchain)
+        
+        from math import log2
+        btype = self.config.btype
+        end_idx_number_rotors = hash_len // 128
+        end_idx_plugboard_size = int(log2(btype // 2))
+        max_noise_size = 2**(int(log2(hash_len)) * 2)
+        end_idx_noise_size = int(log2(max_noise_size))
+        
+        expected_number_rotors = int(seed_5_bitchain[:end_idx_number_rotors], 2) + 3
+        expected_plugboard_size = int(seed_6_bitchain[:end_idx_plugboard_size], 2)
+        expected_noise_size = int(seed_7_bitchain[:end_idx_noise_size], 2)
 
         self.assertEqual(self.config.rotations_seed, expected_rotations_seed)
         self.assertEqual(self.config.rotors_seed, expected_rotors_seed)
@@ -79,7 +108,7 @@ class testE2Config(unittest.TestCase):
         }
         params = E2Params(**config_dict)
         config = E2Config(params)
-        generator = E2Generator(params)
+        generator = E2Generator(config)
         
         for _ in range(5):
             start_index = random.randint(0, config.btype)
@@ -87,7 +116,7 @@ class testE2Config(unittest.TestCase):
 
             rotors = generator.generate_rotors()
             encryption_plugboard, decryption_plugboard = generator.generate_plugboards()
-            rotations = generator.generate_rotations(config.number_rotations, initial_rotations_index=start_index)
+            rotations = generator.generate_rotations(config.number_rotors, initial_rotations_index=start_index)
             noise = generator.generate_noise(config.noise_size)
 
             generator._init_rng(start_index)
@@ -100,7 +129,7 @@ class testE2Config(unittest.TestCase):
             self.assertTrue(np.all(encryption_plugboard == new_encryption_plugboard))
             self.assertTrue(np.all(decryption_plugboard == new_decryption_plugboard))
 
-            new_rotations = generator.generate_rotations(config.number_rotations, initial_rotations_index=start_index)
+            new_rotations = generator.generate_rotations(config.number_rotors, initial_rotations_index=start_index)
             for original_rotation, new_rotation in zip(rotations, new_rotations):
                 self.assertTrue(np.all(original_rotation == new_rotation))
 
@@ -141,7 +170,7 @@ class testE2Config(unittest.TestCase):
         self.generator._init_rng(0)
         rotations_size = 100
         rotations = self.generator.generate_rotations(rotations_size=rotations_size, initial_rotations_index=0)
-        self.assertEqual(rotations.shape, (self.config.number_rotations, rotations_size))
+        self.assertEqual(rotations.shape, (self.config.number_rotors, rotations_size))
         for rotation in rotations:
             self.assertEqual(rotation.dtype, self.config.dtype)
             self.assertEqual(rotation.size, rotations_size)
@@ -156,5 +185,20 @@ class testE2Config(unittest.TestCase):
         self.assertEqual(len(rev_plug), self.config.btype)
         self.assertTrue(np.all(plug == self.generator.reverse_rotor(rev_plug)))
     
+    def test_E2Config_copy(self):
+        """Verifies E2Config copy and equality."""
+        new_config = self.config.copy()
+        self.assertEqual(new_config, self.config)
+        self.assertTrue(new_config == self.config)
+        self.assertEqual(new_config.pwd, self.config.pwd)
+        self.assertEqual(new_config.btype, self.config.btype)
+
+    def test_E2Generator_copy(self):
+        """Verifies E2Generator copy and equality."""
+        new_generator = self.generator.copy()
+        self.assertEqual(new_generator, self.generator)
+        self.assertTrue(new_generator == self.generator)
+        self.assertEqual(new_generator.config, self.generator.config)
+
 if __name__ == "__main__":
     unittest.main()

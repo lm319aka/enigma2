@@ -8,6 +8,7 @@ class E2Config(_E2Config):
     """
     def __init__(self, params: E2Params) -> None:
         super().__init__(params)
+        self.data_compression_alg = params.data_compression_alg
 
 class E2Generator(_E2Generator):
     """
@@ -15,5 +16,5 @@ class E2Generator(_E2Generator):
     using the provided configuration and random number generators.
     """
 
-    def __init__(self, params: E2Params) -> None:
-        super().__init__(params)
+    def __init__(self, config: E2Config) -> None:
+        super().__init__(config)

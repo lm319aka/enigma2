@@ -1,4 +1,4 @@
-from enigma2.enigma2_cipher import main
+from enigma2.cli import main
 
 if __name__ == "__main__":
     main()

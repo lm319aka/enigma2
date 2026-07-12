@@ -40,8 +40,51 @@ class RotorsNumberError(E2Error):
 class SeedRangeError(E2Error):
     pass
 
+class InvalidHashAlgorithmError(E2Error):
+    pass
+
+class HashLengthError(E2Error):
+    pass
+
+class RotorOverflowError(E2Error):
+    pass
+
 class StartOpIndexError(E2ValueError):
     pass
+
+class StartOpIndexOverflowWarning(E2Warning):
+    def __init__(self, start_op_index: int, threshold: int):
+        self.start_op_index = start_op_index
+        self.threshold = threshold
+        super().__init__(self._build_message())
+
+    def _build_message(self):
+        return f"start index out of range: {self.start_op_index} >= {self.threshold}"
+
+class StartOpIndexOverflowError(StartOpIndexError):
+    def __init__(self, start_op_index: int, threshold: int):
+        self.start_op_index = start_op_index
+        self.threshold = threshold
+        super().__init__(self._build_message())
+
+    def _build_message(self):
+        return f"start index out of range: {self.start_op_index} >= {self.threshold}"
+
+class NegativeLocalStartOpIndexError(StartOpIndexError):
+    def __init__(self, start_op_index: int):
+        self.start_op_index = start_op_index
+        super().__init__(self._build_message())
+
+    def _build_message(self):
+        return f"Local start op index must be greater than 0: {self.start_op_index} < 0"
+
+class NegativeGlobalStartOpIndexError(StartOpIndexError):
+    def __init__(self, start_op_index: int):
+        self.start_op_index = start_op_index
+        super().__init__(self._build_message())
+
+    def _build_message(self):
+        return f"Global start op index must be greater than 0: {self.start_op_index} < 0"
     
 class PlugboardOddSizeError(PlugboardSizeError):
     def __init__(self, plugboard_size: int):
@@ -149,3 +192,16 @@ class Btype2DtypeCeilingConversionError(ConversionError):
 
     def _build_message(self):
         return f"Btype exceeds maximum value: {self.btype}"
+    
+# COMPRESSION ERRORS
+class CompressionError(E2Error):
+    pass
+
+class UnavailableCompressionAlgorithmError(CompressionError):
+    def __init__(self, compression: str, options: list[str]):
+        self.compression = compression
+        self.options = options
+        super().__init__(self._build_message())
+
+    def _build_message(self):
+        return f"Compression not available: {self.compression}\nAvailable options: {self.options}"
