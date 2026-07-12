@@ -179,19 +179,20 @@ python -m enigma2 --help
 If you run the command above, the following message will be displayed:
 
 ```bash
-usage: __main__.py [-h] [--data DATA] [--fpath FPATH] [--out-path OUT_PATH]
-                   [--pwd PWD] [--op {E,D}]
+usage: __main__.py [-h] [--fpath FPATH] [--out-path OUT_PATH] [--pwd PWD] [--op {E,D}]
                    [--encoding {utf-8,utf-16,utf-32,ascii,utf-7,base64-codec,big5,big5hkscs,bz2-codec,cp037,cp1026,cp1125,cp1140,cp1250,cp1251,cp1252,cp1253,cp1254,cp1255,cp1256,cp1257,cp1258,cp273,cp424,cp437,cp500,cp720,cp737,cp775,cp850,cp852,cp855,cp856,cp857,cp858,cp860,cp861,cp862,cp863,cp864,cp865,cp866,cp869,cp874,cp875,cp932,cp949,cp950,euc-jis-2004,euc-jisx0213,euc-jp,euc-kr,gb18030,gb2312,gbk,hex-codec,hp-roman8,hz,idna,iso2022-jp,iso2022-jp-1,iso2022-jp-2,iso2022-jp-2004,iso2022-jp-3,iso2022-jp-ext,iso2022-kr,iso8859-1,iso8859-10,iso8859-11,iso8859-13,iso8859-14,iso8859-15,iso8859-16,iso8859-2,iso8859-3,iso8859-4,iso8859-5,iso8859-6,iso8859-7,iso8859-8,iso8859-9,johab,koi8-r,koi8-t,koi8-u,kz1048,mac-cyrillic,mac-greek,mac-iceland,mac-latin2,mac-roman,mac-turkish,ptcp154,quopri-codec,raw-unicode-escape,rot-13,shift-jis,shift-jis-2004,shift-jisx0213,tis-620,utf-16-be,utf-16-le,utf-32-be,utf-32-le,utf-8-sig,uu-codec,zlib-codec,latin-1}]
-                   [--orig-rtts] [--start-op-index START_OP_INDEX]
-                   [--input-array] [--output-array] [--btype BTYPE]
-                   [--original-enigma] [--chunk-size CHUNK_SIZE]
-                   [--compression {gzip,bz2,lzma,zlib}] [--hash-alg HASH_ALG]
+                   [--orig-rtts] [--start-op-index START_OP_INDEX] [--input-array] [--output-array]
+                   [--btype BTYPE] [--original-enigma] [--chunk-size CHUNK_SIZE]
+                   [--compression {gzip,bz2,lzma,zlib}] [--hash-alg HASH_ALG] [--verbose] [--version]
+                   [data]
 
 Enigma2 Encryption/Decryption CLI
 
+positional arguments:
+  data                  Data to encrypt/decrypt
+
 options:
   -h, --help            show this help message and exit
-  --data DATA           Data to encrypt/decrypt
   --fpath FPATH         Path of file to encrypt/decrypt
   --out-path OUT_PATH   Path of output file
   --pwd PWD             Password for encryption/decryption
@@ -204,19 +205,18 @@ options:
   --input-array         Defines input as numpy array
   --output-array        Defines output as numpy array
   --btype BTYPE         Custom btype for raw Enigma2
-  --original-enigma     Use original Enigma machine settings (3 fixed rotors,
-                        plugboard, original rotations, fixed password, no noise)
+  --original-enigma     Use original Enigma machine settings (3 fixed rotors, plugboard, original rotations,
+                        fixed password, no noise)
   --chunk-size CHUNK_SIZE
                         Data chunk size for file encryption/decryption
   --compression {gzip,bz2,lzma,zlib}
-                        Enable compression with given algorithm (gzip, bz2,
-                        lzma, zlib)
-  --hash-alg HASH_ALG   Hash algorithm to use for password hashing. Available:
-                        {'sha3_512', 'sha512_256', 'sha512', 'sm3', 'md5',
-                        'sha3_384', 'md5-sha1', 'sha256', 'shake_128',
-                        'shake_256', 'sha3_224', 'ripemd160', 'sha384',
-                        'sha512_224', 'sha224', 'blake2b', 'sha1', 'sha3_256',
-                        'blake2s'}
+                        Enable compression with given algorithm (gzip, bz2, lzma, zlib)
+  --hash-alg HASH_ALG   Hash algorithm to use for password hashing. Available: {'ripemd160', 'blake2b',
+                        'sha3_512', 'sha512_256', 'md5-sha1', 'sm3', 'blake2s', 'shake_128', 'sha3_224',
+                        'sha256', 'sha384', 'sha512', 'sha3_256', 'sha224', 'sha3_384', 'sha512_224', 'md5',
+                        'sha1', 'shake_256'}
+  --verbose             Enable verbose logging
+  --version             show program's version number and exit
 ```
 
 ### Examples
@@ -224,7 +224,7 @@ options:
 **Encrypting data:**
 
 ```bash
-python -m enigma2 --data "Hello, World!" --pwd "my_secret_password" --op E --encoding utf-8
+python -m enigma2 "Hello, World!" --pwd "my_secret_password" --op E --encoding utf-8
 
 # By default, --op is E and encoding is utf-8
 ```
@@ -232,7 +232,7 @@ python -m enigma2 --data "Hello, World!" --pwd "my_secret_password" --op E --enc
 **Decrypting data:**
 
 ```bash
-python -m enigma2 --data "[46, 108, 199, 93, 229, 42, 218, 199, 144, 65, 173, 189, 158]" --pwd "my_secret_password" --op D --encoding utf-8
+python -m enigma2 "[164, 25, 142, 71, 131, 220, 85, 100, 202, 191, 22, 234, 187]" --pwd "my_secret_password" --op D --encoding utf-8
 ```
 
 **Encrypting a file:**
@@ -250,11 +250,11 @@ python -m enigma2 --fpath "test.txt.npy" --pwd "my_secret_password" --op D
 **Using other encodings:**
 
 ```bash
-python -m enigma2 --data "Hello, World!" --pwd "my_secret_password" --encoding utf-16
+python -m enigma2 "Hello, World!" --pwd "my_secret_password" --encoding utf-16
 ```
 
 ```bash
-python -m enigma2 --data "[18524, 56523, 60049, 37807, 31559, 28023, 57124, 30614, 57629, 21708, 18010, 45603, 40016, 34667]" --pwd "my_secret_password" --encoding utf-16 --op D
+python -m enigma2 "[42127, 54731, 13700, 49418, 60127, 11324, 31800, 15457, 31372, 55218, 31372, 61909, 44196, 21299]" --pwd "my_secret_password" --encoding utf-16 --op D
 ```
 
 **Using original rotations:**
@@ -262,56 +262,53 @@ python -m enigma2 --data "[18524, 56523, 60049, 37807, 31559, 28023, 57124, 3061
 Original rotations can be very useful when working with small btypes.
 
 ```bash
-python -m enigma2 --data "Hello, World!" --pwd "my_secret_password" --orig-rtts
+python -m enigma2 "Hello, World!" --pwd "my_secret_password" --orig-rtts
 ```
 
 ```bash
-python -m enigma2 --data "[147, 58, 120, 20, 59, 60, 73, 189, 1, 225, 190, 228, 14]" --pwd "my_secret_password" --orig-rtts --op D
+python -m enigma2 "[182, 102, 5, 169, 182, 110, 76, 198, 191, 241, 182, 108, 74]" --pwd "my_secret_password" --orig-rtts --op D
 ```
 
 **Encrypting/decrypting a chunk of data with a specific start_op_index:**
 
 ```bash
-python -m enigma2 --data "abcd" --pwd "my_secret_password" --start-op-index 4
+python -m enigma2 "abcd" --pwd "my_secret_password" --start-op-index 4
 ```
 
 ```bash
-python -m enigma2 --data "[236, 155, 129, 99]" --pwd "my_secret_password" --start-op-index 4 --op D
+python -m enigma2 "[41, 187, 165, 173]" --pwd "my_secret_password" --start-op-index 4 --op D
 ```
 
 **Providing input and receiving output as numpy arrays:**
 
 ```bash
-python -m enigma2 --data "[1, 2, 3, 4]" --pwd "my_secret_password" --input-array
+python -m enigma2 "[1, 2, 3, 4]" --pwd "my_secret_password" --input-array
 ```
 
 By default in console operations, the output after encryption is a numpy array to avoid encoding issues.
 
 ```bash
-python -m enigma2 --data "[88, 52, 117, 151]" --pwd "my_secret_password" --output-array --op D
+python -m enigma2 "[142, 153, 188, 48]" --pwd "my_secret_password" --output-array --op D
 ```
 
 **Using a custom btype:**
 
 ```bash
-python -m enigma2 --data "Hello, World!" --pwd "my_secret_password" --btype 123
+python -m enigma2 "[1, 2, 3, 4]" --pwd "my_secret_password" --btype 123 --input-array
 ```
 
 ```bash
-python -m enigma2 --data "[68, 47, 21, 2, 8, 118, 75, 0, 85, 66, 104, 53, 29]" --pwd "my_secret_password" --btype 123 --op D
+python -m enigma2 "[61, 93, 40, 6]" --pwd "my_secret_password" --btype 123 --output-array --op D
 ```
 
 **Emulating the Original Enigma Machine:**
 
 ```bash
 # Encrypt message (no password/--pwd required)
-python -m enigma2 --data "hello world" --original-enigma
-# Output:
-# Encrypted data: [20, 22, 17, 13, 18, 5, 14, 17, 2, 23, 17]
-# >> uwrnsforcxr
+python -m enigma2 "hello world" --original-enigma
 
 # Decrypt message
-python -m enigma2 --data "uwrnsforcxr" --original-enigma --op D
+python -m enigma2 "iwsebrbtzrx" --original-enigma --op D
 ```
 
 **Using Data Compression:**
@@ -335,7 +332,10 @@ python -m enigma2 --fpath "large_file.txt" --pwd "my_secret_password" --chunk-si
 
 ```bash
 # Encrypt using SHA-256 for password hashing (instead of default pbkdf2_sha512)
-python -m enigma2 --data "Hello, World!" --pwd "my_secret_password" --hash-alg sha256
+python -m enigma2 "Hello, World!" --pwd "my_secret_password" --hash-alg sha256
+
+# Decrypt using SHA-256 for password hashing
+python -m enigma2 "[251, 71, 238, 215, 49, 250, 135, 183, 174, 159, 94, 254, 178]" --pwd "my_secret_password" --hash-alg sha256 --op D
 ```
 
 The operations shown above can be combined in different ways within the same command. (The only exception is the compression flag, it only works using bases (btype) that matches the data type (dtype), e.g. btype=256 and dtype=np.uint8 would work, but btype=123 and dtype=np.uint8 would not, program raises error)
@@ -711,6 +711,7 @@ The `E2Params` class (and its sub-model `elements_creation_params`) provides sev
 - `avoid_validation`: If `True`, skips parameter range checks (not recommended).
 - `verbose`: If `True`, enables logging output.
 - `log_path`: Optional path to write log output.
+- `version`: Enigma2 version.
 
 ## Contributing
 
