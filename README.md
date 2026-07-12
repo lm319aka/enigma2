@@ -34,6 +34,8 @@ pip install "git+https://github.com/lm319aka/enigma2.git"
 
 ## What's New in v2.4.3
 
+- **Model Parameter Defaults (`E2Params` / `_E2Params`)**: Modified `encoding`, `elements_creation_params`, and `hash_algorithm` to default to `None` in the parameters model (allowing them to be completely omitted or explicitly set to `None`). Pydantic now dynamically resolves them to their correct default values (`E2Encoding("utf-8")`, a default `_E2ElementsCreationParams` instance, and `"sha3_512"` respectively) during validation.
+- **Robust CLI Validation & Bug Fixes**: Fixed a bug where using `--odd-btype` would crash the CLI due to `elements_creation_params` being `None`, which is now gracefully handled by the revised parameter models.
 - **Independent Password Slicer Seed Derivation**: Switched from slicing a single seed bitchain to deriving each parameter from its own dedicated hash iteration/stage, with distinct salt strings (e.g., `b"rotations_seed"`, `b"rotors_seed"`, `b"plugboard_seed"`, `b"noise_seed"`, `b"number_rotors"`, `b"plugboard_size"`, `b"noise_size"`) appended to each hash. This prevents correlation or structural bias between derived parameters and enhances the security of the parameter space.
 - **Professional Multi-line Class Representations (`__repr__`)**: Re-architected class string representation formats. Introduced a `format_repr` utility (`enigma2/utils/repr_helper.py`) that outputs configuration fields dynamically, with one parameter per line and proper indentation. Nested objects and parameters are formatted cleanly, improving readability across all key classes (`E2`, `_E2`, `_E2Config`, `_E2Generator`, `_E2Params`, `_E2ElementsCreationParams`).
 - **Advanced CLI Enhancements**:
@@ -695,10 +697,10 @@ asyncio.run(run_parallel_batch())
 The `E2Params` class (and its sub-model `elements_creation_params`) provides several arguments:
 
 - `pwd`: (Required) The password in bytes.
-- `encoding`: String encoding (must match `dtype`).
+- `encoding`: Optional string encoding (must match `dtype`). Defaults to `None` and is resolved to `"utf-8"` upon validation.
 - `btype`: The base type (e.g., `123`, `256`).
 - `dtype`: The data type (e.g., `np.uint8`, `np.uint16`).
-- `elements_creation_params`:
+- `elements_creation_params`: Optional parameters for configuring elements. Defaults to `None` and is resolved to default creation parameters (using an instance of `_E2ElementsCreationParams`) upon validation. Supports the following sub-fields if provided as a dictionary or instance:
   - `number_rotors`: Number of rotors (1-16).
   - `noise_size`: Length of the noise array.
   - `plugboard_size`: Length of the plugboard array (1-16 pairs -> 2-32).
@@ -706,7 +708,7 @@ The `E2Params` class (and its sub-model `elements_creation_params`) provides sev
 - `original_rotations`: If `True`, uses deterministic rotations similar to the original mechanical Enigma.
 - `global_start_op_index`: Configured globally at the instance level. It defines the base reset/advance state index of the random number generators for a cipher instance.
 - `data_compression_alg`: Optional string to enable compression prior to encryption. Supported values are `"gzip"`, `"bz2"`, `"lzma"`, and `"zlib"`. Only available in `E2Params` (for standard perfect btypes).
-- `hash_algorithm`: Hashing algorithm to use for password key derivation (default: `"sha3_512"`). Supports standard algorithms such as `"sha3_512"`, `"sha256"`, `"sha512"`, etc.
+- `hash_algorithm`: Optional hashing algorithm to use for password key derivation. Defaults to `None` and is resolved to `"sha3_512"` upon validation. Supports standard algorithms such as `"sha3_512"`, `"sha256"`, `"sha512"`, etc.
 - `chunk_size`: Optional integer specifying custom chunk size (in bytes) for file operations.
 - `avoid_validation`: If `True`, skips parameter range checks (not recommended).
 - `verbose`: If `True`, enables logging output.

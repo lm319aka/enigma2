@@ -92,6 +92,29 @@ class Test_E2Config(unittest.TestCase):
         with self.assertRaises(NoiseSizeError):
             _E2Params(pwd=self.pwd, elements_creation_params={"noise_size": -10})
 
+    def test_none_defaults_validation(self):
+        """Verifies that encoding, elements_creation_params, and hash_algorithm default to None and are resolved to their defaults upon validation."""
+        # 1. Initialize with explicit None values
+        params = _E2Params(
+            pwd=self.pwd,
+            dtype=np.uint8,
+            encoding=None,
+            elements_creation_params=None,
+            hash_algorithm=None
+        )
+        self.assertEqual(params.encoding.encoding, "utf-8")
+        self.assertIsNotNone(params.elements_creation_params)
+        self.assertEqual(params.hash_algorithm, "sha3_512")
+
+        # 2. Verify assignment post-creation
+        params.encoding = None
+        params.elements_creation_params = None
+        params.hash_algorithm = None
+
+        self.assertEqual(params.encoding.encoding, "utf-8")
+        self.assertIsNotNone(params.elements_creation_params)
+        self.assertEqual(params.hash_algorithm, "sha3_512")
+
     def test_pwd_hash_parsing(self):
         """Verifies correct derivation of seeds and params from password hash."""
         self.generator._init_rng(0)
