@@ -5,12 +5,11 @@ import re
 import numpy as np
 
 from .config.model_params import _E2ElementsCreationParams, E2Params, _E2Params, E2TypesConversion
-from .core._e2_cipher import _E2
-from .config._e2_config import _E2Config
-from .config.enigma2_config import E2Config
-from .core.enigma2_cipher import E2
+from enigma2 import create_cipher
+from .core.enigma2_cipher import E2, _E2
 from .utils.encodings_getter import encoding_dtype_map
 from .hashing.pwd_hashing import HashBitesLength
+from enigma2 import __version__
 
 
 class CipherOperation(Enum):
@@ -40,6 +39,12 @@ def cli_init_cipher(
     cipher_operation: CipherOperation,
     odd_btype: bool
 ) -> E2 | _E2:
+    
+    # if args.verbose:
+        # print(f"Enigma2: {__version__}")
+        # for k, v in args.__dict__.items():
+        #     print(f"{k}: {v} -- type: {type(v)}")
+
     if args.original_enigma:
         pwd_bytes = b" "
         orig_rtts = True
@@ -55,7 +60,7 @@ def cli_init_cipher(
     else:
         pwd_bytes = args.pwd.encode(args.encoding) if args.pwd else None
         orig_rtts = args.orig_rtts
-        elements_creation = None
+        elements_creation = _E2ElementsCreationParams()
 
         bt = args.btype
 
@@ -75,11 +80,6 @@ def cli_init_cipher(
             hash_algorithm=args.hash_alg,
             verbose=args.verbose
         )
-        
-        # print("Config params _E2 (raw E2):")
-        # for p in config_params.__dict__:
-        #     print(f"{p}: {getattr(config_params, p)}")
-        codec = _E2(config_params)
     else:
         config_params = E2Params(
             pwd=pwd_bytes,
@@ -93,12 +93,7 @@ def cli_init_cipher(
             verbose=args.verbose
         )
 
-        # print("Config params E2:")
-        # for p in config_params.__dict__:
-        #     print(f"{p}: {getattr(config_params, p)}")
-        codec = E2(config_params)
-
-    return codec
+    return create_cipher(config_params)
 
 
 def main() -> None:
@@ -121,6 +116,7 @@ def main() -> None:
     parser.add_argument("--compression", type=str, default=None, choices=["gzip", "bz2", "lzma", "zlib"], help="Enable compression with given algorithm (gzip, bz2, lzma, zlib)")
     parser.add_argument("--hash-alg", type=str, default="sha3_512", help=f"Hash algorithm to use for password hashing. Available: {HashBitesLength()._hash_algorithms}")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--version", action="version", version="enigma2: " + __version__)
     # Parse command-line arguments
     args = parser.parse_args()
 
@@ -131,11 +127,10 @@ def main() -> None:
         parser.error("the following arguments are required: --pwd")
 
     cipher_operation = CipherOperation(args.op)
-    
+
+    odd_btype = False
     if args.btype is not None:
         odd_btype = args.btype not in E2TypesConversion.available_btypes()
-    else:
-        odd_btype = False
 
     codec = cli_init_cipher(
         args,

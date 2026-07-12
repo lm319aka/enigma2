@@ -242,5 +242,40 @@ class TestEnigma2CLI(unittest.TestCase):
         self.assertEqual(dec_res.returncode, 0, msg=dec_res.stderr)
         self.assertEqual(dec_res.stdout.strip(), message)
 
+    def test_odd_btype_use(self):
+        """Test that odd btype values are handled correctly."""
+        message = "[1, 2, 3, 4]"
+        
+        # 1. Encrypt
+        enc_res = self.run_cli([
+            "-m", "enigma2",
+            message,
+            "--pwd", self.pwd,
+            "--btype", "101",
+            "--op", "E",
+            "--input-array",
+            # "--verbose"
+        ])
+        self.assertEqual(enc_res.returncode, 0, msg=enc_res.stderr)
+        encrypted_list_str = enc_res.stdout.strip()
+
+        # 2. Decrypt
+        dec_res = self.run_cli([
+            "-m", "enigma2",
+            encrypted_list_str,
+            "--pwd", self.pwd,
+            "--btype", "101",
+            "--op", "D",
+            "--output-array",
+            # "--verbose"
+        ])
+        # self.assertEqual(dec_res.returncode, 0, msg=dec_res.stderr)
+        self.assertEqual(dec_res.stdout.strip(), message)
+
 if __name__ == "__main__":
-    unittest.main()
+    # unittest.main()
+
+    suite = unittest.TestSuite()
+    suite.addTest(TestEnigma2CLI("test_odd_btype_use"))   # ← run ONLY this test
+    runner = unittest.TextTestRunner()
+    runner.run(suite)

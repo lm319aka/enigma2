@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator, PositiveInt, ValidationInfo, field_serializer
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator, PositiveInt, ValidationInfo, field_serializer, Field
 from typing import Optional, Union, Any
 from pathlib import Path
 import numpy as np
@@ -144,17 +144,17 @@ class _E2Params(BaseModel):
     model_config = standard_model_config
 
     pwd: bytes = None
-    encoding: E2Encoding = E2Encoding("utf-8")
+    encoding: Optional[E2Encoding] = Field(default=None, validate_default=True)
     dtype: Any = None
     btype: Optional[PositiveInt] = None
-    elements_creation_params: _E2ElementsCreationParams = _E2ElementsCreationParams()
+    elements_creation_params: Optional[_E2ElementsCreationParams] = Field(default=None, validate_default=True)
     original_rotations: bool = False
     global_start_op_index: int = 0
     avoid_validation: bool = False
     verbose: bool = False
     log_path: Optional[Union[Path, str]] = None
     chunk_size: Optional[PositiveInt] = None
-    hash_algorithm: str = "sha3_512"
+    hash_algorithm: Optional[str] = Field(default=None, validate_default=True)
     
     @field_validator("pwd", mode="before")
     @classmethod
@@ -173,6 +173,20 @@ class _E2Params(BaseModel):
         if isinstance(value, str):
             return E2Encoding(value)
         raise EncodingError(f"Invalid datatype for encoding: {value} -> {type(value)}")
+
+    @field_validator("elements_creation_params", mode="before")
+    @classmethod
+    def check_elements_creation_params(cls, value: Any):
+        if value is None:
+            return _E2ElementsCreationParams()
+        return value
+
+    @field_validator("hash_algorithm", mode="before")
+    @classmethod
+    def check_hash_algorithm(cls, value: Any):
+        if value is None:
+            return "sha3_512"
+        return value
 
     @field_serializer("encoding")
     def serialize_encoding(self, encoding: E2Encoding) -> str:
