@@ -1,4 +1,5 @@
 import argparse
+import sys
 from enum import Enum
 import re
 import numpy as np
@@ -102,10 +103,10 @@ def cli_init_cipher(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Enigma2 Encryption/Decryption CLI")
-    parser.add_argument("--data", type=str, help="Data to encrypt/decrypt")
+    parser.add_argument("data", nargs="?", type=str, help="Data to encrypt/decrypt")
     parser.add_argument("--fpath", type=str, help="Path of file to encrypt/decrypt")
     parser.add_argument("--out-path", type=str, help="Path of output file")
-    parser.add_argument("--pwd", type=str, help="Password for encryption/decryption")
+    parser.add_argument("--pwd", type=str, default=None, help="Password for encryption/decryption")
     parser.add_argument("--op", type=str, default="E", choices=["E", "D"], help="Operation: E (Encrypt), D (Decrypt)")
     parser.add_argument("--encoding", type=str, default="utf-8", choices=encoding_dtype_map.keys(), help="Encoding to use")
     parser.add_argument("--orig-rtts", action="store_true", help="Use original Enigma-style rotations")
@@ -122,6 +123,9 @@ def main() -> None:
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     # Parse command-line arguments
     args = parser.parse_args()
+
+    if not args.data and not args.fpath and not sys.stdin.isatty():
+        args.data = sys.stdin.read().strip()
 
     if not args.pwd and not args.original_enigma:
         parser.error("the following arguments are required: --pwd")
@@ -190,7 +194,7 @@ def main() -> None:
             codec.decrypt_file(args.fpath, args.out_path, local_start_op_index=args.start_op_index)
 
     else:
-        raise ValueError("Either --data or --fpath must be provided.")
+        parser.error("Either data (positional) or --fpath must be provided.")
 
 
 if __name__ == "__main__":

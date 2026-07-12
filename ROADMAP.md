@@ -121,7 +121,7 @@ On this document you will find the different features of past, present and futur
 - [X] Guarantee a minimum level of security (only using one or two rotors is a very insecure practice. Instead of 1-16 rotors created from hash -> 3-18)
 
 - [X] check use of verbose, logging and default class repr
-- [ ] Change cli to make data first and most important param and pwd optional if --original-enigma flag is used
+- [X] Change cli to make data (does not need a flag but can be optional because we can also use --fpath instead of entering data through console) first and most important param and pwd optional if --original-enigma flag is used
 
 - [ ] Try to apply xor function to data (or data chunks) using an IV
 
