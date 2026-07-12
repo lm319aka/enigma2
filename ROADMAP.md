@@ -120,6 +120,9 @@ On this document you will find the different features of past, present and futur
 - [X] Add warning if rotors could reset to initial state due to data size
 - [X] Guarantee a minimum level of security (only using one or two rotors is a very insecure practice. Instead of 1-16 rotors created from hash -> 3-18)
 
+- [X] check use of verbose, logging and default class repr
+- [ ] Change cli to make data first and most important param and pwd optional if --original-enigma flag is used
+
 - [ ] Try to apply xor function to data (or data chunks) using an IV
 
 - [X] verify pwd is hex

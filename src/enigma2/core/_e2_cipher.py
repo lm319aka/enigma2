@@ -24,7 +24,7 @@ def timed(func):
         result = func(*args, **kwargs)
         end = time.perf_counter()
         if kwargs.get("verbose", False) or (len(args) > 0 and hasattr(args[0], 'config') and args[0].config.verbose):
-            print(f"{func.__name__} took {end - start:.4f} seconds")
+            logging.info(f"{func.__name__} took {end - start:.4f} seconds")
         return result
     return wrapper
 
@@ -42,6 +42,7 @@ class _E2:
         if not isinstance(params, _E2Params):
             raise TypeError(f"params must be an instance of _E2Params, not {type(params)}")
         
+        # Initialize config
         if isinstance(params, E2Params):
             from ..config.enigma2_config import E2Config
             self.config = E2Config(params)
@@ -67,8 +68,14 @@ class _E2:
         self.encryption_plugboard, self.decryption_plugboard = self.generator.generate_plugboards()
         
         logging.debug(f"Encryption rotors shape: {self.encryption_rotors.shape}")
+        logging.debug(f"Decryption rotors shape: {self.decryption_rotors.shape}")
+        logging.debug(f"Encryption plugboard shape: {self.encryption_plugboard.shape}")
+        logging.debug(f"Decryption plugboard shape: {self.decryption_plugboard.shape}")
+        self.__first_logging_info()
+
+    def __first_logging_info(self):
         logging.info(
-            f"E2 Initialized: rotors={self.config.number_rotors}, btype={self.config.btype}, dtype={self.config.dtype}"
+            f"_E2 (raw E2) Initialized: \n{self}"
         )
 
     @classmethod
@@ -80,6 +87,7 @@ class _E2:
         """Resets the internal random number generators to global start index."""
         final_idx = self.config.global_start_op_index + start_index
         self.generator._init_rng(final_idx)
+        logging.debug(f"Random number generators reset to global start index: {final_idx}")
         return final_idx
 
     def mod_add(self, a: np.ndarray, b: np.ndarray, m: int):
@@ -87,6 +95,11 @@ class _E2:
         tmp = np.empty_like(a, dtype=higher_encoding)  # buffer temporal
         np.add(a, b, out=tmp, dtype=higher_encoding)  # suma sin overflow
         res = np.mod(tmp, m, out=a)             # vuelca el resultado en a (dtype original)
+        logging.debug(f"""mod_add: 
+                      a: {a}, 
+                      b: {b}, 
+                      m: {m}, higher_encoding: {higher_encoding}, 
+                      res: {res}""")
         return res
     
     def mod_sub(self, a: np.ndarray, b: np.ndarray, m: int):
@@ -97,6 +110,11 @@ class _E2:
                     out=tmp
                     )  # resta sin overflow
         res = np.mod(tmp, m)             # vuelca el resultado en a (dtype original)
+        logging.debug(f"""mod_sub: 
+                      a: {a}, 
+                      b: {b}, 
+                      m: {m}, higher_encoding: {higher_encoding}, 
+                      res: {res}""")
         return res.astype(dtype=self.config.dtype)
 
 
@@ -104,11 +122,13 @@ class _E2:
         """Applies a single rotor encryption step."""
         res = self.mod_add(data_array, rotation, self.config.btype)
         # Use numpy indexing for fast mapping
+        logging.debug(f"rotor encryption layer: {res}")
         return rotor[res]
 
     def rotor_decryption(self, data_array: np.ndarray, rotor: np.ndarray, rotation: np.ndarray) -> np.ndarray:
         """Applies a single rotor decryption step."""
         res = rotor[data_array]
+        logging.debug(f"rotor decryption layer: {res}")
         return self.mod_sub(res, rotation, self.config.btype)
     
     def check_entry_data(self, data_array: Union[np.ndarray, bytes]) -> np.ndarray:        
@@ -153,14 +173,17 @@ class _E2:
         :return: Encrypted numpy array.
         """
         
+        logging.info(f"Encrypting data with local_start_op_index: {local_start_op_index}")
         if local_start_op_index < 0:
             raise NegativeLocalStartOpIndexError(local_start_op_index)
-                
+        
+        logging.info(f"Start preprocessing data...")
         data_array = self.preprocess_encrypt_data(data_array)
                 
         # Reset RNG to ensure consistency across operations
         self.reset_rng(local_start_op_index)
         
+        logging.info(f"Generating rotations and noise...")
         # Generate rotations and noise for this specific data size
         rotations_array = self.generator.generate_rotations(
                                                 data_array.size, 
@@ -169,13 +192,17 @@ class _E2:
         
         noise_array = self.generator.generate_noise(data_array.size)
 
+        logging.info("1. Apply plugboard mapping")
         # 1. Apply plugboard mapping
         data_array = self.encryption_plugboard[data_array]
 
+        logging.info("2. Apply sequential rotor encryption")
         # 2. Apply sequential rotor encryption
         for i in range(self.config.number_rotors):
+            logging.info(f"Applying rotor {i}")
             data_array = self.rotor_encryption(data_array, self.encryption_rotors[i], rotations_array[i])
         
+        logging.info("3. Add noise")
         # 3. Add noise
         return self.mod_add(data_array, noise_array, self.config.btype)
 
@@ -210,13 +237,14 @@ class _E2:
             if output_path.is_dir():
                 output_path = output_path / (file_path.name + ".npy")
 
+        logging.info(f"Initial filepath: {file_path}. Output filepath: {output_path}")
         # Load data with appropriate dtype
         if detect_encoding:
             file_encoding = find_file_encoding(file_path)
             data = np.fromfile(file_path, dtype=encoding_dtype_map[file_encoding])
         else:
             data = np.fromfile(file_path, dtype=self.config.dtype)
-
+        logging.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
         encrypted_data = self.encrypt(data, local_start_op_index)
         np.save(output_path, encrypted_data)
         
@@ -234,14 +262,17 @@ class _E2:
         :return: Decrypted numpy array.
         """
         
+        logging.info(f"Decrypting data with local_start_op_index: {local_start_op_index}")
         if local_start_op_index < 0:
             raise NegativeLocalStartOpIndexError(local_start_op_index)
         
+        logging.info(f"Start preprocessing data...")
         data_array = self.check_entry_data(data_array)
         
         # Reset RNG to ensure consistency across operations        
         self.reset_rng(local_start_op_index)
 
+        logging.info(f"Generating rotations and noise...")
         rotations_array = self.generator.generate_rotations(
                                                 data_array.size, 
                                                 initial_rotations_index=local_start_op_index + self.config.global_start_op_index
@@ -249,6 +280,7 @@ class _E2:
         
         noise_array = self.generator.generate_noise(data_array.size)
 
+        logging.info("1. Remove noise")
         # 1. Remove noise
         data_array = self.mod_sub(data_array, noise_array, self.config.btype)
 
@@ -256,10 +288,13 @@ class _E2:
         if np.any(data_array >= self.config.btype):
             raise ValueError(f"Data values must be less than {self.config.btype}")
         
+        logging.info("2. Apply sequential rotor decryption in reverse order")
         # 2. Apply sequential rotor decryption in reverse order
         for i in reversed(range(self.config.number_rotors)):
+            logging.info(f"Applying rotor {i}")
             data_array = self.rotor_decryption(data_array, self.decryption_rotors[i], rotations_array[i])
         
+        logging.info("3. Apply reverse plugboard mapping")
         # 3. Apply reverse plugboard mapping
         data_array = self.decryption_plugboard[data_array]
         
@@ -294,8 +329,11 @@ class _E2:
             if output_path.is_dir():
                 output_path = output_path / file_path.name.replace(".npy", "")
 
+        logging.info(f"Initial filepath: {file_path}. Output filepath: {output_path}")
+
         # Load encrypted data from .npy file
-        data = np.load(file_path)
+        data: np.ndarray = np.load(file_path)
+        logging.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
         decrypted_data = self.decrypt(data, local_start_op_index)
         
         # Write decrypted bytes to file
@@ -307,11 +345,12 @@ class _E2:
     def copy(self) -> "_E2":
         return self.__class__(self.config.params.model_copy())
     
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other: "_E2") -> bool:
         if type(self) is not type(other):
             return False
         return self.config == other.config
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(config={self.config!r})"
+        from ..utils.repr_helper import format_repr
+        return format_repr(self.__class__.__name__, {"config": self.config})
 

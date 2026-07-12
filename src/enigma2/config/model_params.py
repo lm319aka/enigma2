@@ -132,6 +132,11 @@ class _E2ElementsCreationParams(BaseModel):
                 raise NoiseSizeError(f"Invalid noise size: {value}")
         return value
 
+    def __repr__(self) -> str:
+        from ..utils.repr_helper import format_repr
+        fields = {field: getattr(self, field) for field in self.__class__.model_fields}
+        return format_repr(self.__class__.__name__, fields)
+
 class _E2Params(BaseModel):
     """
     Base configuration parameters for Enigma2.
@@ -252,6 +257,11 @@ class _E2Params(BaseModel):
             raise E2ValueError(f"btype  exceeds maximum value using actual dtype ({self.dtype}): {self.btype} > {max_btype}. To solve this, change dtype or encoding to a superior one.")
         
         return self
+
+    def __repr__(self) -> str:
+        from ..utils.repr_helper import format_repr
+        fields = {field: getattr(self, field) for field in self.__class__.model_fields}
+        return format_repr(self.__class__.__name__, fields)
 
 class E2Params(_E2Params):
     """

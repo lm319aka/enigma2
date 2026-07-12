@@ -55,9 +55,15 @@ class E2(_E2):
             from ..utils.compression import Compressor
             data_array = Compressor.decompress_nparray(data_array, self.data_compression_alg)
         return data_array
-
+    
+    def __first_logging_info(self):
+        logging.info(
+            f"E2 Initialized: \n{self}"
+        )
+        
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(config={self.config!r})"
+        from ..utils.repr_helper import format_repr
+        return format_repr(self.__class__.__name__, {"config": self.config})
 
 
 def main() -> None:

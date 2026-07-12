@@ -69,6 +69,7 @@ class _E2Config:
         self.log_path: Optional[Path | str] = params.log_path
         self.encoding: str = params.encoding.encoding
         self.chunk_size: Optional[int] = params.chunk_size
+        self.hash_algorithm: str = params.hash_algorithm
 
         # Derive seeds and parameters from password hash if not explicitly provided
         self._derive_params_from_hash()
@@ -148,18 +149,8 @@ class _E2Config:
         return self.params == other.params
     
     def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}("
-            f"dtype={self.dtype}, "
-            f"btype={self.btype}, "
-            f"number_rotors={self.number_rotors}, "
-            f"plugboard_size={self.plugboard_size}, "
-            f"noise_size={self.noise_size}, "
-            f"original_rotations={self.original_rotations}, "
-            f"start_op_index={self.global_start_op_index}, "
-            f"encoding={self.encoding!r}"
-            f")"
-        )
+        from ..utils.repr_helper import format_repr, get_config_fields
+        return format_repr(self.__class__.__name__, get_config_fields(self))
 
 
 class _E2Generator:
@@ -352,4 +343,5 @@ class _E2Generator:
         return self.config == other.config
             
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(config={self.config!r})"
+        from ..utils.repr_helper import format_repr
+        return format_repr(self.__class__.__name__, {"config": self.config})

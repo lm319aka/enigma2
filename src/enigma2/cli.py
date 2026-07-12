@@ -71,12 +71,13 @@ def cli_init_cipher(
             global_start_op_index=args.start_op_index,
             chunk_size=args.chunk_size,
             elements_creation_params=elements_creation,
-            hash_algorithm=args.hash_alg
+            hash_algorithm=args.hash_alg,
+            verbose=args.verbose
         )
         
-        print("Config params _E2 (raw E2):")
-        for p in config_params.__dict__:
-            print(f"{p}: {getattr(config_params, p)}")
+        # print("Config params _E2 (raw E2):")
+        # for p in config_params.__dict__:
+        #     print(f"{p}: {getattr(config_params, p)}")
         codec = _E2(config_params)
     else:
         config_params = E2Params(
@@ -87,12 +88,13 @@ def cli_init_cipher(
             global_start_op_index=args.start_op_index,
             chunk_size=args.chunk_size,
             data_compression_alg=args.compression,
-            hash_algorithm=args.hash_alg
+            hash_algorithm=args.hash_alg,
+            verbose=args.verbose
         )
 
-        print("Config params E2:")
-        for p in config_params.__dict__:
-            print(f"{p}: {getattr(config_params, p)}")
+        # print("Config params E2:")
+        # for p in config_params.__dict__:
+        #     print(f"{p}: {getattr(config_params, p)}")
         codec = E2(config_params)
 
     return codec
@@ -117,7 +119,7 @@ def main() -> None:
     parser.add_argument("--chunk-size", type=int, default=None, help="Data chunk size for file encryption/decryption")
     parser.add_argument("--compression", type=str, default=None, choices=["gzip", "bz2", "lzma", "zlib"], help="Enable compression with given algorithm (gzip, bz2, lzma, zlib)")
     parser.add_argument("--hash-alg", type=str, default="sha3_512", help=f"Hash algorithm to use for password hashing. Available: {HashBitesLength()._hash_algorithms}")
-
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     # Parse command-line arguments
     args = parser.parse_args()
 
@@ -150,11 +152,11 @@ def main() -> None:
                     input_data = np.array(data_list, dtype=codec.config.dtype)
                 except Exception:
                     if args.input_array:
-                        raise ValueError("Invalid input array format")
+                        raise parser.error("Invalid input array format")
                     else:
                         input_data = args.data.encode(args.encoding)
             else:
-                raise ValueError("Invalid input array format")
+                raise parser.error("Invalid input array format")
             
         elif args.original_enigma:
             input_data = OriginalEnigmaData.encode(args.data)
@@ -164,19 +166,21 @@ def main() -> None:
         # Handle direct data input
         if cipher_operation == CipherOperation.ENCRYPT:
             result = codec.encrypt(input_data, local_start_op_index=args.start_op_index)
-            print(f"Encrypted data: {result.tolist()}")
+            # print(f"Encrypted data: {result.tolist()}")
 
             if args.original_enigma:
-                print(f">> {OriginalEnigmaData.decode(result)}")
+                print(OriginalEnigmaData.decode(result))
+            else:
+                print(result.tolist())
 
         elif cipher_operation == CipherOperation.DECRYPT:
             result = codec.decrypt(input_data, local_start_op_index=args.start_op_index)
             if args.output_array:
-                print(f"Decrypted data: {result.tolist()}")
+                print(result.tolist())
             elif args.original_enigma:
-                print(f"Decrypted data: {OriginalEnigmaData.decode(result)}")
+                print(OriginalEnigmaData.decode(result))
             else:
-                print(f"Decrypted data: {result.tobytes().decode(args.encoding)}")
+                print(result.tobytes().decode(args.encoding))
 
     elif args.fpath:
         # Handle file input
