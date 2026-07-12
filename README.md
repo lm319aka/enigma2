@@ -1,6 +1,6 @@
 # ENIGMA2
 
-================ done by lm319aka ================ (Updated for v2.4.2)
+================ done by lm319aka ================ (Updated for v2.4.3)
 
 Enigma2 is a Python package that provides a simple and efficient way to encrypt and decrypt data using a custom encryption algorithm. The package is designed to be easy to use and provides a range of features to make it suitable for a variety of applications.
 
@@ -32,20 +32,24 @@ To install as a package for a project:
 pip install "git+https://github.com/lm319aka/enigma2.git"
 ```
 
-## What's New in v2.4.2
+## What's New in v2.4.3
 
-- **Constructor Initialization Signature Refactor**: Replaced KDF overhead by initializing primary classes (`E2`, `_E2`, `E2Async`, `_E2Async`) directly with parameter objects (`E2Params` / `_E2Params`) instead of configuration objects. Configuration is now evaluated once internally. Generators (`E2Generator` / `_E2Generator`) are initialized directly with `Config` objects. This eliminates double KDF calculations, achieving a **~50% startup speedup**.
-- **Directory Structure Reorganization**: Grouped modules into clear subpackages to scale development and improve codebase readability:
-  - `core/` for cipher engine worker classes.
-  - `config/` for validation models and configuration builders.
-  - `hashing/` for password derivation logic.
-  - `utils/` for exception classes, encodings detectors, and compression helpers.
+- **Independent Password Slicer Seed Derivation**: Switched from slicing a single seed bitchain to deriving each parameter from its own dedicated hash iteration/stage, with distinct salt strings (e.g., `b"rotations_seed"`, `b"rotors_seed"`, `b"plugboard_seed"`, `b"noise_seed"`, `b"number_rotors"`, `b"plugboard_size"`, `b"noise_size"`) appended to each hash. This prevents correlation or structural bias between derived parameters and enhances the security of the parameter space.
+- **Professional Multi-line Class Representations (`__repr__`)**: Re-architected class string representation formats. Introduced a `format_repr` utility (`enigma2/utils/repr_helper.py`) that outputs configuration fields dynamically, with one parameter per line and proper indentation. Nested objects and parameters are formatted cleanly, improving readability across all key classes (`E2`, `_E2`, `_E2Config`, `_E2Generator`, `_E2Params`, `_E2ElementsCreationParams`).
+- **Advanced CLI Enhancements**:
+  - Replaced the optional `--data` flag with a positional `data` argument, making it the first and primary CLI parameter.
+  - Enabled standard input (stdin) piping support. Users can now pipe data directly into the CLI tool (e.g., `echo "hello" | enigma2-cipher ...`).
+  - Streamlined CLI print formatting by removing descriptive prefixes (e.g., `"Encrypted data: "`), leaving only the raw encrypted or decrypted arrays/strings to facilitate seamless shell scripting.
+  - Introduced a new `--verbose` flag for detailed logging of execution steps, and standardized command errors using `parser.error` instead of raising raw exceptions.
+- **Detailed Verbose Logging**: Integrated debug and info tracking across the encryption/decryption cycles, logging intermediate states such as rotor/plugboard shapes, RNG resets to start index, and detailed modulo operations (`mod_add`/`mod_sub` inputs and results).
+- **Test Suite Reorganization**: Reorganized unit and integration tests into dedicated subdirectories (`tests/core/`, `tests/config/`, `tests/hashing/`, `tests/cli/`) corresponding to the package layout, and added package-level `__init__.py` markers.
+- **chuck size still unimplemented**
 
 ## Project Structure & Organization
 
 Enigma2's source code and test suite are organized symmetrically into dedicated subpackages:
 
-```
+```python
 enigma2/
 ├── src/enigma2/            # Production source code
 │   ├── __init__.py         # Package entrypoint and create_cipher factory
