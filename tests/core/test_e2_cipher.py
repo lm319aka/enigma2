@@ -5,7 +5,7 @@ import tempfile
 import os
 import random
 
-from enigma2.core._e2_cipher import _E2
+from enigma2.core._e2_cipher import _E2, ENCRYPTED_FILE_SUFFIX
 from enigma2.config._e2_config import _E2Config
 from enigma2.config.model_params import _E2Params, E2TypesConversion
 from enigma2.utils._e2_exceptions import *
@@ -153,7 +153,7 @@ class Test_E2(unittest.TestCase):
             # Encrypt
             encrypted_path = self._e2.encrypt_file(source_file)
             self.assertTrue(encrypted_path.exists())
-            self.assertEqual(encrypted_path.suffix, ".npy")
+            self.assertEqual(encrypted_path.suffix, ENCRYPTED_FILE_SUFFIX)
 
             # Decrypt
             decrypted_dir = tmpdir_path / "decrypted"
@@ -189,7 +189,7 @@ class Test_E2(unittest.TestCase):
                 # Encrypt
                 encrypted_path = self._e2.encrypt_file(source_file)
                 self.assertTrue(encrypted_path.exists())
-                self.assertEqual(encrypted_path.suffix, ".npy")
+                self.assertEqual(encrypted_path.suffix, ENCRYPTED_FILE_SUFFIX)
 
                 # Decrypt
                 decrypted_dir = tmpdir_path / "decrypted"

@@ -10,7 +10,7 @@ from ..config._e2_config import _E2Config, _E2Generator
 from ..config.model_params import _E2Params, E2Params, E2TypesConversion
 from ..utils.e2_exceptions import StartOpIndexError, NegativeLocalStartOpIndexError, RotorOverflowError
 
-
+ENCRYPTED_FILE_SUFFIX = ".e2"
 
 # Setup logging
 logging.Logger(__name__).addHandler(logging.NullHandler())
@@ -217,7 +217,7 @@ class _E2:
                      detect_encoding: bool = False,
                      local_start_op_index: int = 0) -> Path:
         """
-        Encrypts a file and saves the result as a .npy file.
+        Encrypts a file and saves the result as a .e2 file.
 
         :param file_path: Path to the input file.
         :param output_path: Path to the output directory or file.
@@ -231,11 +231,11 @@ class _E2:
             raise FileNotFoundError(f"File {file_path} does not exist")
         
         if output_path is None:
-            output_path = file_path.with_suffix(file_path.suffix + ".npy")
+            output_path = file_path.with_suffix(file_path.suffix + ENCRYPTED_FILE_SUFFIX)
         else:
             output_path = Path(output_path)
             if output_path.is_dir():
-                output_path = output_path / (file_path.name + ".npy")
+                output_path = output_path / (file_path.name +  ENCRYPTED_FILE_SUFFIX)
 
         logging.info(f"Initial filepath: {file_path}. Output filepath: {output_path}")
         # Load data with appropriate dtype
@@ -246,7 +246,9 @@ class _E2:
             data = np.fromfile(file_path, dtype=self.config.dtype)
         logging.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
         encrypted_data = self.encrypt(data, local_start_op_index)
-        np.save(output_path, encrypted_data)
+        # np.save(output_path, encrypted_data)
+        with open(output_path, 'wb') as f:
+            encrypted_data.tofile(f)
         
         return output_path
 
@@ -310,9 +312,9 @@ class _E2:
                      output_path: Optional[Union[str, Path]] = None,
                      local_start_op_index: int = 0) -> Path:
         """
-        Decrypts a .npy file and saves the result in its original format.
+        Decrypts a .e2 file and saves the result in its original format.
 
-        :param file_path: Path to the encrypted .npy file.
+        :param file_path: Path to the encrypted .e2 file.
         :param output_path: Path to the output directory or file.
         :param local_start_op_index: Starting index for the operation.
         :return: Path to the decrypted file.
@@ -323,16 +325,18 @@ class _E2:
             raise FileNotFoundError(f"File {file_path} does not exist")
         
         if output_path is None:
-            output_path = file_path.with_name(file_path.name.replace(".npy", ""))
+            output_path = file_path.with_name(file_path.name.replace(ENCRYPTED_FILE_SUFFIX, ""))
         else:
             output_path = Path(output_path)
             if output_path.is_dir():
-                output_path = output_path / file_path.name.replace(".npy", "")
+                output_path = output_path / file_path.name.replace(ENCRYPTED_FILE_SUFFIX, "")
 
         logging.info(f"Initial filepath: {file_path}. Output filepath: {output_path}")
 
-        # Load encrypted data from .npy file
-        data: np.ndarray = np.load(file_path)
+        # Load encrypted data from .e2 file
+        with open(file_path, "rb") as f:
+            data: np.ndarray = np.frombuffer(f.read(), dtype=self.config.dtype)
+
         logging.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
         decrypted_data = self.decrypt(data, local_start_op_index)
         

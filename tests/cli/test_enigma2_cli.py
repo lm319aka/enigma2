@@ -125,24 +125,26 @@ class TestEnigma2CLI(unittest.TestCase):
             self.assertEqual(enc_res.returncode, 0, msg=enc_res.stderr)
             
             # Check that encrypted file test.txt.npy exists
-            encrypted_file = temp_file.with_suffix(".txt.npy")
+            encrypted_file = temp_file.with_suffix(".txt.e2")
             self.assertTrue(encrypted_file.exists())
             
             # Remove original file to make sure decryption restores it
             temp_file.unlink()
             
+            decrypted_file = temp_file.with_suffix(".txt.txt")
             # 2. Decrypt file
             dec_res = self.run_cli([
                 "-m", "enigma2",
                 "--fpath", str(encrypted_file),
+                "--out-path", str(decrypted_file),
                 "--pwd", self.pwd,
                 "--op", "D"
             ])
             self.assertEqual(dec_res.returncode, 0, msg=dec_res.stderr)
             
             # Check original file has been restored and content matches
-            self.assertTrue(temp_file.exists())
-            self.assertEqual(temp_file.read_bytes(), content)
+            self.assertTrue(decrypted_file.exists())
+            self.assertEqual(decrypted_file.read_bytes(), content)
 
     def test_original_enigma_cli(self):
         """Test encryption and decryption using the --original-enigma flag (no pwd required)."""

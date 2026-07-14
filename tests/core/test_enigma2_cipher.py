@@ -31,7 +31,7 @@ class TestE2(unittest.TestCase):
         self.params = E2Params(**self.config_data)
         self.config = E2Config(self.params)
         self.e2 = E2(params=self.params)
-        self.testing_files_path = Path(__file__).parent / "testing_files"
+        self.testing_files_path = Path(__file__).parent.parent / "testing_files"
 
     def test_random_key_generation(self):
         """Verifies that the random key generator produces bytes of correct length."""

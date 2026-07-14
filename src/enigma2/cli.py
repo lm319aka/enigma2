@@ -100,7 +100,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Enigma2 Encryption/Decryption CLI")
     parser.add_argument("data", nargs="?", type=str, help="Data to encrypt/decrypt")
     parser.add_argument("--fpath", type=str, help="Path of file to encrypt/decrypt")
-    parser.add_argument("--out-path", type=str, help="Path of output file")
+    parser.add_argument("--out-path", type=str, default=None, help="Path of output file")
     parser.add_argument("--pwd", type=str, default=None, help="Password for encryption/decryption")
     parser.add_argument("--op", type=str, default="E", choices=["E", "D"], help="Operation: E (Encrypt), D (Decrypt)")
     parser.add_argument("--encoding", type=str, default="utf-8", choices=encoding_dtype_map.keys(), help="Encoding to use")
