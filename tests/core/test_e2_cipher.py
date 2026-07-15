@@ -58,8 +58,8 @@ class Test_E2(unittest.TestCase):
         """Simple identity test for encryption and decryption with custom btype."""
         # Values must be < btype (100)
         data = np.arange(20, dtype=self._config.dtype)
-        encrypted = self._e2.encrypt(data.copy())
-        decrypted = self._e2.decrypt(encrypted.copy())
+        encrypted = self._e2._encrypt(data.copy())
+        decrypted = self._e2._decrypt(encrypted.copy())
         np.testing.assert_array_equal(decrypted, data)
 
     def test_encrypt_decrypt_identity_hard(self):
@@ -68,8 +68,8 @@ class Test_E2(unittest.TestCase):
             random_rng = np.random.default_rng(i)
             # strictly less than btype (100)
             data = random_rng.integers(0, self._config.btype, size=500, dtype=self._config.dtype)
-            encrypted = self._e2.encrypt(data)
-            decrypted = self._e2.decrypt(encrypted)
+            encrypted = self._e2._encrypt(data)
+            decrypted = self._e2._decrypt(encrypted)
             np.testing.assert_array_equal(decrypted, data)
 
     def test_rotor_permutation(self):
@@ -86,7 +86,7 @@ class Test_E2(unittest.TestCase):
         to be sure that if it fails it's because of the encryption.
         """
         data = np.arange(20, dtype=self._config.dtype)
-        encrypted = self._e2.encrypt(data.copy())
+        encrypted = self._e2._encrypt(data.copy())
         self.assertFalse(np.array_equal(encrypted, data))
 
     def test_mod_add_overflow(self):
@@ -135,8 +135,8 @@ class Test_E2(unittest.TestCase):
         config_orig = _E2Config(params_orig)
         e2_original = _E2(params=params_orig)
         data = np.arange(20, dtype=e2_original.config.dtype)
-        encrypted_original = e2_original.encrypt(data.copy())
-        decrypted_original = e2_original.decrypt(encrypted_original.copy())
+        encrypted_original = e2_original._encrypt(data.copy())
+        decrypted_original = e2_original._decrypt(encrypted_original.copy())
         np.testing.assert_array_equal(decrypted_original, data)
 
     def test_encrypt_decrypt_identity_for_files_easy(self):
@@ -234,8 +234,8 @@ class Test_E2(unittest.TestCase):
             
             random_rng = np.random.default_rng(42)
             data = random_rng.integers(0, config.btype, size=20, dtype=config.dtype)
-            encrypted = e2.encrypt(data)
-            decrypted = e2.decrypt(encrypted)
+            encrypted = e2._encrypt(data)
+            decrypted = e2._decrypt(encrypted)
             np.testing.assert_array_equal(decrypted, data)
 
     def test_invalid_params_type(self):
@@ -253,8 +253,8 @@ class Test_E2(unittest.TestCase):
     def test_underscore_encrypt_decrypt_methods(self):
         """Verifies that _encrypt and _decrypt exist and work properly in _E2."""
         data = np.array([1, 2, 3, 4], dtype=np.uint8)
-        enc = self._e2._encrypt(data)
-        dec = self._e2._decrypt(enc)
+        enc = self._e2._encrypt_raw_data(data)
+        dec = self._e2._decrypt_raw_data(enc)
         self.assertTrue(np.array_equal(dec, data))
 
     def test_rotor_overflow(self):
@@ -266,7 +266,7 @@ class Test_E2(unittest.TestCase):
                                   size=self._config.btype**self._config.number_rotors + 1, # data should be too large to handle using the actual rotors without causing overflow/reset on them
                                   dtype=self._config.dtype)
         with self.assertRaises(RotorOverflowError):
-            original_e2.encrypt(data_array)
+            original_e2._encrypt(data_array)
 
     @unittest.skip("Too slow")
     def test_cipher_all_btypes_encoding(self): # for usual checking better comment to avoid wasting a ton of time
@@ -310,8 +310,8 @@ class Test_E2(unittest.TestCase):
 
                 random_rng = np.random.default_rng(42)
                 data = random_rng.integers(0, local_config.btype, size=256, dtype=local_config.dtype)
-                encrypted = local_e2.encrypt(data)
-                decrypted = local_e2.decrypt(encrypted)
+                encrypted = local_e2._encrypt(data)
+                decrypted = local_e2._decrypt(encrypted)
                 np.testing.assert_array_equal(decrypted, data)
 
     def test_e2_raw_data_inheritance(self):
@@ -322,8 +322,8 @@ class Test_E2(unittest.TestCase):
         # Test encrypt/decrypt directly using _E2_RawData
         raw_e2 = _E2_RawData(params=self._params)
         data = np.arange(20, dtype=self._config.dtype)
-        encrypted = raw_e2.encrypt(data.copy())
-        decrypted = raw_e2.decrypt(encrypted.copy())
+        encrypted = raw_e2._encrypt(data.copy())
+        decrypted = raw_e2._decrypt(encrypted.copy())
         np.testing.assert_array_equal(decrypted, data)
         
         # Verify that _E2_RawData does not have encrypt_file/decrypt_file
@@ -331,7 +331,8 @@ class Test_E2(unittest.TestCase):
         self.assertFalse(hasattr(raw_e2, 'decrypt_file'))
 
     def test_chunked_encryption_decryption(self):
-        """Verifies that encrypting/decrypting in chunks recovers original data and alters original plaintext, testing different chunk sizes."""
+        """Verifies that encrypting/decrypting in chunks recovers original data, and manually calculates the expected ciphertext chunk-by-chunk to verify correctness."""
+        local_start_op_index = 0
         for chunk_size in [5, 3]:
             config_data_chunked = self.config_data.copy()
             config_data_chunked["chunk_size"] = chunk_size
@@ -341,16 +342,49 @@ class Test_E2(unittest.TestCase):
             # Large enough data to split across multiple chunks
             data = np.arange(23, dtype=self._config.dtype)
 
-            # Encrypt/decrypt with chunked cipher
-            encrypted_chunked = e2_chunked.encrypt(data.copy())
+            # 1. Encrypt with chunked cipher
+            encrypted_chunked = e2_chunked._encrypt(data.copy())
             
-            # Assert that encryption actually changed the plaintext
-            self.assertFalse(np.array_equal(encrypted_chunked, data))
-
-            decrypted_chunked = e2_chunked.decrypt(encrypted_chunked.copy())
+            # 2. Decrypt with chunked cipher
+            decrypted_chunked = e2_chunked._decrypt(encrypted_chunked.copy())
 
             # Assert correct recovery of original data
             np.testing.assert_array_equal(decrypted_chunked, data)
+
+            # 3. Calculate encrypted data manually chunk-by-chunk in a rudimental/craftsman manner
+            number_chunks = (data.size + chunk_size - 1) // chunk_size
+            manual_encrypted = np.empty(data.size, dtype=self._config.dtype)
+            
+            for i in range(number_chunks):
+                start = i * chunk_size
+                end = min((i + 1) * chunk_size, data.size)
+                chunk_data = data[start:end]
+                
+                # Reset RNG for this chunk
+                e2_chunked.reset_rng(start + local_start_op_index)
+                
+                # Generate rotations and noise for this chunk manually
+                rotations = e2_chunked.generator.generate_rotations(
+                    chunk_data.size, 
+                    initial_rotations_index=start + local_start_op_index + e2_chunked.config.global_start_op_index
+                )
+                noise = e2_chunked.generator.generate_noise(chunk_data.size)
+                
+                # Manual step-by-step encryption of chunk
+                chunk_result = chunk_data.copy()
+                # A. Apply plugboard mapping
+                chunk_result = e2_chunked.encryption_plugboard[chunk_result]
+                # B. Apply rotors sequential encryption
+                for r_idx in range(e2_chunked.config.number_rotors):
+                    res = (chunk_result + rotations[r_idx]) % e2_chunked.config.btype
+                    chunk_result = e2_chunked.encryption_rotors[r_idx][res]
+                # C. Add noise
+                chunk_result = (chunk_result + noise) % e2_chunked.config.btype
+                
+                manual_encrypted[start:end] = chunk_result
+
+            # Assert that the actual encrypted data corresponds to the manually/craftsman-style calculated data
+            np.testing.assert_array_equal(encrypted_chunked, manual_encrypted)
 
 if __name__ == "__main__":
     unittest.main()

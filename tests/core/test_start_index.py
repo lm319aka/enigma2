@@ -67,8 +67,8 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
         params_perfect = E2Params(global_start_op_index=15, **self.config_data_perfect)
         cipher_perfect = E2(params_perfect)
 
-        enc_perfect = cipher_perfect.encrypt(data_perfect.copy())
-        dec_perfect = cipher_perfect.decrypt(enc_perfect.copy())
+        enc_perfect = cipher_perfect._encrypt(data_perfect.copy())
+        dec_perfect = cipher_perfect._decrypt(enc_perfect.copy())
         np.testing.assert_array_equal(dec_perfect, data_perfect)
 
         # Odd btype
@@ -76,8 +76,8 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
         params_odd = _E2Params(global_start_op_index=45, **self.config_data_odd)
         cipher_odd = _E2(params_odd)
 
-        enc_odd = cipher_odd.encrypt(data_odd.copy())
-        dec_odd = cipher_odd.decrypt(enc_odd.copy())
+        enc_odd = cipher_odd._encrypt(data_odd.copy())
+        dec_odd = cipher_odd._decrypt(enc_odd.copy())
         np.testing.assert_array_equal(dec_odd, data_odd)
 
     def test_encrypt_decrypt_with_local_start_index(self):
@@ -87,8 +87,8 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
         params_perfect = E2Params(global_start_op_index=0, **self.config_data_perfect)
         cipher_perfect = E2(params_perfect)
 
-        enc_perfect = cipher_perfect.encrypt(data_perfect.copy(), local_start_op_index=25)
-        dec_perfect = cipher_perfect.decrypt(enc_perfect.copy(), local_start_op_index=25)
+        enc_perfect = cipher_perfect._encrypt(data_perfect.copy(), local_start_op_index=25)
+        dec_perfect = cipher_perfect._decrypt(enc_perfect.copy(), local_start_op_index=25)
         np.testing.assert_array_equal(dec_perfect, data_perfect)
 
         # Odd btype
@@ -96,8 +96,8 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
         params_odd = _E2Params(global_start_op_index=0, **self.config_data_odd)
         cipher_odd = _E2(params_odd)
 
-        enc_odd = cipher_odd.encrypt(data_odd.copy(), local_start_op_index=75)
-        dec_odd = cipher_odd.decrypt(enc_odd.copy(), local_start_op_index=75)
+        enc_odd = cipher_odd._encrypt(data_odd.copy(), local_start_op_index=75)
+        dec_odd = cipher_odd._decrypt(enc_odd.copy(), local_start_op_index=75)
         np.testing.assert_array_equal(dec_odd, data_odd)
 
     def test_additive_equivalence(self):
@@ -109,24 +109,24 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
         # Case 1: global = G, local = L
         params1 = E2Params(global_start_op_index=G, **self.config_data_perfect)
         cipher1 = E2(params1)
-        enc1 = cipher1.encrypt(data.copy(), local_start_op_index=L)
+        enc1 = cipher1._encrypt(data.copy(), local_start_op_index=L)
 
         # Case 2: global = 0, local = G + L
         params2 = E2Params(global_start_op_index=0, **self.config_data_perfect)
         cipher2 = E2(params2)
-        enc2 = cipher2.encrypt(data.copy(), local_start_op_index=G + L)
+        enc2 = cipher2._encrypt(data.copy(), local_start_op_index=G + L)
 
         # Case 3: global = G + L, local = 0
         params3 = E2Params(global_start_op_index=G + L, **self.config_data_perfect)
         cipher3 = E2(params3)
-        enc3 = cipher3.encrypt(data.copy(), local_start_op_index=0)
+        enc3 = cipher3._encrypt(data.copy(), local_start_op_index=0)
 
         # All ciphertexts must be exactly identical
         np.testing.assert_array_equal(enc1, enc2)
         np.testing.assert_array_equal(enc2, enc3)
 
         # Decryption with mixed valid combinations should succeed
-        dec_mixed = cipher1.decrypt(enc2.copy(), local_start_op_index=L)
+        dec_mixed = cipher1._decrypt(enc2.copy(), local_start_op_index=L)
         np.testing.assert_array_equal(dec_mixed, data)
 
     def test_negative_global_index(self):
@@ -147,10 +147,10 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
         data = np.arange(20, dtype=np.uint8)
 
         with self.assertRaises(NegativeLocalStartOpIndexError):
-            cipher_perfect.encrypt(data.copy(), local_start_op_index=-1)
+            cipher_perfect._encrypt(data.copy(), local_start_op_index=-1)
 
         with self.assertRaises(NegativeLocalStartOpIndexError):
-            cipher_perfect.decrypt(data.copy(), local_start_op_index=-5)
+            cipher_perfect._decrypt(data.copy(), local_start_op_index=-5)
 
     def test_original_rotations_overflow_on_init(self):
         """In original_rotations mode, global_start_op_index >= btype**number_rotors should raise StartOpIndexOverflowError."""
@@ -179,10 +179,10 @@ class TestStartIndex(unittest.IsolatedAsyncioTestCase):
 
         # G + L = 9900 + 150 = 10050 >= 10000
         with self.assertRaises(StartOpIndexOverflowWarning):
-            cipher.encrypt(data.copy(), local_start_op_index=150)
+            cipher._encrypt(data.copy(), local_start_op_index=150)
 
         with self.assertRaises(StartOpIndexOverflowWarning):
-            cipher.decrypt(data.copy(), local_start_op_index=100)
+            cipher._decrypt(data.copy(), local_start_op_index=100)
 
     async def test_async_operations_with_local_start_index(self):
         """Verify that async ciphers work correctly with custom local_start_op_index."""

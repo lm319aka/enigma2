@@ -77,7 +77,7 @@ class _E2_RawData:
 
     def __first_logging_info(self):
         logging.info(
-            f"{self.__class__.__name__} (raw E2) Initialized: \n{self}"
+            f"{self.__class__.__name__} (E2 instance) Initialized: \n{self}"
         )
 
     @classmethod
@@ -163,7 +163,7 @@ class _E2_RawData:
         return self.check_entry_data(data_array)
 
     @timed
-    def _encrypt(self, 
+    def _encrypt_raw_data(self, 
                  data_array: Union[np.ndarray, bytes], 
                  local_start_op_index: int = 0) -> np.ndarray:
         """
@@ -207,13 +207,13 @@ class _E2_RawData:
         # 3. Add noise
         return self.mod_add(data_array, noise_array, self.config.btype)
 
-    def encrypt(self, 
+    def _encrypt(self, 
                 data_array: Union[np.ndarray, bytes], 
                 local_start_op_index: int = 0) -> np.ndarray:
-        return self._encrypt(data_array, local_start_op_index)
+        return self._encrypt_raw_data(data_array, local_start_op_index)
 
     @timed
-    def _decrypt(self, 
+    def _decrypt_raw_data(self, 
                  data_array: Union[np.ndarray, bytes],
                  local_start_op_index: int = 0) -> np.ndarray:
         """
@@ -262,10 +262,10 @@ class _E2_RawData:
         
         return data_array
 
-    def decrypt(self, 
+    def _decrypt(self, 
                 data_array: Union[np.ndarray, bytes], 
                 local_start_op_index: int = 0) -> np.ndarray:
-        return self._decrypt(data_array, local_start_op_index)
+        return self._decrypt_raw_data(data_array, local_start_op_index)
 
     def copy(self) -> "_E2_RawData":
         return self.__class__(self.config.params.model_copy())
@@ -296,51 +296,117 @@ class _E2(_E2_RawData):
     #     pool = multiprocessing.Pool(self.physical_cores)
     #     return pool.map(cipher_func, processes_args)
 
-    def encrypt(self, 
+    @timed
+    def _encrypt(self, 
                 data_array: Union[np.ndarray, bytes], 
                 local_start_op_index: int = 0) -> np.ndarray:
         if isinstance(data_array, bytes):
             data_array = np.frombuffer(data_array, dtype=self.config.dtype)
 
         if self.config.chunk_size is None:
-            return super().encrypt(data_array, local_start_op_index)
+            return super()._encrypt(data_array, local_start_op_index)
+
+        import multiprocessing.dummy as multiprocessing
 
         number_chunks = ceil(data_array.size / self.config.chunk_size)
-        logging.info(f"number of data chunks with size of {self.config.chunk_size} x {np.dtype(self.config.dtype).itemsize} byte(s): {number_chunks}")
-        
+        try:
+            dtype_log = ceil(log(self.config.dtype, 256))
+        except Exception:
+            dtype_log = np.dtype(self.config.dtype).itemsize
+        logging.info(f"number of data chunks with size of {self.config.chunk_size} x {dtype_log} byte(s): {number_chunks}")
+        chunks_idxs = [
+            (i * self.config.chunk_size, (i + 1) * self.config.chunk_size)
+            if (i + 1) * self.config.chunk_size <= data_array.size
+            else (i * self.config.chunk_size, data_array.size)
+            for i in range(number_chunks)
+        ]
+        logging.info(f"Chunks: {chunks_idxs}")
         output_array = np.empty(data_array.size, dtype=self.config.dtype)
 
-        for i in range(number_chunks):
-            start = i * self.config.chunk_size
-            end = min((i + 1) * self.config.chunk_size, data_array.size)
+        def chunk_encryption(chunk_idx: tuple[int, int]) -> np.ndarray:
+            raw_cipher = _E2_RawData(self.config.params.model_copy())
+            start, end = chunk_idx
             data_chunk = data_array[start:end]
-            encrypted_chunk = self._encrypt(data_chunk, start + local_start_op_index)
+            logging.info(f"new chunk {chunk_idx}: {data_chunk}")
+            encrypted_chunk = raw_cipher._encrypt(data_chunk, start + local_start_op_index)
             output_array[start:end] = encrypted_chunk
+            logging.info(f"Encrypted chunk: {encrypted_chunk}")
+            return encrypted_chunk
+
+        # pool = multiprocessing.Pool(self.physical_cores)
+        processes = [
+            multiprocessing.Process(target=chunk_encryption, args=(chunk_idx,)) 
+            for chunk_idx in chunks_idxs
+        ]
+
+        for p in processes:
+            p.start()
+
+        for p in processes:
+            p.join()
 
         return output_array
+    
+    def encrypt(self, 
+                data_array: Union[np.ndarray, bytes], 
+                local_start_op_index: int = 0) -> np.ndarray:
+        return self._encrypt(data_array, local_start_op_index)
 
-    def decrypt(self,
+    @timed
+    def _decrypt(self,
                 data_array: Union[np.ndarray, bytes],
                 local_start_op_index: int = 0) -> np.ndarray:
         if isinstance(data_array, bytes):
             data_array = np.frombuffer(data_array, dtype=self.config.dtype)
 
         if self.config.chunk_size is None:
-            return super().decrypt(data_array, local_start_op_index)
+            return super()._decrypt(data_array, local_start_op_index)
+
+        import multiprocessing.dummy as multiprocessing
 
         number_chunks = ceil(data_array.size / self.config.chunk_size)
-        logging.info(f"number of data chunks with size of {self.config.chunk_size} x {np.dtype(self.config.dtype).itemsize} byte(s): {number_chunks}")
-        
+        try:
+            dtype_log = ceil(log(self.config.dtype, 256))
+        except Exception:
+            dtype_log = np.dtype(self.config.dtype).itemsize
+        logging.info(f"number of data chunks with size of {self.config.chunk_size} x {dtype_log} byte(s): {number_chunks}")
+        chunks_idxs = [
+            (i * self.config.chunk_size, (i + 1) * self.config.chunk_size)
+            if (i + 1) * self.config.chunk_size <= data_array.size
+            else (i * self.config.chunk_size, data_array.size)
+            for i in range(number_chunks)
+        ]
+        logging.info(f"Chunks: {chunks_idxs}")
         output_array = np.empty(data_array.size, dtype=self.config.dtype)
 
-        for i in range(number_chunks):
-            start = i * self.config.chunk_size
-            end = min((i + 1) * self.config.chunk_size, data_array.size)
+        def chunk_decryption(chunk_idx: tuple[int, int]) -> np.ndarray:
+            raw_cipher = _E2_RawData(self.config.params.model_copy())
+            start, end = chunk_idx
             data_chunk = data_array[start:end]
-            decrypted_chunk = self._decrypt(data_chunk, start + local_start_op_index)
+            logging.info(f"new chunk {chunk_idx}: {data_chunk}")
+            decrypted_chunk = raw_cipher._decrypt(data_chunk, start + local_start_op_index)
             output_array[start:end] = decrypted_chunk
+            logging.info(f"Decrypted chunk {chunk_idx}: {decrypted_chunk}")
+            return decrypted_chunk
+
+        # pool = multiprocessing.Pool(self.physical_cores)
+        processes = [
+            multiprocessing.Process(target=chunk_decryption, args=(chunk_idx,)) 
+            for chunk_idx in chunks_idxs
+        ]
+
+        for p in processes:
+            p.start()
+
+        for p in processes:
+            p.join()
 
         return output_array
+    
+    def decrypt(self, 
+                data_array: Union[np.ndarray, bytes], 
+                local_start_op_index: int = 0) -> np.ndarray:
+        return self._decrypt(data_array, local_start_op_index)
 
     def encrypt_file(self, 
                      file_path: Union[str, Path], 
@@ -376,7 +442,7 @@ class _E2(_E2_RawData):
         else:
             data = np.fromfile(file_path, dtype=self.config.dtype)
         logging.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
-        encrypted_data = self.encrypt(data, local_start_op_index)
+        encrypted_data = self._encrypt(data, local_start_op_index)
         # np.save(output_path, encrypted_data)
         with open(output_path, 'wb') as f:
             encrypted_data.tofile(f)
@@ -414,7 +480,7 @@ class _E2(_E2_RawData):
             data: np.ndarray = np.frombuffer(f.read(), dtype=self.config.dtype)
 
         logging.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
-        decrypted_data = self.decrypt(data, local_start_op_index)
+        decrypted_data = self._decrypt(data, local_start_op_index)
         
         # Write decrypted bytes to file
         with open(output_path, "wb") as f:

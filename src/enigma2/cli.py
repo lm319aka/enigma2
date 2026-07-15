@@ -36,7 +36,6 @@ class OriginalEnigmaData:
 
 def cli_init_cipher(
     args: argparse.Namespace,
-    cipher_operation: CipherOperation,
     odd_btype: bool
 ) -> E2 | _E2:
     
@@ -134,7 +133,6 @@ def main() -> None:
 
     codec = cli_init_cipher(
         args,
-        cipher_operation,
         odd_btype
     )
 
