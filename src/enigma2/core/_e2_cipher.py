@@ -5,7 +5,8 @@ from pathlib import Path
 import time
 import logging
 import multiprocessing
-
+from math import ceil, log
+from typing import Callable, Any
 from ..utils.encodings_getter import encoding_dtype_map, find_file_encoding, E2Encoding#, E2EncodingModel
 from ..config._e2_config import _E2Config, _E2Generator
 from ..config.model_params import _E2Params, E2Params, E2TypesConversion
@@ -287,6 +288,59 @@ class _E2(_E2_RawData):
     def __init__(self, params: _E2Params):
         super().__init__(params)
         self.physical_cores = multiprocessing.cpu_count()
+    
+    # def __cipher_multiprocessing(self, 
+    #                      cipher_func: Callable,
+    #                     #  io_func: Callable,
+    #                      processes_args: list[tuple[Any]]) -> Any:
+    #     pool = multiprocessing.Pool(self.physical_cores)
+    #     return pool.map(cipher_func, processes_args)
+
+    def encrypt(self, 
+                data_array: Union[np.ndarray, bytes], 
+                local_start_op_index: int = 0) -> np.ndarray:
+        if isinstance(data_array, bytes):
+            data_array = np.frombuffer(data_array, dtype=self.config.dtype)
+
+        if self.config.chunk_size is None:
+            return super().encrypt(data_array, local_start_op_index)
+
+        number_chunks = ceil(data_array.size / self.config.chunk_size)
+        logging.info(f"number of data chunks with size of {self.config.chunk_size} x {np.dtype(self.config.dtype).itemsize} byte(s): {number_chunks}")
+        
+        output_array = np.empty(data_array.size, dtype=self.config.dtype)
+
+        for i in range(number_chunks):
+            start = i * self.config.chunk_size
+            end = min((i + 1) * self.config.chunk_size, data_array.size)
+            data_chunk = data_array[start:end]
+            encrypted_chunk = self._encrypt(data_chunk, start + local_start_op_index)
+            output_array[start:end] = encrypted_chunk
+
+        return output_array
+
+    def decrypt(self,
+                data_array: Union[np.ndarray, bytes],
+                local_start_op_index: int = 0) -> np.ndarray:
+        if isinstance(data_array, bytes):
+            data_array = np.frombuffer(data_array, dtype=self.config.dtype)
+
+        if self.config.chunk_size is None:
+            return super().decrypt(data_array, local_start_op_index)
+
+        number_chunks = ceil(data_array.size / self.config.chunk_size)
+        logging.info(f"number of data chunks with size of {self.config.chunk_size} x {np.dtype(self.config.dtype).itemsize} byte(s): {number_chunks}")
+        
+        output_array = np.empty(data_array.size, dtype=self.config.dtype)
+
+        for i in range(number_chunks):
+            start = i * self.config.chunk_size
+            end = min((i + 1) * self.config.chunk_size, data_array.size)
+            data_chunk = data_array[start:end]
+            decrypted_chunk = self._decrypt(data_chunk, start + local_start_op_index)
+            output_array[start:end] = decrypted_chunk
+
+        return output_array
 
     def encrypt_file(self, 
                      file_path: Union[str, Path], 

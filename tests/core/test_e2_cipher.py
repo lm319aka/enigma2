@@ -330,5 +330,27 @@ class Test_E2(unittest.TestCase):
         self.assertFalse(hasattr(raw_e2, 'encrypt_file'))
         self.assertFalse(hasattr(raw_e2, 'decrypt_file'))
 
+    def test_chunked_encryption_decryption(self):
+        """Verifies that encrypting/decrypting in chunks recovers original data and alters original plaintext, testing different chunk sizes."""
+        for chunk_size in [5, 3]:
+            config_data_chunked = self.config_data.copy()
+            config_data_chunked["chunk_size"] = chunk_size
+            params_chunked = _E2Params(**config_data_chunked)
+            e2_chunked = _E2(params=params_chunked)
+
+            # Large enough data to split across multiple chunks
+            data = np.arange(23, dtype=self._config.dtype)
+
+            # Encrypt/decrypt with chunked cipher
+            encrypted_chunked = e2_chunked.encrypt(data.copy())
+            
+            # Assert that encryption actually changed the plaintext
+            self.assertFalse(np.array_equal(encrypted_chunked, data))
+
+            decrypted_chunked = e2_chunked.decrypt(encrypted_chunked.copy())
+
+            # Assert correct recovery of original data
+            np.testing.assert_array_equal(decrypted_chunked, data)
+
 if __name__ == "__main__":
     unittest.main()
