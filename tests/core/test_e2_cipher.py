@@ -314,5 +314,21 @@ class Test_E2(unittest.TestCase):
                 decrypted = local_e2.decrypt(encrypted)
                 np.testing.assert_array_equal(decrypted, data)
 
+    def test_e2_raw_data_inheritance(self):
+        """Verifies _E2 inherits from _E2_RawData and _E2_RawData works for encrypt/decrypt."""
+        from enigma2.core._e2_cipher import _E2_RawData
+        self.assertTrue(issubclass(_E2, _E2_RawData))
+        
+        # Test encrypt/decrypt directly using _E2_RawData
+        raw_e2 = _E2_RawData(params=self._params)
+        data = np.arange(20, dtype=self._config.dtype)
+        encrypted = raw_e2.encrypt(data.copy())
+        decrypted = raw_e2.decrypt(encrypted.copy())
+        np.testing.assert_array_equal(decrypted, data)
+        
+        # Verify that _E2_RawData does not have encrypt_file/decrypt_file
+        self.assertFalse(hasattr(raw_e2, 'encrypt_file'))
+        self.assertFalse(hasattr(raw_e2, 'decrypt_file'))
+
 if __name__ == "__main__":
     unittest.main()

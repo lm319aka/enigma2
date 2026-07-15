@@ -4,6 +4,7 @@ from typing import Union, Optional, Tuple
 from pathlib import Path
 import time
 import logging
+import multiprocessing
 
 from ..utils.encodings_getter import encoding_dtype_map, find_file_encoding, E2Encoding#, E2EncodingModel
 from ..config._e2_config import _E2Config, _E2Generator
@@ -28,9 +29,9 @@ def timed(func):
         return result
     return wrapper
 
-class _E2:
+class _E2_RawData:
     """
-    Enigma2 class for encryption and decryption of data and files with odd btypes.
+    Base Enigma2 class containing all encryption and decryption logic for arrays and bytes.
     """
 
     def __init__(self, params: _E2Params) -> None:
@@ -75,7 +76,7 @@ class _E2:
 
     def __first_logging_info(self):
         logging.info(
-            f"_E2 (raw E2) Initialized: \n{self}"
+            f"{self.__class__.__name__} (raw E2) Initialized: \n{self}"
         )
 
     @classmethod
@@ -116,7 +117,6 @@ class _E2:
                       m: {m}, higher_encoding: {higher_encoding}, 
                       res: {res}""")
         return res.astype(dtype=self.config.dtype)
-
 
     def rotor_encryption(self, data_array: np.ndarray, rotor: np.ndarray, rotation: np.ndarray) -> np.ndarray:
         """Applies a single rotor encryption step."""
@@ -211,47 +211,6 @@ class _E2:
                 local_start_op_index: int = 0) -> np.ndarray:
         return self._encrypt(data_array, local_start_op_index)
 
-    def encrypt_file(self, 
-                     file_path: Union[str, Path], 
-                     output_path: Optional[Union[str, Path]] = None,
-                     detect_encoding: bool = False,
-                     local_start_op_index: int = 0) -> Path:
-        """
-        Encrypts a file and saves the result as a .e2 file.
-
-        :param file_path: Path to the input file.
-        :param output_path: Path to the output directory or file.
-        :param detect_encoding: If True, attempts to auto-detect file encoding.
-        :param local_start_op_index: Starting index for the operation.
-        :return: Path to the created encrypted file.
-        """
-
-        file_path = Path(file_path)
-        if not file_path.exists():
-            raise FileNotFoundError(f"File {file_path} does not exist")
-        
-        if output_path is None:
-            output_path = file_path.with_suffix(file_path.suffix + ENCRYPTED_FILE_SUFFIX)
-        else:
-            output_path = Path(output_path)
-            if output_path.is_dir():
-                output_path = output_path / (file_path.name +  ENCRYPTED_FILE_SUFFIX)
-
-        logging.info(f"Initial filepath: {file_path}. Output filepath: {output_path}")
-        # Load data with appropriate dtype
-        if detect_encoding:
-            file_encoding = find_file_encoding(file_path)
-            data = np.fromfile(file_path, dtype=encoding_dtype_map[file_encoding])
-        else:
-            data = np.fromfile(file_path, dtype=self.config.dtype)
-        logging.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
-        encrypted_data = self.encrypt(data, local_start_op_index)
-        # np.save(output_path, encrypted_data)
-        with open(output_path, 'wb') as f:
-            encrypted_data.tofile(f)
-        
-        return output_path
-
     @timed
     def _decrypt(self, 
                  data_array: Union[np.ndarray, bytes],
@@ -307,6 +266,69 @@ class _E2:
                 local_start_op_index: int = 0) -> np.ndarray:
         return self._decrypt(data_array, local_start_op_index)
 
+    def copy(self) -> "_E2_RawData":
+        return self.__class__(self.config.params.model_copy())
+    
+    def __eq__(self, other: "_E2_RawData") -> bool:
+        if type(self) is not type(other):
+            return False
+        return self.config == other.config
+
+    def __repr__(self) -> str:
+        from ..utils.repr_helper import format_repr
+        return format_repr(self.__class__.__name__, {"config": self.config})
+
+
+class _E2(_E2_RawData):
+    """
+    Enigma2 class for encryption and decryption of data and files with odd btypes.
+    """
+
+    def __init__(self, params: _E2Params):
+        super().__init__(params)
+        self.physical_cores = multiprocessing.cpu_count()
+
+    def encrypt_file(self, 
+                     file_path: Union[str, Path], 
+                     output_path: Optional[Union[str, Path]] = None,
+                     detect_encoding: bool = False,
+                     local_start_op_index: int = 0) -> Path:
+        """
+        Encrypts a file and saves the result as a .e2 file.
+
+        :param file_path: Path to the input file.
+        :param output_path: Path to the output directory or file.
+        :param detect_encoding: If True, attempts to auto-detect file encoding.
+        :param local_start_op_index: Starting index for the operation.
+        :return: Path to the created encrypted file.
+        """
+
+        file_path = Path(file_path)
+        if not file_path.exists():
+            raise FileNotFoundError(f"File {file_path} does not exist")
+        
+        if output_path is None:
+            output_path = file_path.with_suffix(file_path.suffix + ENCRYPTED_FILE_SUFFIX)
+        else:
+            output_path = Path(output_path)
+            if output_path.is_dir():
+                output_path = output_path / (file_path.name +  ENCRYPTED_FILE_SUFFIX)
+
+        logging.info(f"Initial filepath: {file_path}. Output filepath: {output_path}")
+        # Load data with appropriate dtype
+        if detect_encoding:
+            file_encoding = find_file_encoding(file_path)
+            data = np.fromfile(file_path, dtype=encoding_dtype_map[file_encoding])
+        else:
+            data = np.fromfile(file_path, dtype=self.config.dtype)
+        logging.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
+        encrypted_data = self.encrypt(data, local_start_op_index)
+        # np.save(output_path, encrypted_data)
+        with open(output_path, 'wb') as f:
+            encrypted_data.tofile(f)
+        
+        return output_path
+
     def decrypt_file(self, 
                      file_path: Union[str, Path], 
                      output_path: Optional[Union[str, Path]] = None,
@@ -345,16 +367,7 @@ class _E2:
             f.write(decrypted_data.tobytes())
 
         return output_path
-    
-    def copy(self) -> "_E2":
-        return self.__class__(self.config.params.model_copy())
-    
-    def __eq__(self, other: "_E2") -> bool:
-        if type(self) is not type(other):
-            return False
-        return self.config == other.config
 
-    def __repr__(self) -> str:
-        from ..utils.repr_helper import format_repr
-        return format_repr(self.__class__.__name__, {"config": self.config})
+    def copy(self) -> "_E2":
+        return super().copy()
 

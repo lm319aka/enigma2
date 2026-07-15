@@ -12,7 +12,7 @@ class _E2Async(_E2):
     def __init__(self, params: _E2Params):
         super().__init__(params)
 
-    async def _encrypt_async(self, 
+    async def encrypt_async(self, 
                             data_array: Union[np.ndarray, bytes], 
                             local_start_op_index: int = 0) -> np.ndarray:
         """
@@ -24,7 +24,8 @@ class _E2Async(_E2):
         """
         return await asyncio.to_thread(self.encrypt, data_array, local_start_op_index=local_start_op_index)
 
-    async def _decrypt_async(self, 
+
+    async def decrypt_async(self, 
                              data_array: Union[np.ndarray, bytes], 
                              local_start_op_index: int = 0) -> np.ndarray:
         """
