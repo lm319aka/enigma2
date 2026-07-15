@@ -129,7 +129,7 @@ On this document you will find the different features of past, present and futur
 - [X] enable multiple pwd hash lengths (128, 256, 512, 1024, 2048, 4096, ...)
 - [ ] try to create custom hash algorithm that can match the all possible elements combinations on e2
 
-- [ ] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
+- [X] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
 - [ ] create metadata class for encrypted files with all the information needed to decrypt them and methods to dump to file or load from file
 - [ ] Modifiy async enigma file encryption/decryption to support file encryption/decryption in chunks of x bytes to call encrypt_file/decrypt_file multiple times in parallel (multi-threading -> 4 threads or as many as cores the cpu has). A function that uses a for loop to call the cipher to proccess each x bytes every cycle, that coincides with the number of cores the cpu has.
 - [ ] TODO: improve speed using  and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**
