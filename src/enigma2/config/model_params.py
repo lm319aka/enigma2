@@ -153,7 +153,7 @@ class _E2Params(BaseModel):
     avoid_validation: bool = False
     verbose: bool = False
     log_path: Optional[Union[Path, str]] = None
-    chunk_size: Optional[PositiveInt] = None
+    chunk_size: Optional[int] = None
     hash_algorithm: Optional[str] = Field(default=None, validate_default=True)
     
     @field_validator("pwd", mode="before")
@@ -214,6 +214,10 @@ class _E2Params(BaseModel):
         return str(dtype)
     
     def essential_params_validation(self):
+
+        if self.chunk_size is not None and (self.chunk_size < -1 or self.chunk_size == 0):
+            raise ValueError(f"chunk_size cannot be negative nor 0 (unless it is -1 to create equal chunks from data): {self.chunk_size}")
+
         # Ensure global_start_op_index is greater than 0
         if self.global_start_op_index < 0:
             raise NegativeGlobalStartOpIndexError(self.global_start_op_index)

@@ -322,16 +322,20 @@ class _E2(_E2_RawData):
                            ):
         import multiprocessing.dummy as mp_dummy
 
-        number_chunks = ceil(input_array.size / self.config.chunk_size)
+        chunk_size = self.config.chunk_size
+        if chunk_size == -1:
+            chunk_size = max(1, input_array.size // self.physical_cores)
+
+        number_chunks = ceil(input_array.size / chunk_size)
         try:
             dtype_log = ceil(log(self.config.dtype, 256))
         except Exception:
             dtype_log = np.dtype(self.config.dtype).itemsize
-        logging.info(f"number of data chunks with size of {self.config.chunk_size} x {dtype_log} byte(s): {number_chunks}")
+        logging.info(f"number of data chunks with size of {chunk_size} x {dtype_log} byte(s): {number_chunks}")
         chunks_idxs = [
-            (i * self.config.chunk_size, (i + 1) * self.config.chunk_size)
-            if (i + 1) * self.config.chunk_size <= input_array.size
-            else (i * self.config.chunk_size, input_array.size)
+            (i * chunk_size, (i + 1) * chunk_size)
+            if (i + 1) * chunk_size <= input_array.size
+            else (i * chunk_size, input_array.size)
             for i in range(number_chunks)
         ]
         logging.info(f"Chunks: {chunks_idxs}")

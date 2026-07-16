@@ -441,5 +441,22 @@ class Test_E2(unittest.TestCase):
             # Check identity
             self.assertEqual(source_file.read_bytes(), decrypted_path.read_bytes())
 
+    def test_chunk_size_neg_one(self):
+        """Verifies that chunk_size = -1 creates chunks dynamically and doesn't mutate config."""
+        config_data_chunked = self.config_data.copy()
+        config_data_chunked["chunk_size"] = -1
+        params_chunked = _E2Params(**config_data_chunked)
+        e2_chunked = _E2(params=params_chunked)
+
+        data = np.arange(25, dtype=self._config.dtype)
+        
+        # Verify encryption and decryption works
+        encrypted = e2_chunked._encrypt(data.copy())
+        decrypted = e2_chunked._decrypt(encrypted.copy())
+        np.testing.assert_array_equal(decrypted, data)
+
+        # Verify config is not mutated
+        self.assertEqual(e2_chunked.config.chunk_size, -1)
+
 if __name__ == "__main__":
     unittest.main()
