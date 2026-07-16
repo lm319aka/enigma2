@@ -181,5 +181,25 @@ class TestE2(unittest.TestCase):
                 decrypted = cipher_compression.decrypt(encrypted)
                 np.testing.assert_array_equal(data, decrypted)
 
+    def test_decompression_error_on_corrupt_data(self):
+        """Verifies that DecompressionError is raised when decrypting compressed data with a wrong key."""
+        from enigma2.utils.e2_exceptions import DecompressionError
+        
+        cipher_encrypt = create_cipher(E2Params(
+            pwd=b"correct_password",
+            data_compression_alg="gzip"
+        ))
+        cipher_decrypt_wrong = create_cipher(E2Params(
+            pwd=b"wrong_password",
+            data_compression_alg="gzip"
+        ))
+        
+        data = b"Some data to compress and encrypt"
+        encrypted = cipher_encrypt.encrypt(data)
+        
+        # Trying to decrypt with the wrong password should raise DecompressionError
+        with self.assertRaises(DecompressionError):
+            cipher_decrypt_wrong.decrypt(encrypted)
+
 if __name__ == "__main__":
     unittest.main()

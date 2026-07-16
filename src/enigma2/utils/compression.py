@@ -12,7 +12,7 @@ from typing import Any
 # import snappy
 
 import numpy as np
-from ._e2_exceptions import UnavailableCompressionAlgorithmError
+from ._e2_exceptions import UnavailableCompressionAlgorithmError, DecompressionError
 
 
 class Compressor:
@@ -102,6 +102,8 @@ class Compressor:
     @staticmethod
     def decompress_nparray(data: np.ndarray, algorithm: str, target_dtype: Any) -> np.ndarray:
         compressed_bytes = data.astype(np.uint8).tobytes()
-        return np.frombuffer(
-            Compressor.decompress(compressed_bytes, algorithm), dtype=target_dtype
-            )
+        try:
+            decompressed = Compressor.decompress(compressed_bytes, algorithm)
+        except Exception as e:
+            raise DecompressionError(f"Decompression failed ({algorithm}): {e}") from e
+        return np.frombuffer(decompressed, dtype=target_dtype)
