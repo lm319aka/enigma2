@@ -15,8 +15,8 @@ from ..utils.e2_exceptions import StartOpIndexError, NegativeLocalStartOpIndexEr
 ENCRYPTED_FILE_SUFFIX = ".e2"
 
 # Setup logging
-logging.Logger(__name__).addHandler(logging.NullHandler())
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("enigma2")
+logger.addHandler(logging.NullHandler())
 
 # decorator for timing functions
 def timed(func):
@@ -26,7 +26,7 @@ def timed(func):
         result = func(*args, **kwargs)
         end = time.perf_counter()
         if kwargs.get("verbose", False) or (len(args) > 0 and hasattr(args[0], 'config') and args[0].config.verbose):
-            logging.info(f"{func.__name__} took {end - start:.4f} seconds")
+            logger.info(f"{func.__name__} took {end - start:.4f} seconds")
         return result
     return wrapper
 
@@ -77,31 +77,42 @@ class _E2_RawData:
             else:
                 log_level = getattr(logging, verbose_val.upper(), logging.INFO)
             
-            # Re-enable logging if it was previously disabled
-            logging.disable(logging.NOTSET)
+            logger.setLevel(log_level)
             
-            logging.basicConfig(
-                level=log_level,
-                filename=self.config.log_path if self.config.log_path is not None else None,
-                format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-                datefmt="%Y-%m-%d %H:%M:%S",
-                force=True
+            # Clear previous handlers on the package logger to avoid duplicates
+            logger.handlers.clear()
+            
+            formatter = logging.Formatter(
+                fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S"
             )
+            
+            if self.config.log_path is not None:
+                handler = logging.FileHandler(self.config.log_path)
+            else:
+                handler = logging.StreamHandler()
+                
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+            
+            # Prevent logs from propagating up to root logger (avoid double logging)
+            logger.propagate = False
         else:
-            logging.disable(logging.CRITICAL)
+            # Silence the library-specific logger completely
+            logger.setLevel(logging.CRITICAL + 1)
 
         # Pre-generate rotors and plugboards for performance
         self.encryption_rotors, self.decryption_rotors = self.generator.generate_rotors()
         self.encryption_plugboard, self.decryption_plugboard = self.generator.generate_plugboards()
         
-        logging.debug(f"Encryption rotors shape: {self.encryption_rotors.shape}")
-        logging.debug(f"Decryption rotors shape: {self.decryption_rotors.shape}")
-        logging.debug(f"Encryption plugboard shape: {self.encryption_plugboard.shape}")
-        logging.debug(f"Decryption plugboard shape: {self.decryption_plugboard.shape}")
+        logger.debug(f"Encryption rotors shape: {self.encryption_rotors.shape}")
+        logger.debug(f"Decryption rotors shape: {self.decryption_rotors.shape}")
+        logger.debug(f"Encryption plugboard shape: {self.encryption_plugboard.shape}")
+        logger.debug(f"Decryption plugboard shape: {self.decryption_plugboard.shape}")
         self.__first_logging_info()
 
     def __first_logging_info(self):
-        logging.info(
+        logger.info(
             f"{self.__class__.__name__} (E2 instance) Initialized: \n{self}"
         )
 
@@ -114,7 +125,7 @@ class _E2_RawData:
         """Resets the internal random number generators to global start index."""
         final_idx = self.config.global_start_op_index + start_index
         self.generator._init_rng(final_idx)
-        logging.debug(f"Random number generators reset to global start index: {final_idx}")
+        logger.debug(f"Random number generators reset to global start index: {final_idx}")
         return final_idx
 
     def _get_add_buffer(self, size: int, dtype):
@@ -132,7 +143,7 @@ class _E2_RawData:
         tmp = self._get_add_buffer(a.size, higher_encoding)
         np.add(a, b, out=tmp, dtype=higher_encoding)  # sum without overflow
         res = np.mod(tmp, m, out=a, casting='unsafe')  # dumps the result into a (original dtype)
-        logging.debug(f"""mod_add: 
+        logger.debug(f"""mod_add: 
                       a: {a}, 
                       b: {b}, 
                       m: {m}, higher_encoding: {higher_encoding}, 
@@ -145,7 +156,7 @@ class _E2_RawData:
         tmp[:] = a
         np.subtract(tmp, b, out=tmp)  # subtract without overflow
         res = np.mod(tmp, m, out=a, casting='unsafe')  # dumps the result into a (original dtype)
-        logging.debug(f"""mod_sub: 
+        logger.debug(f"""mod_sub: 
                       a: {a}, 
                       b: {b}, 
                       m: {m}, higher_encoding: {higher_encoding}, 
@@ -156,13 +167,13 @@ class _E2_RawData:
         """Applies a single rotor encryption step."""
         res = self.mod_add(data_array, rotation, self.config.btype)
         # Use numpy indexing for fast mapping
-        logging.debug(f"rotor encryption layer: {res}")
+        logger.debug(f"rotor encryption layer: {res}")
         return rotor[res]
 
     def rotor_decryption(self, data_array: np.ndarray, rotor: np.ndarray, rotation: np.ndarray) -> np.ndarray:
         """Applies a single rotor decryption step."""
         res = rotor[data_array]
-        logging.debug(f"rotor decryption layer: {res}")
+        logger.debug(f"rotor decryption layer: {res}")
         return self.mod_sub(res, rotation, self.config.btype)
     
     def check_entry_data(self, data_array: Union[np.ndarray, bytes]) -> np.ndarray:        
@@ -207,17 +218,17 @@ class _E2_RawData:
         :return: Encrypted numpy array.
         """
         
-        # logging.info(f"Encrypting data: {format_data_preview(data_array)} with local_start_op_index: {local_start_op_index}")
+        logger.info(f"Encrypting data: {format_data_preview(data_array)} with local_start_op_index: {local_start_op_index}")
         if local_start_op_index < 0:
             raise NegativeLocalStartOpIndexError(local_start_op_index)
         
-        logging.debug(f"Start preprocessing data...")
+        logger.debug(f"Start preprocessing data...")
         data_array = self.preprocess_encrypt_data(data_array)
                 
         # Reset RNG to ensure consistency across operations
         self.reset_rng(local_start_op_index)
         
-        logging.debug(f"Generating rotations and noise...")
+        logger.debug(f"Generating rotations and noise...")
         # Generate rotations and noise for this specific data size
         rotations_array = self.generator.generate_rotations(
                                                 data_array.size, 
@@ -226,17 +237,17 @@ class _E2_RawData:
         
         noise_array = self.generator.generate_noise(data_array.size)
 
-        logging.debug("1. Apply plugboard mapping")
+        logger.debug("1. Apply plugboard mapping")
         # 1. Apply plugboard mapping
         data_array = self.encryption_plugboard[data_array]
 
-        logging.debug("2. Apply sequential rotor encryption")
+        logger.debug("2. Apply sequential rotor encryption")
         # 2. Apply sequential rotor encryption
         for i in range(self.config.number_rotors):
-            logging.debug(f"Applying rotor {i}")
+            logger.debug(f"Applying rotor {i}")
             data_array = self.rotor_encryption(data_array, self.encryption_rotors[i], rotations_array[i])
         
-        logging.debug("3. Add noise")
+        logger.debug("3. Add noise")
         # 3. Add noise
         return self.mod_add(data_array, noise_array, self.config.btype)
 
@@ -257,17 +268,17 @@ class _E2_RawData:
         :return: Decrypted numpy array.
         """
         
-        # logging.info(f"Decrypting data: {format_data_preview(data_array)} with local_start_op_index: {local_start_op_index}")
+        logger.info(f"Decrypting data: {format_data_preview(data_array)} with local_start_op_index: {local_start_op_index}")
         if local_start_op_index < 0:
             raise NegativeLocalStartOpIndexError(local_start_op_index)
         
-        logging.debug(f"Start preprocessing data...")
+        logger.debug(f"Start preprocessing data...")
         data_array = self.check_entry_data(data_array).copy()
         
         # Reset RNG to ensure consistency across operations        
         self.reset_rng(local_start_op_index)
 
-        logging.debug(f"Generating rotations and noise...")
+        logger.debug(f"Generating rotations and noise...")
         rotations_array = self.generator.generate_rotations(
                                                 data_array.size, 
                                                 initial_rotations_index=local_start_op_index + self.config.global_start_op_index
@@ -275,7 +286,7 @@ class _E2_RawData:
         
         noise_array = self.generator.generate_noise(data_array.size)
 
-        logging.debug("1. Remove noise")
+        logger.debug("1. Remove noise")
         # 1. Remove noise
         data_array = self.mod_sub(data_array, noise_array, self.config.btype)
 
@@ -283,13 +294,13 @@ class _E2_RawData:
         if np.any(data_array >= self.config.btype):
             raise ValueError(f"Data values must be less than {self.config.btype}")
         
-        logging.debug("2. Apply sequential rotor decryption in reverse order")
+        logger.debug("2. Apply sequential rotor decryption in reverse order")
         # 2. Apply sequential rotor decryption in reverse order
         for i in reversed(range(self.config.number_rotors)):
-            logging.debug(f"Applying rotor {i}")
+            logger.debug(f"Applying rotor {i}")
             data_array = self.rotor_decryption(data_array, self.decryption_rotors[i], rotations_array[i])
         
-        logging.debug("3. Apply reverse plugboard mapping")
+        logger.debug("3. Apply reverse plugboard mapping")
         # 3. Apply reverse plugboard mapping
         data_array = self.decryption_plugboard[data_array]
         
@@ -371,14 +382,14 @@ class _E2(_E2_RawData):
             dtype_log = ceil(log(self.config.dtype, 256))
         except Exception:
             dtype_log = np.dtype(self.config.dtype).itemsize
-        logging.debug(f"number of data chunks with size of {chunk_size} x {dtype_log} byte(s): {number_chunks}")
+        logger.debug(f"number of data chunks with size of {chunk_size} x {dtype_log} byte(s): {number_chunks}")
         chunks_idxs = [
             (i * chunk_size, (i + 1) * chunk_size)
             if (i + 1) * chunk_size <= input_array.size
             else (i * chunk_size, input_array.size)
             for i in range(number_chunks)
         ]
-        logging.debug(f"Chunks: {chunks_idxs}")
+        logger.debug(f"Chunks: {chunks_idxs}")
 
         organised_chunks = {
             i: [] for i in range(min(self.physical_cores, len(chunks_idxs)))
@@ -393,7 +404,7 @@ class _E2(_E2_RawData):
             for chunk_idx in individual_chunk_idxs:
                 start, end = chunk_idx
                 data_chunk = input_array[start:end]
-                logging.debug(f"new chunk {chunk_idx}: {format_data_preview(data_chunk)}")
+                logger.debug(f"new chunk {chunk_idx}: {format_data_preview(data_chunk)}")
                 
                 if is_encrypt:
                     processed_chunk = raw_cipher._encrypt_raw_data(data_chunk, start + local_start_op_index)
@@ -401,7 +412,7 @@ class _E2(_E2_RawData):
                     processed_chunk = raw_cipher._decrypt_raw_data(data_chunk, start + local_start_op_index)
                     
                 output_array[start:end] = processed_chunk
-                logging.debug(f"Processed chunk {chunk_idx}: {format_data_preview(processed_chunk)}")
+                logger.debug(f"Processed chunk {chunk_idx}: {format_data_preview(processed_chunk)}")
 
         threads = [
             mp_dummy.Process(target=chunk_worker, args=(chunk_idxs,)) 
@@ -522,7 +533,7 @@ class _E2(_E2_RawData):
             if output_path.is_dir():
                 output_path = output_path / (file_path.name + ENCRYPTED_FILE_SUFFIX)
 
-        logging.info(f"Initial filepath: {file_path}. Output filepath: {output_path}")
+        logger.info(f"Initial filepath: {file_path}. Output filepath: {output_path}")
 
         # Use memmap for chunked encryption
         if self.config.chunk_size is not None:
@@ -541,7 +552,7 @@ class _E2(_E2_RawData):
             else:
                 data = np.fromfile(file_path, dtype=self.config.dtype)
             
-            logging.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
+            logger.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
             encrypted_data = self._encrypt(data, local_start_op_index)
             
             with open(output_path, 'wb') as f:
@@ -574,7 +585,7 @@ class _E2(_E2_RawData):
             if output_path.is_dir():
                 output_path = output_path / file_path.name.replace(ENCRYPTED_FILE_SUFFIX, "")
 
-        logging.info(f"Initial filepath: {file_path}. Output filepath: {output_path}")
+        logger.info(f"Initial filepath: {file_path}. Output filepath: {output_path}")
 
         # Use memmap for chunked decryption
         if self.config.chunk_size is not None:
@@ -589,7 +600,7 @@ class _E2(_E2_RawData):
             with open(file_path, "rb") as f:
                 data: np.ndarray = np.frombuffer(f.read(), dtype=self.config.dtype)
 
-            logging.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
+            logger.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
             decrypted_data = self._decrypt(data, local_start_op_index)
             
             with open(output_path, "wb") as f:

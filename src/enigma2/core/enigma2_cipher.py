@@ -8,8 +8,8 @@ from ..config.model_params import E2Params
 from ..utils.compression import Compressor
 
 # Setup logging
-logging.Logger(__name__).addHandler(logging.NullHandler())
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("enigma2")
+logger.addHandler(logging.NullHandler())
 
 
 class E2(_E2):
@@ -61,7 +61,7 @@ class E2(_E2):
         return data_array
     
     def __first_logging_info(self):
-        logging.info(
+        logger.info(
             f"E2 Initialized: \n{self}"
         )
         
