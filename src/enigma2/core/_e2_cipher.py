@@ -336,23 +336,32 @@ class _E2(_E2_RawData):
         ]
         logging.info(f"Chunks: {chunks_idxs}")
 
-        def chunk_worker(chunk_idx: tuple[int, int]) -> None:
+        organised_chunks = {
+            i: [] for i in range(min(self.physical_cores, len(chunks_idxs)))
+        }
+
+        organised_chunks_len = len(organised_chunks)
+        for chunk_idx, chunk in enumerate(chunks_idxs):
+            organised_chunks[chunk_idx % organised_chunks_len].append(chunk)
+
+        def chunk_worker(individual_chunk_idxs: list[tuple[int, int]]) -> None:
             raw_cipher = self.copy()
-            start, end = chunk_idx
-            data_chunk = input_array[start:end]
-            logging.info(f"new chunk {chunk_idx}: {data_chunk}")
-            
-            if is_encrypt:
-                processed_chunk = raw_cipher._encrypt_raw_data(data_chunk, start + local_start_op_index)
-            else:
-                processed_chunk = raw_cipher._decrypt_raw_data(data_chunk, start + local_start_op_index)
+            for chunk_idx in individual_chunk_idxs:
+                start, end = chunk_idx
+                data_chunk = input_array[start:end]
+                logging.info(f"new chunk {chunk_idx}: {data_chunk}")
                 
-            output_array[start:end] = processed_chunk
-            logging.info(f"Processed chunk {chunk_idx}: {processed_chunk}")
+                if is_encrypt:
+                    processed_chunk = raw_cipher._encrypt_raw_data(data_chunk, start + local_start_op_index)
+                else:
+                    processed_chunk = raw_cipher._decrypt_raw_data(data_chunk, start + local_start_op_index)
+                    
+                output_array[start:end] = processed_chunk
+                logging.info(f"Processed chunk {chunk_idx}: {processed_chunk}")
 
         threads = [
-            mp_dummy.Process(target=chunk_worker, args=(chunk_idx,)) 
-            for chunk_idx in chunks_idxs
+            mp_dummy.Process(target=chunk_worker, args=(chunk_idxs,)) 
+            for chunk_idxs in organised_chunks.values()
         ]
 
         for t in threads:
