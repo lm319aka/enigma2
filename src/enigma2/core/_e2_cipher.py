@@ -117,11 +117,21 @@ class _E2_RawData:
         logging.debug(f"Random number generators reset to global start index: {final_idx}")
         return final_idx
 
+    def _get_add_buffer(self, size: int, dtype):
+        if not hasattr(self, "_add_buf") or self._add_buf is None or self._add_buf.size < size or self._add_buf.dtype != dtype:
+            self._add_buf = np.empty(size, dtype=dtype)
+        return self._add_buf[:size]
+
+    def _get_sub_buffer(self, size: int, dtype):
+        if not hasattr(self, "_sub_buf") or self._sub_buf is None or self._sub_buf.size < size or self._sub_buf.dtype != dtype:
+            self._sub_buf = np.empty(size, dtype=dtype)
+        return self._sub_buf[:size]
+
     def mod_add(self, a: np.ndarray, b: np.ndarray, m: int):
         higher_encoding = E2TypesConversion.superior_dtype(self.config.dtype)
-        tmp = np.empty_like(a, dtype=higher_encoding)  # buffer temporal
-        np.add(a, b, out=tmp, dtype=higher_encoding)  # suma sin overflow
-        res = np.mod(tmp, m, out=a)             # vuelca el resultado en a (dtype original)
+        tmp = self._get_add_buffer(a.size, higher_encoding)
+        np.add(a, b, out=tmp, dtype=higher_encoding)  # sum without overflow
+        res = np.mod(tmp, m, out=a, casting='unsafe')  # dumps the result into a (original dtype)
         logging.debug(f"""mod_add: 
                       a: {a}, 
                       b: {b}, 
@@ -131,18 +141,16 @@ class _E2_RawData:
     
     def mod_sub(self, a: np.ndarray, b: np.ndarray, m: int):
         higher_encoding = E2TypesConversion.superior_signed_dtype(self.config.dtype)
-        tmp = np.empty_like(a, dtype=higher_encoding)  # buffer temporal
-        np.subtract(a.astype(dtype=higher_encoding), 
-                    b.astype(dtype=higher_encoding), 
-                    out=tmp
-                    )  # resta sin overflow
-        res = np.mod(tmp, m)             # vuelca el resultado en a (dtype original)
+        tmp = self._get_sub_buffer(a.size, higher_encoding)
+        tmp[:] = a
+        np.subtract(tmp, b, out=tmp)  # subtract without overflow
+        res = np.mod(tmp, m, out=a, casting='unsafe')  # dumps the result into a (original dtype)
         logging.debug(f"""mod_sub: 
                       a: {a}, 
                       b: {b}, 
                       m: {m}, higher_encoding: {higher_encoding}, 
                       res: {res}""")
-        return res.astype(dtype=self.config.dtype)
+        return res
 
     def rotor_encryption(self, data_array: np.ndarray, rotor: np.ndarray, rotation: np.ndarray) -> np.ndarray:
         """Applies a single rotor encryption step."""
@@ -187,7 +195,7 @@ class _E2_RawData:
     def preprocess_encrypt_data(self, data_array: Union[np.ndarray, bytes]) -> np.ndarray:
         return self.check_entry_data(data_array)
 
-    @timed
+    # @timed
     def _encrypt_raw_data(self, 
                  data_array: Union[np.ndarray, bytes], 
                  local_start_op_index: int = 0) -> np.ndarray:
@@ -199,7 +207,7 @@ class _E2_RawData:
         :return: Encrypted numpy array.
         """
         
-        logging.info(f"Encrypting data: {format_data_preview(data_array)} with local_start_op_index: {local_start_op_index}")
+        # logging.info(f"Encrypting data: {format_data_preview(data_array)} with local_start_op_index: {local_start_op_index}")
         if local_start_op_index < 0:
             raise NegativeLocalStartOpIndexError(local_start_op_index)
         
@@ -237,7 +245,7 @@ class _E2_RawData:
                 local_start_op_index: int = 0) -> np.ndarray:
         return self._encrypt_raw_data(data_array, local_start_op_index)
 
-    @timed
+    # @timed
     def _decrypt_raw_data(self, 
                  data_array: Union[np.ndarray, bytes],
                  local_start_op_index: int = 0) -> np.ndarray:
@@ -249,12 +257,12 @@ class _E2_RawData:
         :return: Decrypted numpy array.
         """
         
-        logging.info(f"Decrypting data: {format_data_preview(data_array)} with local_start_op_index: {local_start_op_index}")
+        # logging.info(f"Decrypting data: {format_data_preview(data_array)} with local_start_op_index: {local_start_op_index}")
         if local_start_op_index < 0:
             raise NegativeLocalStartOpIndexError(local_start_op_index)
         
         logging.debug(f"Start preprocessing data...")
-        data_array = self.check_entry_data(data_array)
+        data_array = self.check_entry_data(data_array).copy()
         
         # Reset RNG to ensure consistency across operations        
         self.reset_rng(local_start_op_index)
@@ -312,6 +320,13 @@ class _E2_RawData:
         new_instance.decryption_rotors = self.decryption_rotors.copy()
         new_instance.encryption_plugboard = self.encryption_plugboard.copy()
         new_instance.decryption_plugboard = self.decryption_plugboard.copy()
+
+        # Isolate temporary buffers
+        if "_add_buf" in new_instance.__dict__:
+            del new_instance.__dict__["_add_buf"]
+        if "_sub_buf" in new_instance.__dict__:
+            del new_instance.__dict__["_sub_buf"]
+
         return new_instance
 
     def __copy__(self) -> "_E2_RawData":
@@ -400,7 +415,7 @@ class _E2(_E2_RawData):
             t.join()
 
 
-    @timed
+    # @timed
     def _encrypt(self, 
                 data_array: Union[np.ndarray, bytes], 
                 local_start_op_index: int = 0) -> np.ndarray:
@@ -421,12 +436,13 @@ class _E2(_E2_RawData):
 
         return output_array
     
+    @timed
     def encrypt(self, 
                 data_array: Union[np.ndarray, bytes], 
                 local_start_op_index: int = 0) -> np.ndarray:
         return self._encrypt(data_array, local_start_op_index)
 
-    @timed
+    # @timed
     def _decrypt(self,
                 data_array: Union[np.ndarray, bytes],
                 local_start_op_index: int = 0) -> np.ndarray:
@@ -447,6 +463,7 @@ class _E2(_E2_RawData):
 
         return output_array
     
+    @timed
     def decrypt(self, 
                 data_array: Union[np.ndarray, bytes], 
                 local_start_op_index: int = 0) -> np.ndarray:
@@ -478,6 +495,7 @@ class _E2(_E2_RawData):
         del input_array
         del output_array
 
+    @timed
     def encrypt_file(self, 
                      file_path: Union[str, Path], 
                      output_path: Optional[Union[str, Path]] = None,
@@ -531,6 +549,7 @@ class _E2(_E2_RawData):
         
         return output_path
 
+    @timed
     def decrypt_file(self, 
                      file_path: Union[str, Path], 
                      output_path: Optional[Union[str, Path]] = None,

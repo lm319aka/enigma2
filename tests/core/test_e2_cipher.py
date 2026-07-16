@@ -458,5 +458,36 @@ class Test_E2(unittest.TestCase):
         # Verify config is not mutated
         self.assertEqual(e2_chunked.config.chunk_size, -1)
 
+    def test_preallocated_buffers(self):
+        """Verifies that mod_add and mod_sub use preallocated buffers, resize them correctly, and are isolated during copy."""
+        raw_e2 = _E2(params=self._params)
+        
+        # Initially, buffers do not exist
+        self.assertFalse(hasattr(raw_e2, "_add_buf"))
+        self.assertFalse(hasattr(raw_e2, "_sub_buf"))
+
+        # Run encrypt to trigger mod_add
+        data = np.arange(10, dtype=self._config.dtype)
+        encrypted = raw_e2._encrypt(data.copy())
+        
+        # Buffers should now be initialized
+        self.assertTrue(hasattr(raw_e2, "_add_buf"))
+        self.assertGreaterEqual(raw_e2._add_buf.size, 10)
+
+        # Run decrypt to trigger mod_sub
+        decrypted = raw_e2._decrypt(encrypted.copy())
+        self.assertTrue(hasattr(raw_e2, "_sub_buf"))
+        self.assertGreaterEqual(raw_e2._sub_buf.size, 10)
+
+        # Resizing check: run on larger data
+        large_data = np.arange(100, dtype=self._config.dtype)
+        encrypted_large = raw_e2._encrypt(large_data.copy())
+        self.assertGreaterEqual(raw_e2._add_buf.size, 100)
+
+        # Copy check: cloned instance must not share the buffers
+        copied_e2 = raw_e2.copy()
+        self.assertFalse(hasattr(copied_e2, "_add_buf"))
+        self.assertFalse(hasattr(copied_e2, "_sub_buf"))
+
 if __name__ == "__main__":
     unittest.main()

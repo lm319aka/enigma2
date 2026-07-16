@@ -2,7 +2,7 @@ import numpy as np
 import logging
 from typing import Union
 
-from ._e2_cipher import _E2
+from ._e2_cipher import _E2, timed
 from ..config.enigma2_config import E2Config
 from ..config.model_params import E2Params
 from ..utils.compression import Compressor
@@ -51,6 +51,7 @@ class E2(_E2):
     # def encrypt(self, data_array, local_start_op_index = 0):
     #     return super().encrypt(data_array, local_start_op_index)
 
+    @timed
     def decrypt(self, 
                 data_array: Union[np.ndarray, bytes], 
                 local_start_op_index: int = 0) -> np.ndarray:
