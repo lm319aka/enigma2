@@ -268,7 +268,32 @@ class _E2_RawData:
         return self._decrypt_raw_data(data_array, local_start_op_index)
 
     def copy(self) -> "_E2_RawData":
-        return self.__class__(self.config.params.model_copy())
+        import copy
+        new_instance = self.__class__.__new__(self.__class__)
+        new_instance.__dict__.update(self.__dict__)
+
+        # Clone generator to isolate mutable RNG state
+        new_gen = self.generator.__class__.__new__(self.generator.__class__)
+        new_gen.__dict__.update(self.generator.__dict__)
+        
+        new_gen.rotations_rng = copy.copy(self.generator.rotations_rng)
+        new_gen.rotors_rng = copy.copy(self.generator.rotors_rng)
+        new_gen.noise_rng = copy.copy(self.generator.noise_rng)
+        new_gen.plugboard_rng = copy.copy(self.generator.plugboard_rng)
+        new_instance.generator = new_gen
+
+        # Clone numpy arrays to make it safe against mutations
+        new_instance.encryption_rotors = self.encryption_rotors.copy()
+        new_instance.decryption_rotors = self.decryption_rotors.copy()
+        new_instance.encryption_plugboard = self.encryption_plugboard.copy()
+        new_instance.decryption_plugboard = self.decryption_plugboard.copy()
+        return new_instance
+
+    def __copy__(self) -> "_E2_RawData":
+        return self.copy()
+
+    def __deepcopy__(self, memo: dict) -> "_E2_RawData":
+        return self.copy()
     
     def __eq__(self, other: "_E2_RawData") -> bool:
         if type(self) is not type(other):
@@ -289,26 +314,15 @@ class _E2(_E2_RawData):
         super().__init__(params)
         self.physical_cores = multiprocessing.cpu_count()
     
-    # def __cipher_multiprocessing(self, 
-    #                      cipher_func: Callable,
-    #                     #  io_func: Callable,
-    #                      processes_args: list[tuple[Any]]) -> Any:
-    #     pool = multiprocessing.Pool(self.physical_cores)
-    #     return pool.map(cipher_func, processes_args)
+    def __cipher_op_chunks(self, 
+                           input_data_func: Callable,
+                           output_data_func: Callable, 
+                           cipher_call: Callable,
+                           data_size: int,
+                           local_start_op_index: int = 0,
+                           ):
 
-    @timed
-    def _encrypt(self, 
-                data_array: Union[np.ndarray, bytes], 
-                local_start_op_index: int = 0) -> np.ndarray:
-        if isinstance(data_array, bytes):
-            data_array = np.frombuffer(data_array, dtype=self.config.dtype)
-
-        if self.config.chunk_size is None:
-            return super()._encrypt(data_array, local_start_op_index)
-
-        import multiprocessing.dummy as multiprocessing
-
-        number_chunks = ceil(data_array.size / self.config.chunk_size)
+        number_chunks = ceil(data_size / self.config.chunk_size)
         try:
             dtype_log = ceil(log(self.config.dtype, 256))
         except Exception:
@@ -316,22 +330,45 @@ class _E2(_E2_RawData):
         logging.info(f"number of data chunks with size of {self.config.chunk_size} x {dtype_log} byte(s): {number_chunks}")
         chunks_idxs = [
             (i * self.config.chunk_size, (i + 1) * self.config.chunk_size)
-            if (i + 1) * self.config.chunk_size <= data_array.size
-            else (i * self.config.chunk_size, data_array.size)
+            if (i + 1) * self.config.chunk_size <= data_size
+            else (i * self.config.chunk_size, data_size)
             for i in range(number_chunks)
         ]
         logging.info(f"Chunks: {chunks_idxs}")
-        output_array = np.empty(data_array.size, dtype=self.config.dtype)
 
-        def chunk_encryption(chunk_idx: tuple[int, int]) -> np.ndarray:
-            raw_cipher = _E2_RawData(self.config.params.model_copy())
-            start, end = chunk_idx
-            data_chunk = data_array[start:end]
-            logging.info(f"new chunk {chunk_idx}: {data_chunk}")
-            encrypted_chunk = raw_cipher._encrypt(data_chunk, start + local_start_op_index)
-            output_array[start:end] = encrypted_chunk
-            logging.info(f"Encrypted chunk: {encrypted_chunk}")
-            return encrypted_chunk
+        main_raw_cipher = _E2_RawData(self.config.params.model_copy())
+
+        ciphers = [
+            multiprocessing.Process(target=lambda: main_raw_cipher.copy()) 
+            for _ in range(min(self.physical_cores, number_chunks))
+        ]
+
+        for c in ciphers:
+            c.start()
+
+        for c in ciphers:
+            c.join()
+
+        ciphers_idxs = {
+            i: [] for i, _ in enumerate(ciphers)
+        }
+
+        for i, individual_chunk_idx in enumerate(chunks_idxs):
+            ciphers_idxs[i % len(ciphers)].append(individual_chunk_idx)
+
+        def chunk_encryption(
+                raw_cipher: _E2_RawData,
+                chunks_idxs: list[tuple[int, int]]
+            ) -> np.ndarray:
+            
+            for chunk_idx in chunks_idxs:
+                start, end = chunk_idx
+                data_chunk = input_data_func(start, end)
+                logging.info(f"new chunk {chunk_idx}: {data_chunk}")
+                encrypted_chunk = cipher_call(raw_cipher, data_chunk, start + local_start_op_index)
+                output_data_func(encrypted_chunk, start, end)
+                logging.info(f"Encrypted chunk: {encrypted_chunk}")
+                # return encrypted_chunk
 
         # pool = multiprocessing.Pool(self.physical_cores)
         processes = [
@@ -344,6 +381,46 @@ class _E2(_E2_RawData):
 
         for p in processes:
             p.join()
+
+
+    @timed
+    def _encrypt(self, 
+                data_array: Union[np.ndarray, bytes], 
+                local_start_op_index: int = 0) -> np.ndarray:
+        if isinstance(data_array, bytes):
+            data_array = np.frombuffer(data_array, dtype=self.config.dtype)
+
+        if self.config.chunk_size is None:
+            return super()._encrypt(data_array, local_start_op_index)
+
+        output_array = np.empty(data_array.size, dtype=self.config.dtype)
+
+        def input_func(
+                start: int, 
+                end: int
+            ) -> np.ndarray:
+            return data_array[start:end]
+        
+        def output_func(
+                data_chunk: np.ndarray, 
+                start: int, 
+                end: int
+            ) -> None:
+            output_array[start:end] = data_chunk
+
+        def cipher_op(
+                raw_cipher: _E2_RawData,
+                data_chunk: np.ndarray,
+                local_start_op_index: int = 0
+            ) -> np.ndarray:
+            return raw_cipher._encrypt_raw_data(data_chunk, local_start_op_index)
+
+        self.__cipher_op_chunks(
+            input_data_func=input_func,
+            output_data_func=output_func,
+            cipher_call=cipher_op,
+            data_size=data_array.size,
+            local_start_op_index=local_start_op_index)
 
         return output_array
     
@@ -361,6 +438,8 @@ class _E2(_E2_RawData):
 
         if self.config.chunk_size is None:
             return super()._decrypt(data_array, local_start_op_index)
+        
+        output_array = np.empty(data_array.size, dtype=self.config.dtype)
 
         import multiprocessing.dummy as multiprocessing
 
@@ -376,11 +455,13 @@ class _E2(_E2_RawData):
             else (i * self.config.chunk_size, data_array.size)
             for i in range(number_chunks)
         ]
+
         logging.info(f"Chunks: {chunks_idxs}")
-        output_array = np.empty(data_array.size, dtype=self.config.dtype)
+
+        main_raw_cipher = _E2_RawData(self.config.params.model_copy())
 
         def chunk_decryption(chunk_idx: tuple[int, int]) -> np.ndarray:
-            raw_cipher = _E2_RawData(self.config.params.model_copy())
+            raw_cipher = main_raw_cipher.copy()
             start, end = chunk_idx
             data_chunk = data_array[start:end]
             logging.info(f"new chunk {chunk_idx}: {data_chunk}")

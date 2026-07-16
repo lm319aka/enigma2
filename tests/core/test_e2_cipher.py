@@ -245,10 +245,38 @@ class Test_E2(unittest.TestCase):
 
     def test_cipher_copy(self):
         """Ensures copy constructor works as expected."""
+        import copy
+        import time
+
+        t0 = time.perf_counter()
         cipher_copy = self._e2.copy()
+        t1 = time.perf_counter()
+        
+        # Ensure copy is ridiculously fast (less than 1 millisecond)
+        self.assertLess(t1 - t0, 0.001)
+
         self.assertEqual(cipher_copy, self._e2)
         self.assertEqual(cipher_copy.config, self._e2.config)
         self.assertTrue(cipher_copy == self._e2)
+
+        # Check standard copy/deepcopy protocols
+        std_copy = copy.copy(self._e2)
+        std_deepcopy = copy.deepcopy(self._e2)
+        self.assertEqual(std_copy, self._e2)
+        self.assertEqual(std_deepcopy, self._e2)
+
+        # Check independence of generator and numpy arrays to ensure thread-safety
+        self.assertIsNot(cipher_copy.generator, self._e2.generator)
+        self.assertIsNot(cipher_copy.encryption_rotors, self._e2.encryption_rotors)
+        self.assertIsNot(cipher_copy.decryption_rotors, self._e2.decryption_rotors)
+        self.assertIsNot(cipher_copy.encryption_plugboard, self._e2.encryption_plugboard)
+        self.assertIsNot(cipher_copy.decryption_plugboard, self._e2.decryption_plugboard)
+
+        # Content should be identical
+        np.testing.assert_array_equal(cipher_copy.encryption_rotors, self._e2.encryption_rotors)
+        np.testing.assert_array_equal(cipher_copy.decryption_rotors, self._e2.decryption_rotors)
+        np.testing.assert_array_equal(cipher_copy.encryption_plugboard, self._e2.encryption_plugboard)
+        np.testing.assert_array_equal(cipher_copy.decryption_plugboard, self._e2.decryption_plugboard)
 
     def test_underscore_encrypt_decrypt_methods(self):
         """Verifies that _encrypt and _decrypt exist and work properly in _E2."""
