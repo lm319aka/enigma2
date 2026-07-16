@@ -163,5 +163,23 @@ class TestE2(unittest.TestCase):
             decrypted = cipher_compression.decrypt(encrypted)
             self.assertEqual(data, decrypted.tobytes())
 
+    def test_cipher_compression_with_different_dtypes(self):
+        """Tests encryption and decryption with compression and non-uint8 dtypes."""
+        for alg in Compressor.AVAILABLE_ALGORITHMS:
+            for dtype, btype in [(np.uint16, 65536)]:
+                cipher_compression = create_cipher(E2Params(
+                    pwd=b"testpassword",
+                    dtype=dtype,
+                    btype=btype,
+                    data_compression_alg=alg
+                ))
+                random_rng = np.random.default_rng(12345)
+                # Generate random data of correct dtype and btype
+                data = random_rng.integers(0, btype, size=150, dtype=dtype)
+                
+                encrypted = cipher_compression.encrypt(data)
+                decrypted = cipher_compression.decrypt(encrypted)
+                np.testing.assert_array_equal(data, decrypted)
+
 if __name__ == "__main__":
     unittest.main()

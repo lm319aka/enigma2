@@ -57,7 +57,7 @@ class E2(_E2):
                 local_start_op_index: int = 0) -> np.ndarray:
         data_array = self._decrypt(data_array, local_start_op_index)
         if self.config.data_compression_alg is not None:
-            data_array = Compressor.decompress_nparray(data_array, self.data_compression_alg)
+            data_array = Compressor.decompress_nparray(data_array, self.data_compression_alg, self.config.dtype)
         return data_array
     
     def __first_logging_info(self):

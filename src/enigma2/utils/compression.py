@@ -2,6 +2,7 @@ import gzip
 import bz2
 import lzma
 import zlib
+from typing import Any
 
 # Not native options:
 
@@ -63,7 +64,7 @@ class Compressor:
     @staticmethod
     def compress_nparray(data: np.ndarray, algorithm: str) -> np.ndarray:
         return np.frombuffer(
-            Compressor.compress(data.tobytes(), algorithm), dtype=data.dtype
+            Compressor.compress(data.tobytes(), algorithm), dtype=np.uint8
             )
 
     @staticmethod
@@ -99,7 +100,8 @@ class Compressor:
                 )
             
     @staticmethod
-    def decompress_nparray(data: np.ndarray, algorithm: str) -> np.ndarray:
+    def decompress_nparray(data: np.ndarray, algorithm: str, target_dtype: Any) -> np.ndarray:
+        compressed_bytes = data.astype(np.uint8).tobytes()
         return np.frombuffer(
-            Compressor.decompress(data.tobytes(), algorithm), dtype=data.dtype
+            Compressor.decompress(compressed_bytes, algorithm), dtype=target_dtype
             )
