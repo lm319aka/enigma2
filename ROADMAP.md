@@ -103,7 +103,7 @@ On this document you will find the different features of past, present and futur
 - [X] Write broader enigma class with less restrictions to use it for lab testing (it will be able to use odd rotor aranges, noise sizes, etc...) -> _E2 ??
 - [X] Generate better code examples for readme
 
-### Tasks for e2 v2.4.X
+### Tasks for e2 v2.4.X (now for v2.5.x)
 
 - [X] make copy function to create a new instance of the cipher with the same state
 - [X] modify encryption/decryption functions to add data compression before any operation
@@ -158,7 +158,7 @@ On this document you will find the different features of past, present and futur
   - [X] Implement the missing `chunk_size` file encryption/decryption streaming logic to avoid loading entire files into memory.
   - [X] Eliminate CPU/memory bottleneck in `generate_noise` by replacing `noise_rng.choice(np.arange(size))` with `noise_rng.integers(0, size)`.
   - [X] Implement chunk-based processing to avoid generating massive random rotation arrays for large files.
-  - [ ] Pre-allocate temporary buffers and optimize `mod_sub` in `_E2` class base arithmetic to avoid repetitive memory allocation and casting.
+  - [X] Pre-allocate temporary buffers and optimize `mod_sub` in `_E2` class base arithmetic to avoid repetitive memory allocation and casting.
   - [X] Optimize encoding auto-detection in `encrypt_file` by sampling only a partial prefix (e.g. 32 KB) instead of reading the entire file.
 
 ### Statistics
