@@ -201,5 +201,32 @@ class TestE2(unittest.TestCase):
         with self.assertRaises(DecompressionError):
             cipher_decrypt_wrong.decrypt(encrypted)
 
+    def test_chunked_compression(self):
+        """Tests that combining chunk_size and compression works without broadcast error."""
+        import tempfile
+        from pathlib import Path
+
+        cipher = create_cipher(E2Params(
+            pwd=b"testpassword",
+            chunk_size=10,
+            data_compression_alg="gzip"
+        ))
+
+        data = b"This is a longer text that will be compressed and chunked during encryption process!"
+        encrypted = cipher.encrypt(data)
+        decrypted = cipher.decrypt(encrypted)
+        self.assertEqual(data, decrypted.tobytes())
+
+        # Test with files as well
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            src = tmpdir_path / "test.txt"
+            src.write_bytes(data)
+            
+            enc_file = cipher.encrypt_file(src)
+            dec_file = cipher.decrypt_file(enc_file)
+            
+            self.assertEqual(data, dec_file.read_bytes())
+
 if __name__ == "__main__":
     unittest.main()

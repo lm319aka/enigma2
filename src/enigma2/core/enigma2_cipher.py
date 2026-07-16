@@ -42,14 +42,16 @@ class E2(_E2):
         return res - rotation
 
     def preprocess_encrypt_data(self, data_array: Union[np.ndarray, bytes]) -> np.ndarray:
-        data_array = self.check_entry_data(data_array)
-        if self.config.data_compression_alg is not None:
-            data_array = Compressor.compress_nparray(data_array, self.data_compression_alg)
-        return data_array
+        return self.check_entry_data(data_array)
     
-    # encrypt is already defined in _E2 and does not need to be overwritten if preprocessing is edited as above
-    # def encrypt(self, data_array, local_start_op_index = 0):
-    #     return super().encrypt(data_array, local_start_op_index)
+    @timed
+    def encrypt(self, 
+                data_array: Union[np.ndarray, bytes], 
+                local_start_op_index: int = 0) -> np.ndarray:
+        if self.config.data_compression_alg is not None:
+            data_array = self.check_entry_data(data_array)
+            data_array = Compressor.compress_nparray(data_array, self.config.data_compression_alg)
+        return self._encrypt(data_array, local_start_op_index)
 
     @timed
     def decrypt(self, 

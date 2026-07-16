@@ -536,7 +536,7 @@ class _E2(_E2_RawData):
         logger.info(f"Initial filepath: {file_path}. Output filepath: {output_path}")
 
         # Use memmap for chunked encryption
-        if self.config.chunk_size is not None:
+        if self.config.chunk_size is not None and getattr(self.config, "data_compression_alg", None) is None:
             self._cipher_file_chunks(
                 file_path=file_path,
                 output_path=output_path,
@@ -553,7 +553,7 @@ class _E2(_E2_RawData):
                 data = np.fromfile(file_path, dtype=self.config.dtype)
             
             logger.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
-            encrypted_data = self._encrypt(data, local_start_op_index)
+            encrypted_data = self.encrypt(data, local_start_op_index)
             
             with open(output_path, 'wb') as f:
                 encrypted_data.tofile(f)
@@ -588,7 +588,7 @@ class _E2(_E2_RawData):
         logger.info(f"Initial filepath: {file_path}. Output filepath: {output_path}")
 
         # Use memmap for chunked decryption
-        if self.config.chunk_size is not None:
+        if self.config.chunk_size is not None and getattr(self.config, "data_compression_alg", None) is None:
             self._cipher_file_chunks(
                 file_path=file_path,
                 output_path=output_path,
@@ -601,7 +601,7 @@ class _E2(_E2_RawData):
                 data: np.ndarray = np.frombuffer(f.read(), dtype=self.config.dtype)
 
             logger.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
-            decrypted_data = self._decrypt(data, local_start_op_index)
+            decrypted_data = self.decrypt(data, local_start_op_index)
             
             with open(output_path, "wb") as f:
                 f.write(decrypted_data.tobytes())

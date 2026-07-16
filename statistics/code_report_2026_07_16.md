@@ -74,3 +74,57 @@ Este documento detalla un análisis de seguimiento y auditoría técnica del có
 * **Resolución:**
   Se encapsuló la llamada a la descompresión binaria en un bloque `try-except` dentro de `decompress_nparray` que captura excepciones del sistema tales como `zlib.error`, `gzip.BadGzipFile`, `bz2.BZ2Error` o `lzma.LZMAError`.
   Estas se transforman y relanzan bajo la excepción de alto nivel `DecompressionError` (definida en `_e2_exceptions.py`), permitiendo a las aplicaciones cliente y al CLI interceptar la falla limpiamente e indicar que la clave es incorrecta o los datos están corruptos, en lugar de colgarse mostrando volcados de depuración del intérprete de Python.
+
+
+### 🔒 4. Explicación de Técnicas de Criptografía (1.2 y 3.1)                                                          
+                                                                                                                        
+#### 4.2 Reutilización de Keystream / Vulnerabilidad de Profundidad (Depth)                                            
+                                                                                                                        
+• ¿En qué consiste? Enigma2 actúa como un cifrado de flujo (donde los caracteres se transforman mediante una secuencia 
+pseudoaleatoria o keystream generada por el RNG). Si cifras dos textos distintos (P₁ y P₂) con la misma contraseña y el
+mismo estado inicial de RNG, ambos compartirán la misma secuencia de clave (S).                                        
+Matemáticamente, los textos cifrados serán:                                                                            
+                                                                                                                        
+  C₁ = P₁ oplus S  y  C₂ = P₂ oplus S                                                                                  
+                                                                                                                        
+Un atacante que capture C₁ y C₂ puede hacer la operación XOR entre ellos:                                              
+                                                                                                                        
+  C₁ oplus C₂ = (P₁ oplus S) oplus (P₂ oplus S) = P₁ oplus P₂                                                          
+                                                                                                                        
+Al hacer esto, la secuencia de clave S se elimina por completo. A partir de P₁ oplus P₂, el atacante puede emplear     
+técnicas como crib dragging (deslizar palabras probables en el flujo) para recuperar ambos textos planos originales sin
+conocer la contraseña.                                                                                                 
+                                                                                                                        
+• ¿Qué aporta el Vector de Inicialización (IV)? Un IV es un número aleatorio de un solo uso (nonce) que se genera en   
+cada cifrado. Aporta unicidad, asegurando que aunque cifras el mismo mensaje con la misma contraseña 100 veces, los 100
+textos cifrados resultantes sean completamente distintos.                                                              
+• ¿Cómo aplicarlo a Enigma2? Durante la encriptación, generamos 16 bytes aleatorios con  os.urandom(16) . Usamos su    
+hash para desplazar o inicializar el estado del generador de rotaciones y guardamos el IV al principio del archivo.    
+Durante la desencriptación, extraemos esos primeros 16 bytes de la cabecera y los usamos para re-inicializar el RNG    
+exactamente en el mismo estado.                                                                                        
+                                                                                                                        
+#### 4.2 Falta de Autenticación de Mensajes / AEAD (Integridad)                                                        
+                                                                                                                        
+• Trasfondo matemático y manipulación de bits: Los cifrados de flujo puros son maleables. Si un atacante conoce parte  
+del texto original (por ejemplo, que la cabecera de un archivo dice  "Origen: Servidor" ), puede calcular la diferencia
+Δ para cambiarlo a  "Origen: Atacante" . Si aplica esa diferencia al texto cifrado:                                    
+                                                                                                                        
+  C' = C oplus Δ                                                                                                       
+                                                                                                                        
+Al descifrar, el receptor obtendrá:                                                                                    
+                                                                                                                        
+  P' = Decrypt (C') = (C oplus Δ) oplus S = (P oplus S oplus Δ) oplus S = P oplus Δ                                    
+                                                                                                                        
+El descifrado se ejecutará correctamente sin ningún error, pero los datos habrán sido modificados a voluntad del       
+atacante de manera silenciosa.                                                                                         
+                                                                                                                        
+• Paradigma Encrypt-then-MAC (EtM): Para evitar esto, se utiliza un código de autenticación de mensajes (MAC) como     
+HMAC-SHA256 .                                                                                                          
+Matemáticamente:                                                                                                       
+    1. Se cifra el texto original para obtener el ciphertext C.                                                        
+    2. Se deriva una clave de autenticación Kₐᵤₜₕ a partir de la contraseña (independiente de la clave de cifrado).    
+    3. Se calcula la firma de integridad: T = HMAC (Kₐᵤₜₕ,C).                                                          
+    4. Se guarda (C,T) en el archivo.                                                                                  
+    Al descifrar, primero se recalcula el HMAC sobre el texto cifrado recibido y se compara con T en tiempo constante. 
+    Si no coinciden, el archivo se descarta inmediatamente, evitando que el descifrador procese datos manipulados.     
+        
