@@ -315,14 +315,14 @@ class _E2(_E2_RawData):
         self.physical_cores = multiprocessing.cpu_count()
     
     def __cipher_op_chunks(self, 
-                           input_data_func: Callable,
-                           output_data_func: Callable, 
-                           cipher_call: Callable,
-                           data_size: int,
+                           input_array: np.ndarray,
+                           output_array: np.ndarray, 
+                           is_encrypt: bool,
                            local_start_op_index: int = 0,
                            ):
+        import multiprocessing.dummy as mp_dummy
 
-        number_chunks = ceil(data_size / self.config.chunk_size)
+        number_chunks = ceil(input_array.size / self.config.chunk_size)
         try:
             dtype_log = ceil(log(self.config.dtype, 256))
         except Exception:
@@ -330,57 +330,36 @@ class _E2(_E2_RawData):
         logging.info(f"number of data chunks with size of {self.config.chunk_size} x {dtype_log} byte(s): {number_chunks}")
         chunks_idxs = [
             (i * self.config.chunk_size, (i + 1) * self.config.chunk_size)
-            if (i + 1) * self.config.chunk_size <= data_size
-            else (i * self.config.chunk_size, data_size)
+            if (i + 1) * self.config.chunk_size <= input_array.size
+            else (i * self.config.chunk_size, input_array.size)
             for i in range(number_chunks)
         ]
         logging.info(f"Chunks: {chunks_idxs}")
 
-        main_raw_cipher = _E2_RawData(self.config.params.model_copy())
-
-        ciphers = [
-            multiprocessing.Process(target=lambda: main_raw_cipher.copy()) 
-            for _ in range(min(self.physical_cores, number_chunks))
-        ]
-
-        for c in ciphers:
-            c.start()
-
-        for c in ciphers:
-            c.join()
-
-        ciphers_idxs = {
-            i: [] for i, _ in enumerate(ciphers)
-        }
-
-        for i, individual_chunk_idx in enumerate(chunks_idxs):
-            ciphers_idxs[i % len(ciphers)].append(individual_chunk_idx)
-
-        def chunk_encryption(
-                raw_cipher: _E2_RawData,
-                chunks_idxs: list[tuple[int, int]]
-            ) -> np.ndarray:
+        def chunk_worker(chunk_idx: tuple[int, int]) -> None:
+            raw_cipher = self.copy()
+            start, end = chunk_idx
+            data_chunk = input_array[start:end]
+            logging.info(f"new chunk {chunk_idx}: {data_chunk}")
             
-            for chunk_idx in chunks_idxs:
-                start, end = chunk_idx
-                data_chunk = input_data_func(start, end)
-                logging.info(f"new chunk {chunk_idx}: {data_chunk}")
-                encrypted_chunk = cipher_call(raw_cipher, data_chunk, start + local_start_op_index)
-                output_data_func(encrypted_chunk, start, end)
-                logging.info(f"Encrypted chunk: {encrypted_chunk}")
-                # return encrypted_chunk
+            if is_encrypt:
+                processed_chunk = raw_cipher._encrypt_raw_data(data_chunk, start + local_start_op_index)
+            else:
+                processed_chunk = raw_cipher._decrypt_raw_data(data_chunk, start + local_start_op_index)
+                
+            output_array[start:end] = processed_chunk
+            logging.info(f"Processed chunk {chunk_idx}: {processed_chunk}")
 
-        # pool = multiprocessing.Pool(self.physical_cores)
-        processes = [
-            multiprocessing.Process(target=chunk_encryption, args=(chunk_idx,)) 
+        threads = [
+            mp_dummy.Process(target=chunk_worker, args=(chunk_idx,)) 
             for chunk_idx in chunks_idxs
         ]
 
-        for p in processes:
-            p.start()
+        for t in threads:
+            t.start()
 
-        for p in processes:
-            p.join()
+        for t in threads:
+            t.join()
 
 
     @timed
@@ -395,32 +374,12 @@ class _E2(_E2_RawData):
 
         output_array = np.empty(data_array.size, dtype=self.config.dtype)
 
-        def input_func(
-                start: int, 
-                end: int
-            ) -> np.ndarray:
-            return data_array[start:end]
-        
-        def output_func(
-                data_chunk: np.ndarray, 
-                start: int, 
-                end: int
-            ) -> None:
-            output_array[start:end] = data_chunk
-
-        def cipher_op(
-                raw_cipher: _E2_RawData,
-                data_chunk: np.ndarray,
-                local_start_op_index: int = 0
-            ) -> np.ndarray:
-            return raw_cipher._encrypt_raw_data(data_chunk, local_start_op_index)
-
         self.__cipher_op_chunks(
-            input_data_func=input_func,
-            output_data_func=output_func,
-            cipher_call=cipher_op,
-            data_size=data_array.size,
-            local_start_op_index=local_start_op_index)
+            input_array=data_array,
+            output_array=output_array,
+            is_encrypt=True,
+            local_start_op_index=local_start_op_index
+        )
 
         return output_array
     
@@ -441,46 +400,12 @@ class _E2(_E2_RawData):
         
         output_array = np.empty(data_array.size, dtype=self.config.dtype)
 
-        import multiprocessing.dummy as multiprocessing
-
-        number_chunks = ceil(data_array.size / self.config.chunk_size)
-        try:
-            dtype_log = ceil(log(self.config.dtype, 256))
-        except Exception:
-            dtype_log = np.dtype(self.config.dtype).itemsize
-        logging.info(f"number of data chunks with size of {self.config.chunk_size} x {dtype_log} byte(s): {number_chunks}")
-        chunks_idxs = [
-            (i * self.config.chunk_size, (i + 1) * self.config.chunk_size)
-            if (i + 1) * self.config.chunk_size <= data_array.size
-            else (i * self.config.chunk_size, data_array.size)
-            for i in range(number_chunks)
-        ]
-
-        logging.info(f"Chunks: {chunks_idxs}")
-
-        main_raw_cipher = _E2_RawData(self.config.params.model_copy())
-
-        def chunk_decryption(chunk_idx: tuple[int, int]) -> np.ndarray:
-            raw_cipher = main_raw_cipher.copy()
-            start, end = chunk_idx
-            data_chunk = data_array[start:end]
-            logging.info(f"new chunk {chunk_idx}: {data_chunk}")
-            decrypted_chunk = raw_cipher._decrypt(data_chunk, start + local_start_op_index)
-            output_array[start:end] = decrypted_chunk
-            logging.info(f"Decrypted chunk {chunk_idx}: {decrypted_chunk}")
-            return decrypted_chunk
-
-        # pool = multiprocessing.Pool(self.physical_cores)
-        processes = [
-            multiprocessing.Process(target=chunk_decryption, args=(chunk_idx,)) 
-            for chunk_idx in chunks_idxs
-        ]
-
-        for p in processes:
-            p.start()
-
-        for p in processes:
-            p.join()
+        self.__cipher_op_chunks(
+            input_array=data_array,
+            output_array=output_array,
+            is_encrypt=False,
+            local_start_op_index=local_start_op_index
+        )
 
         return output_array
     
@@ -488,6 +413,32 @@ class _E2(_E2_RawData):
                 data_array: Union[np.ndarray, bytes], 
                 local_start_op_index: int = 0) -> np.ndarray:
         return self._decrypt(data_array, local_start_op_index)
+
+    def _cipher_file_chunks(self, 
+                            file_path: Path, 
+                            output_path: Path, 
+                            is_encrypt: bool,
+                            detect_encoding: bool = False,
+                            local_start_op_index: int = 0) -> None:
+        if is_encrypt and detect_encoding:
+            file_encoding = find_file_encoding(file_path)
+            dtype = encoding_dtype_map[file_encoding]
+        else:
+            dtype = self.config.dtype
+
+        input_array = np.memmap(file_path, dtype=dtype, mode='r')
+        output_array = np.memmap(output_path, dtype=dtype, mode='w+', shape=input_array.shape)
+
+        self.__cipher_op_chunks(
+            input_array=input_array,
+            output_array=output_array,
+            is_encrypt=is_encrypt,
+            local_start_op_index=local_start_op_index
+        )
+
+        output_array.flush()
+        del input_array
+        del output_array
 
     def encrypt_file(self, 
                      file_path: Union[str, Path], 
@@ -513,20 +464,32 @@ class _E2(_E2_RawData):
         else:
             output_path = Path(output_path)
             if output_path.is_dir():
-                output_path = output_path / (file_path.name +  ENCRYPTED_FILE_SUFFIX)
+                output_path = output_path / (file_path.name + ENCRYPTED_FILE_SUFFIX)
 
         logging.info(f"Initial filepath: {file_path}. Output filepath: {output_path}")
-        # Load data with appropriate dtype
-        if detect_encoding:
-            file_encoding = find_file_encoding(file_path)
-            data = np.fromfile(file_path, dtype=encoding_dtype_map[file_encoding])
+
+        # Use memmap for chunked encryption
+        if self.config.chunk_size is not None:
+            self._cipher_file_chunks(
+                file_path=file_path,
+                output_path=output_path,
+                is_encrypt=True,
+                detect_encoding=detect_encoding,
+                local_start_op_index=local_start_op_index
+            )
         else:
-            data = np.fromfile(file_path, dtype=self.config.dtype)
-        logging.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
-        encrypted_data = self._encrypt(data, local_start_op_index)
-        # np.save(output_path, encrypted_data)
-        with open(output_path, 'wb') as f:
-            encrypted_data.tofile(f)
+            # Traditional in-memory fallback
+            if detect_encoding:
+                file_encoding = find_file_encoding(file_path)
+                data = np.fromfile(file_path, dtype=encoding_dtype_map[file_encoding])
+            else:
+                data = np.fromfile(file_path, dtype=self.config.dtype)
+            
+            logging.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
+            encrypted_data = self._encrypt(data, local_start_op_index)
+            
+            with open(output_path, 'wb') as f:
+                encrypted_data.tofile(f)
         
         return output_path
 
@@ -556,16 +519,24 @@ class _E2(_E2_RawData):
 
         logging.info(f"Initial filepath: {file_path}. Output filepath: {output_path}")
 
-        # Load encrypted data from .e2 file
-        with open(file_path, "rb") as f:
-            data: np.ndarray = np.frombuffer(f.read(), dtype=self.config.dtype)
+        # Use memmap for chunked decryption
+        if self.config.chunk_size is not None:
+            self._cipher_file_chunks(
+                file_path=file_path,
+                output_path=output_path,
+                is_encrypt=False,
+                local_start_op_index=local_start_op_index
+            )
+        else:
+            # Traditional in-memory fallback
+            with open(file_path, "rb") as f:
+                data: np.ndarray = np.frombuffer(f.read(), dtype=self.config.dtype)
 
-        logging.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
-        decrypted_data = self._decrypt(data, local_start_op_index)
-        
-        # Write decrypted bytes to file
-        with open(output_path, "wb") as f:
-            f.write(decrypted_data.tobytes())
+            logging.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
+            decrypted_data = self._decrypt(data, local_start_op_index)
+            
+            with open(output_path, "wb") as f:
+                f.write(decrypted_data.tobytes())
 
         return output_path
 

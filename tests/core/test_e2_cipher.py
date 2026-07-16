@@ -414,5 +414,32 @@ class Test_E2(unittest.TestCase):
             # Assert that the actual encrypted data corresponds to the manually/craftsman-style calculated data
             np.testing.assert_array_equal(encrypted_chunked, manual_encrypted)
 
+    def test_chunked_file_encryption_decryption(self):
+        """Verifies chunked file encryption/decryption using memory mapping (np.memmap)."""
+        config_data_chunked = self.config_data.copy()
+        config_data_chunked["chunk_size"] = 4
+        params_chunked = _E2Params(**config_data_chunked)
+        e2_chunked = _E2(params=params_chunked)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            source_file = tmpdir_path / "chunked_test_data.bin"
+            
+            # Write data within btype range (size 15, which splits into multiple chunks of size 4)
+            valid_bytes = bytes([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 11, 22, 33, 44, 55])
+            source_file.write_bytes(valid_bytes)
+
+            # Encrypt
+            encrypted_path = e2_chunked.encrypt_file(source_file)
+            self.assertTrue(encrypted_path.exists())
+            self.assertEqual(encrypted_path.suffix, ENCRYPTED_FILE_SUFFIX)
+
+            # Decrypt
+            decrypted_path = e2_chunked.decrypt_file(encrypted_path)
+            self.assertTrue(decrypted_path.exists())
+
+            # Check identity
+            self.assertEqual(source_file.read_bytes(), decrypted_path.read_bytes())
+
 if __name__ == "__main__":
     unittest.main()
