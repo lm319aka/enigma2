@@ -1,6 +1,6 @@
 # ENIGMA2
 
-================ done by lm319aka ================ (Updated for v2.4.3)
+================ done by lm319aka ================ (Updated for v2.5.0)
 
 Enigma2 is a Python package that provides a simple and efficient way to encrypt and decrypt data using a custom encryption algorithm. The package is designed to be easy to use and provides a range of features to make it suitable for a variety of applications.
 
@@ -32,20 +32,15 @@ To install as a package for a project:
 pip install "git+https://github.com/lm319aka/enigma2.git"
 ```
 
-## What's New in v2.4.3
+## What's New in v2.5.0
 
-- **Model Parameter Defaults (`E2Params` / `_E2Params`)**: Modified `encoding`, `elements_creation_params`, and `hash_algorithm` to default to `None` in the parameters model (allowing them to be completely omitted or explicitly set to `None`). Pydantic now dynamically resolves them to their correct default values (`E2Encoding("utf-8")`, a default `_E2ElementsCreationParams` instance, and `"sha3_512"` respectively) during validation.
-- **Robust CLI Validation & Bug Fixes**: Fixed a bug where using `--odd-btype` would crash the CLI due to `elements_creation_params` being `None`, which is now gracefully handled by the revised parameter models.
-- **Independent Password Slicer Seed Derivation**: Switched from slicing a single seed bitchain to deriving each parameter from its own dedicated hash iteration/stage, with distinct salt strings (e.g., `b"rotations_seed"`, `b"rotors_seed"`, `b"plugboard_seed"`, `b"noise_seed"`, `b"number_rotors"`, `b"plugboard_size"`, `b"noise_size"`) appended to each hash. This prevents correlation or structural bias between derived parameters and enhances the security of the parameter space.
-- **Professional Multi-line Class Representations (`__repr__`)**: Re-architected class string representation formats. Introduced a `format_repr` utility (`enigma2/utils/repr_helper.py`) that outputs configuration fields dynamically, with one parameter per line and proper indentation. Nested objects and parameters are formatted cleanly, improving readability across all key classes (`E2`, `_E2`, `_E2Config`, `_E2Generator`, `_E2Params`, `_E2ElementsCreationParams`).
-- **Advanced CLI Enhancements**:
-  - Replaced the optional `--data` flag with a positional `data` argument, making it the first and primary CLI parameter.
-  - Enabled standard input (stdin) piping support. Users can now pipe data directly into the CLI tool (e.g., `echo "hello" | enigma2-cipher ...`).
-  - Streamlined CLI print formatting by removing descriptive prefixes (e.g., `"Encrypted data: "`), leaving only the raw encrypted or decrypted arrays/strings to facilitate seamless shell scripting.
-  - Introduced a new `--verbose` flag for detailed logging of execution steps, and standardized command errors using `parser.error` instead of raising raw exceptions.
-- **Detailed Verbose Logging**: Integrated debug and info tracking across the encryption/decryption cycles, logging intermediate states such as rotor/plugboard shapes, RNG resets to start index, and detailed modulo operations (`mod_add`/`mod_sub` inputs and results).
-- **Test Suite Reorganization**: Reorganized unit and integration tests into dedicated subdirectories (`tests/core/`, `tests/config/`, `tests/hashing/`, `tests/cli/`) corresponding to the package layout, and added package-level `__init__.py` markers.
-- **chuck size still unimplemented**
+- **Optimization of Modular Arithmetic (Problem 2.3)**: Replaced allocation-heavy modular additions and subtractions with in-place NumPy operations using preallocated buffers scoped per instance, isolating them from concurrent thread access and optimizing `copy()` to clear buffer references.
+- **Robust Compression Alignment & Casting (Bug 1.4)**: Prevented alignment mismatch crashes on non-uint8 data types by compressing array structures into flat `np.uint8` streams and passing target `dtype` metadata to the decompressor to safely restore the original buffer shapes.
+- **Named Isolated Logging System (Bug 3.2)**: Extracted logging out of the global root logger (`logging.basicConfig` with `force=True`) into a library-specific logger `"enigma2"`. Log levels and handlers (including `log_path` outputs) are now instance-specific, avoiding thread-safety issues and global root logger contamination.
+- **Dynamic Chunk Sizing (`chunk_size = -1`)**: Added support for `--chunk-size -1` (or setting it to `-1` in config), which automatically queries and uses the physical CPU core count of the host system.
+- **Flexible Verbosity and JSON Parameters in CLI**: Expanded `--verbose` to accept logging level name strings (like `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`), and added a `--creation-params` flag to pass rotor creation parameters as a serialized JSON string.
+- **Unified Decompression Error Handling (Bug 3.3)**: Wrapped native decompression exceptions (e.g. `zlib.error`, `gzip.BadGzipFile`) in a unified `DecompressionError` when data corruption or incorrect keys are used.
+- **Symmetric Chunked Compression**: Decoupled compression from chunk processing. Compression is now applied globally to the entire dataset first, ensuring subsequent chunk-based encryption/decryption matches chunk boundaries perfectly without raising shape broadcast errors.
 
 ## Project Structure & Organization
 
@@ -181,11 +176,11 @@ python -m enigma2 --help
 If you run the command above, the following message will be displayed:
 
 ```bash
-usage: __main__.py [-h] [--fpath FPATH] [--out-path OUT_PATH] [--pwd PWD] [--op {E,D}]
+bashusage: __main__.py [-h] [--fpath FPATH] [--out-path OUT_PATH] [--pwd PWD] [--op {E,D}]
                    [--encoding {utf-8,utf-16,utf-32,ascii,utf-7,base64-codec,big5,big5hkscs,bz2-codec,cp037,cp1026,cp1125,cp1140,cp1250,cp1251,cp1252,cp1253,cp1254,cp1255,cp1256,cp1257,cp1258,cp273,cp424,cp437,cp500,cp720,cp737,cp775,cp850,cp852,cp855,cp856,cp857,cp858,cp860,cp861,cp862,cp863,cp864,cp865,cp866,cp869,cp874,cp875,cp932,cp949,cp950,euc-jis-2004,euc-jisx0213,euc-jp,euc-kr,gb18030,gb2312,gbk,hex-codec,hp-roman8,hz,idna,iso2022-jp,iso2022-jp-1,iso2022-jp-2,iso2022-jp-2004,iso2022-jp-3,iso2022-jp-ext,iso2022-kr,iso8859-1,iso8859-10,iso8859-11,iso8859-13,iso8859-14,iso8859-15,iso8859-16,iso8859-2,iso8859-3,iso8859-4,iso8859-5,iso8859-6,iso8859-7,iso8859-8,iso8859-9,johab,koi8-r,koi8-t,koi8-u,kz1048,mac-cyrillic,mac-greek,mac-iceland,mac-latin2,mac-roman,mac-turkish,ptcp154,quopri-codec,raw-unicode-escape,rot-13,shift-jis,shift-jis-2004,shift-jisx0213,tis-620,utf-16-be,utf-16-le,utf-32-be,utf-32-le,utf-8-sig,uu-codec,zlib-codec,latin-1}]
-                   [--orig-rtts] [--start-op-index START_OP_INDEX] [--input-array] [--output-array]
-                   [--btype BTYPE] [--original-enigma] [--chunk-size CHUNK_SIZE]
-                   [--compression {gzip,bz2,lzma,zlib}] [--hash-alg HASH_ALG] [--verbose] [--version]
+                   [--orig-rtts] [--start-op-index START_OP_INDEX] [--input-array] [--output-array] [--btype BTYPE]
+                   [--original-enigma] [--chunk-size CHUNK_SIZE] [--compression {gzip,bz2,lzma,zlib}]
+                   [--hash-alg HASH_ALG] [--verbose [VERBOSE]] [--version] [--creation-params CREATION_PARAMS]
                    [data]
 
 Enigma2 Encryption/Decryption CLI
@@ -207,18 +202,19 @@ options:
   --input-array         Defines input as numpy array
   --output-array        Defines output as numpy array
   --btype BTYPE         Custom btype for raw Enigma2
-  --original-enigma     Use original Enigma machine settings (3 fixed rotors, plugboard, original rotations,
-                        fixed password, no noise)
+  --original-enigma     Use original Enigma machine settings (3 fixed rotors, plugboard, original rotations, fixed
+                        password, no noise)
   --chunk-size CHUNK_SIZE
                         Data chunk size for file encryption/decryption
   --compression {gzip,bz2,lzma,zlib}
                         Enable compression with given algorithm (gzip, bz2, lzma, zlib)
-  --hash-alg HASH_ALG   Hash algorithm to use for password hashing. Available: {'ripemd160', 'blake2b',
-                        'sha3_512', 'sha512_256', 'md5-sha1', 'sm3', 'blake2s', 'shake_128', 'sha3_224',
-                        'sha256', 'sha384', 'sha512', 'sha3_256', 'sha224', 'sha3_384', 'sha512_224', 'md5',
-                        'sha1', 'shake_256'}
-  --verbose             Enable verbose logging
+  --hash-alg HASH_ALG   Hash algorithm to use for password hashing. Available: {'sha512_224', 'sha384', 'sha224',
+                        'sha3_512', 'shake_256', 'blake2s', 'sha3_256', 'sm3', 'sha1', 'sha512_256', 'shake_128',
+                        'md5-sha1', 'sha3_384', 'sha3_224', 'sha512', 'md5', 'blake2b', 'sha256', 'ripemd160'}
+  --verbose [VERBOSE]   Enable verbose logging with optional level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
   --version             show program's version number and exit
+  --creation-params CREATION_PARAMS
+                        JSON string representation of _E2ElementsCreationParams
 ```
 
 ### Examples

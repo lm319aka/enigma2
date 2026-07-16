@@ -103,7 +103,7 @@ On this document you will find the different features of past, present and futur
 - [X] Write broader enigma class with less restrictions to use it for lab testing (it will be able to use odd rotor aranges, noise sizes, etc...) -> _E2 ??
 - [X] Generate better code examples for readme
 
-### Tasks for e2 v2.4.X
+### Tasks for e2 v2.4.X (now for v2.5.x)
 
 - [X] make copy function to create a new instance of the cipher with the same state
 - [X] modify encryption/decryption functions to add data compression before any operation
@@ -129,20 +129,23 @@ On this document you will find the different features of past, present and futur
 - [X] enable multiple pwd hash lengths (128, 256, 512, 1024, 2048, 4096, ...)
 - [ ] try to create custom hash algorithm that can match the all possible elements combinations on e2
 
-- [ ] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
-- [ ] create metadata class for encrypted files with all the information needed to decrypt them and methods to dump to file or load from file
-- [ ] Modifiy async enigma file encryption/decryption to support file encryption/decryption in chunks of x bytes to call encrypt_file/decrypt_file multiple times in parallel (multi-threading -> 4 threads or as many as cores the cpu has). A function that uses a for loop to call the cipher to proccess each x bytes every cycle, that coincides with the number of cores the cpu has.
-- [ ] TODO: improve speed using  and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**
+- [ ] organize better new methods and classes created to avoid confusion between methods of different classes and unexpected bugs due to inheritance or method overloading.
+- [X] Manage to make a faster copy function for E2 to clonate itself as fast as possible
+- [X] Create true efficient parallelism dividing data into x chunks of same size, organize them into the different list to pass to threads they belong to.
 
-- [ ] create methods denaminated as "fast" on async enigma2 that use the parallel chucnk processing (for regular data and files)
-- [ ] solve issue of real time parallel writing of encrypted/decrypted files (when encrypting/decrypting in chunks, we want to write the processed data to the file in real time right after being returned, not waiting for the process to finish before writing the next processed chunk, without using buffers at all to store and transfer the final data into a file (it's a waste of resources) -> maybe too complex or just impossible to implement with asyncio, but we can wait to the different small async processes to finish before writing the big chunk they make saving some time but it wouldn't be as efficient as the other risky approach)
+- [X] TODO: try to dump encrypted/decrypted bytes into a regular file (not a .npy file or another file type exclusive for enigma2)
+- [ ] create metadata class for encrypted files with all the information needed to decrypt them and methods to dump to file or load from file
+- [X] Modifiy async enigma file encryption/decryption to support file encryption/decryption in chunks of x bytes to call encrypt_file/decrypt_file multiple times in parallel (multi-threading -> 4 threads or as many as cores the cpu has). A function that uses a for loop to call the cipher to proccess each x bytes every cycle, that coincides with the number of cores the cpu has.
+- [X] TODO: improve speed using  and dividing the process in smaller parts, specially for large files **BREAK THE DATA INTO SMALL CHUNKS AND ENCRYPT/DECRYPT THEM IN PARALLEL (DIVIDE THE PROCESS IN 4 THREADS OR LET THE USER DECIDE)**
+
+- [ ] create methods denominated as "fast" on async enigma2 that use the parallel chucnk processing (for regular data and files)
+- [X] solve issue of real time parallel writing of encrypted/decrypted files (when encrypting/decrypting in chunks, we want to write the processed data to the file in real time right after being returned, not waiting for the process to finish before writing the next processed chunk, without using buffers at all to store and transfer the final data into a file (it's a waste of resources) -> maybe too complex or just impossible to implement with asyncio, but we can wait to the different small async processes to finish before writing the big chunk they make saving some time but it wouldn't be as efficient as the other risky approach)
 - [ ] create function to add metadata to encrypted files to avoid having to enter some parameters to decrypt them (metadata: 0x00 chain 16 elements [indicates beginning of metadata], file-hash [or maybe only the first x bytes], data-chucnk-size [for decryption], original filetype, encoding, original rotations, use of compression, start rotation index, btype [if not redundant], etc..., 0xff chain [indicates end of metadata])
 - [ ] user can determine if a file can be decrypted with a cipher using the metadata or setting it manually
 - [ ] use metadata of encrypted files to automatically detect if an encrypted file can be decrypted with a cipher and if something is missing/wrong in the metadata before decrypting it
 
 - [ ] Try to eliminate attributes from E2Config and manage them from the params
-- [ ] modify code to allow passing rotors and other static elements/arrays directly in config **(maybe implementing it is a waste of time)**
-- [ ] pass config as json in terminal **(well, you pass the path but nevermind)**
+- [X] modify code to allow passing rotors and other static elements/arrays directly in config **(maybe implementing it is a waste of time)**
 
 - [ ] modify README.md to include all the new features
 - [ ] TODO: create installable enigma.exe (it can be executed everywhere on windows pc)
@@ -152,10 +155,10 @@ On this document you will find the different features of past, present and futur
   - [ ] Implement secure random Initialization Vector (IV) generation to prevent Keystream Reuse (depth vulnerability).
   - [ ] Shift from deterministic KDF salt (`SHA256(pwd)`) to cryptographically secure random salts stored in metadata/file header.
   - [x] Fix potential `ValueError` crash in `Compressor.compress_nparray` by treating compressed arrays as raw `np.uint8` bytes.
-  - [ ] Implement the missing `chunk_size` file encryption/decryption streaming logic to avoid loading entire files into memory.
-  - [ ] Eliminate CPU/memory bottleneck in `generate_noise` by replacing `noise_rng.choice(np.arange(size))` with `noise_rng.integers(0, size)`.
-  - [ ] Implement chunk-based processing to avoid generating massive random rotation arrays for large files.
-  - [ ] Pre-allocate temporary buffers and optimize `mod_sub` in `_E2` class base arithmetic to avoid repetitive memory allocation and casting.
+  - [X] Implement the missing `chunk_size` file encryption/decryption streaming logic to avoid loading entire files into memory.
+  - [X] Eliminate CPU/memory bottleneck in `generate_noise` by replacing `noise_rng.choice(np.arange(size))` with `noise_rng.integers(0, size)`.
+  - [X] Implement chunk-based processing to avoid generating massive random rotation arrays for large files.
+  - [X] Pre-allocate temporary buffers and optimize `mod_sub` in `_E2` class base arithmetic to avoid repetitive memory allocation and casting.
   - [X] Optimize encoding auto-detection in `encrypt_file` by sampling only a partial prefix (e.g. 32 KB) instead of reading the entire file.
 
 ### Statistics

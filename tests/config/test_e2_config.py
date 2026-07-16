@@ -393,5 +393,57 @@ class Test_E2Config(unittest.TestCase):
                 initial_rotations_index=actual_btype**primary_elements.number_rotors + 1
             )
 
+    def test_chunk_size_validation_errors(self):
+        """Verifies that invalid chunk_size values raise ValueError."""
+        # 0 is forbidden
+        with self.assertRaises(ValueError):
+            _E2Params(pwd=self.pwd, chunk_size=0)
+
+        # -2 is forbidden
+        with self.assertRaises(ValueError):
+            _E2Params(pwd=self.pwd, chunk_size=-2)
+
+        # -10 is forbidden
+        with self.assertRaises(ValueError):
+            _E2Params(pwd=self.pwd, chunk_size=-10)
+
+    def test_chunk_size_validation_success(self):
+        """Verifies that valid chunk_size values pass validation."""
+        # None is allowed (default)
+        params_none = _E2Params(pwd=self.pwd, chunk_size=None)
+        self.assertIsNone(params_none.chunk_size)
+
+        # Positive integer is allowed
+        params_pos = _E2Params(pwd=self.pwd, chunk_size=100)
+        self.assertEqual(params_pos.chunk_size, 100)
+
+        # -1 is allowed
+        params_neg_one = _E2Params(pwd=self.pwd, chunk_size=-1)
+        self.assertEqual(params_neg_one.chunk_size, -1)
+
+    def test_verbose_validation_errors(self):
+        """Verifies that invalid verbose values raise ValidationError."""
+        # Invalid string log levels are forbidden
+        with self.assertRaises(ValidationError):
+            _E2Params(pwd=self.pwd, verbose="INVALID_LEVEL")
+
+        # Other types are forbidden
+        with self.assertRaises(ValidationError):
+            _E2Params(pwd=self.pwd, verbose=123)
+
+    def test_verbose_validation_success(self):
+        """Verifies that valid verbose values pass validation."""
+        # Booleans are allowed
+        p_bool_t = _E2Params(pwd=self.pwd, verbose=True)
+        self.assertEqual(p_bool_t.verbose, True)
+
+        p_bool_f = _E2Params(pwd=self.pwd, verbose=False)
+        self.assertEqual(p_bool_f.verbose, False)
+
+        # Standard log levels as strings are allowed (case-insensitive)
+        for level in ["DEBUG", "info", "WARNING", "Error", "CRITICAL"]:
+            p = _E2Params(pwd=self.pwd, verbose=level)
+            self.assertEqual(p.verbose, level.upper())
+
 if __name__ == "__main__":
     unittest.main()

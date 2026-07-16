@@ -3,6 +3,7 @@ import sys
 from enum import Enum
 import re
 import numpy as np
+import json
 
 from .config.model_params import _E2ElementsCreationParams, E2Params, _E2Params, E2TypesConversion
 from enigma2 import create_cipher
@@ -36,7 +37,6 @@ class OriginalEnigmaData:
 
 def cli_init_cipher(
     args: argparse.Namespace,
-    cipher_operation: CipherOperation,
     odd_btype: bool
 ) -> E2 | _E2:
     
@@ -60,8 +60,9 @@ def cli_init_cipher(
     else:
         pwd_bytes = args.pwd.encode(args.encoding) if args.pwd else None
         orig_rtts = args.orig_rtts
-        elements_creation = _E2ElementsCreationParams()
-
+        elements_creation = None
+        if args.creation_params:
+            elements_creation = _E2ElementsCreationParams(**json.loads(args.creation_params))
         bt = args.btype
 
     # Initialize configuration
@@ -89,6 +90,7 @@ def cli_init_cipher(
             global_start_op_index=args.start_op_index,
             chunk_size=args.chunk_size,
             data_compression_alg=args.compression,
+            elements_creation_params=elements_creation,
             hash_algorithm=args.hash_alg,
             verbose=args.verbose
         )
@@ -100,7 +102,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Enigma2 Encryption/Decryption CLI")
     parser.add_argument("data", nargs="?", type=str, help="Data to encrypt/decrypt")
     parser.add_argument("--fpath", type=str, help="Path of file to encrypt/decrypt")
-    parser.add_argument("--out-path", type=str, help="Path of output file")
+    parser.add_argument("--out-path", type=str, default=None, help="Path of output file")
     parser.add_argument("--pwd", type=str, default=None, help="Password for encryption/decryption")
     parser.add_argument("--op", type=str, default="E", choices=["E", "D"], help="Operation: E (Encrypt), D (Decrypt)")
     parser.add_argument("--encoding", type=str, default="utf-8", choices=encoding_dtype_map.keys(), help="Encoding to use")
@@ -115,10 +117,18 @@ def main() -> None:
     parser.add_argument("--chunk-size", type=int, default=None, help="Data chunk size for file encryption/decryption")
     parser.add_argument("--compression", type=str, default=None, choices=["gzip", "bz2", "lzma", "zlib"], help="Enable compression with given algorithm (gzip, bz2, lzma, zlib)")
     parser.add_argument("--hash-alg", type=str, default="sha3_512", help=f"Hash algorithm to use for password hashing. Available: {HashBitesLength()._hash_algorithms}")
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--verbose", nargs="?", const="INFO", default=False, type=str, help="Enable verbose logging with optional level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
     parser.add_argument("--version", action="version", version="enigma2: " + __version__)
+    parser.add_argument("--creation-params", type=str, default=None, help="JSON string representation of _E2ElementsCreationParams")
     # Parse command-line arguments
     args = parser.parse_args()
+
+    if isinstance(args.verbose, str):
+        val_lower = args.verbose.lower()
+        if val_lower in {"true", "1"}:
+            args.verbose = True
+        elif val_lower in {"false", "0"}:
+            args.verbose = False
 
     if not args.data and not args.fpath and not sys.stdin.isatty():
         args.data = sys.stdin.read().strip()
@@ -134,7 +144,6 @@ def main() -> None:
 
     codec = cli_init_cipher(
         args,
-        cipher_operation,
         odd_btype
     )
 

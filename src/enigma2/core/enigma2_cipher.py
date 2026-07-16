@@ -2,13 +2,14 @@ import numpy as np
 import logging
 from typing import Union
 
-from ._e2_cipher import _E2
+from ._e2_cipher import _E2, timed
 from ..config.enigma2_config import E2Config
 from ..config.model_params import E2Params
+from ..utils.compression import Compressor
 
 # Setup logging
-logging.Logger(__name__).addHandler(logging.NullHandler())
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("enigma2")
+logger.addHandler(logging.NullHandler())
 
 
 class E2(_E2):
@@ -41,23 +42,28 @@ class E2(_E2):
         return res - rotation
 
     def preprocess_encrypt_data(self, data_array: Union[np.ndarray, bytes]) -> np.ndarray:
-        data_array = self.check_entry_data(data_array)
+        return self.check_entry_data(data_array)
+    
+    @timed
+    def encrypt(self, 
+                data_array: Union[np.ndarray, bytes], 
+                local_start_op_index: int = 0) -> np.ndarray:
         if self.config.data_compression_alg is not None:
-            from ..utils.compression import Compressor
-            data_array = Compressor.compress_nparray(data_array, self.data_compression_alg)
-        return data_array
+            data_array = self.check_entry_data(data_array)
+            data_array = Compressor.compress_nparray(data_array, self.config.data_compression_alg)
+        return self._encrypt(data_array, local_start_op_index)
 
+    @timed
     def decrypt(self, 
                 data_array: Union[np.ndarray, bytes], 
                 local_start_op_index: int = 0) -> np.ndarray:
         data_array = self._decrypt(data_array, local_start_op_index)
         if self.config.data_compression_alg is not None:
-            from ..utils.compression import Compressor
-            data_array = Compressor.decompress_nparray(data_array, self.data_compression_alg)
+            data_array = Compressor.decompress_nparray(data_array, self.data_compression_alg, self.config.dtype)
         return data_array
     
     def __first_logging_info(self):
-        logging.info(
+        logger.info(
             f"E2 Initialized: \n{self}"
         )
         

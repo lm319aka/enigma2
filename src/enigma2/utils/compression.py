@@ -2,6 +2,7 @@ import gzip
 import bz2
 import lzma
 import zlib
+from typing import Any
 
 # Not native options:
 
@@ -11,7 +12,7 @@ import zlib
 # import snappy
 
 import numpy as np
-from ._e2_exceptions import UnavailableCompressionAlgorithmError
+from ._e2_exceptions import UnavailableCompressionAlgorithmError, DecompressionError
 
 
 class Compressor:
@@ -63,7 +64,7 @@ class Compressor:
     @staticmethod
     def compress_nparray(data: np.ndarray, algorithm: str) -> np.ndarray:
         return np.frombuffer(
-            Compressor.compress(data.tobytes(), algorithm), dtype=data.dtype
+            Compressor.compress(data.tobytes(), algorithm), dtype=np.uint8
             )
 
     @staticmethod
@@ -99,7 +100,10 @@ class Compressor:
                 )
             
     @staticmethod
-    def decompress_nparray(data: np.ndarray, algorithm: str) -> np.ndarray:
-        return np.frombuffer(
-            Compressor.decompress(data.tobytes(), algorithm), dtype=data.dtype
-            )
+    def decompress_nparray(data: np.ndarray, algorithm: str, target_dtype: Any) -> np.ndarray:
+        compressed_bytes = data.astype(np.uint8).tobytes()
+        try:
+            decompressed = Compressor.decompress(compressed_bytes, algorithm)
+        except Exception as e:
+            raise DecompressionError(f"Decompression failed ({algorithm}): {e}") from e
+        return np.frombuffer(decompressed, dtype=target_dtype)

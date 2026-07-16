@@ -205,3 +205,7 @@ class UnavailableCompressionAlgorithmError(CompressionError):
 
     def _build_message(self):
         return f"Compression not available: {self.compression}\nAvailable options: {self.options}"
+
+class DecompressionError(CompressionError):
+    def __init__(self, message: str = "Decompression failed (corrupted data or incorrect key)"):
+        super().__init__(message)

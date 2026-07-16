@@ -5,7 +5,7 @@ import tempfile
 import os
 import random
 
-from enigma2.core._e2_cipher import _E2
+from enigma2.core._e2_cipher import _E2, ENCRYPTED_FILE_SUFFIX
 from enigma2.config._e2_config import _E2Config
 from enigma2.config.model_params import _E2Params, E2TypesConversion
 from enigma2.utils._e2_exceptions import *
@@ -58,8 +58,8 @@ class Test_E2(unittest.TestCase):
         """Simple identity test for encryption and decryption with custom btype."""
         # Values must be < btype (100)
         data = np.arange(20, dtype=self._config.dtype)
-        encrypted = self._e2.encrypt(data.copy())
-        decrypted = self._e2.decrypt(encrypted.copy())
+        encrypted = self._e2._encrypt(data.copy())
+        decrypted = self._e2._decrypt(encrypted.copy())
         np.testing.assert_array_equal(decrypted, data)
 
     def test_encrypt_decrypt_identity_hard(self):
@@ -68,8 +68,8 @@ class Test_E2(unittest.TestCase):
             random_rng = np.random.default_rng(i)
             # strictly less than btype (100)
             data = random_rng.integers(0, self._config.btype, size=500, dtype=self._config.dtype)
-            encrypted = self._e2.encrypt(data)
-            decrypted = self._e2.decrypt(encrypted)
+            encrypted = self._e2._encrypt(data)
+            decrypted = self._e2._decrypt(encrypted)
             np.testing.assert_array_equal(decrypted, data)
 
     def test_rotor_permutation(self):
@@ -86,7 +86,7 @@ class Test_E2(unittest.TestCase):
         to be sure that if it fails it's because of the encryption.
         """
         data = np.arange(20, dtype=self._config.dtype)
-        encrypted = self._e2.encrypt(data.copy())
+        encrypted = self._e2._encrypt(data.copy())
         self.assertFalse(np.array_equal(encrypted, data))
 
     def test_mod_add_overflow(self):
@@ -135,8 +135,8 @@ class Test_E2(unittest.TestCase):
         config_orig = _E2Config(params_orig)
         e2_original = _E2(params=params_orig)
         data = np.arange(20, dtype=e2_original.config.dtype)
-        encrypted_original = e2_original.encrypt(data.copy())
-        decrypted_original = e2_original.decrypt(encrypted_original.copy())
+        encrypted_original = e2_original._encrypt(data.copy())
+        decrypted_original = e2_original._decrypt(encrypted_original.copy())
         np.testing.assert_array_equal(decrypted_original, data)
 
     def test_encrypt_decrypt_identity_for_files_easy(self):
@@ -153,7 +153,7 @@ class Test_E2(unittest.TestCase):
             # Encrypt
             encrypted_path = self._e2.encrypt_file(source_file)
             self.assertTrue(encrypted_path.exists())
-            self.assertEqual(encrypted_path.suffix, ".npy")
+            self.assertEqual(encrypted_path.suffix, ENCRYPTED_FILE_SUFFIX)
 
             # Decrypt
             decrypted_dir = tmpdir_path / "decrypted"
@@ -189,7 +189,7 @@ class Test_E2(unittest.TestCase):
                 # Encrypt
                 encrypted_path = self._e2.encrypt_file(source_file)
                 self.assertTrue(encrypted_path.exists())
-                self.assertEqual(encrypted_path.suffix, ".npy")
+                self.assertEqual(encrypted_path.suffix, ENCRYPTED_FILE_SUFFIX)
 
                 # Decrypt
                 decrypted_dir = tmpdir_path / "decrypted"
@@ -234,8 +234,8 @@ class Test_E2(unittest.TestCase):
             
             random_rng = np.random.default_rng(42)
             data = random_rng.integers(0, config.btype, size=20, dtype=config.dtype)
-            encrypted = e2.encrypt(data)
-            decrypted = e2.decrypt(encrypted)
+            encrypted = e2._encrypt(data)
+            decrypted = e2._decrypt(encrypted)
             np.testing.assert_array_equal(decrypted, data)
 
     def test_invalid_params_type(self):
@@ -245,16 +245,44 @@ class Test_E2(unittest.TestCase):
 
     def test_cipher_copy(self):
         """Ensures copy constructor works as expected."""
+        import copy
+        import time
+
+        t0 = time.perf_counter()
         cipher_copy = self._e2.copy()
+        t1 = time.perf_counter()
+        
+        # Ensure copy is ridiculously fast (less than 1 millisecond)
+        self.assertLess(t1 - t0, 0.001)
+
         self.assertEqual(cipher_copy, self._e2)
         self.assertEqual(cipher_copy.config, self._e2.config)
         self.assertTrue(cipher_copy == self._e2)
 
+        # Check standard copy/deepcopy protocols
+        std_copy = copy.copy(self._e2)
+        std_deepcopy = copy.deepcopy(self._e2)
+        self.assertEqual(std_copy, self._e2)
+        self.assertEqual(std_deepcopy, self._e2)
+
+        # Check independence of generator and numpy arrays to ensure thread-safety
+        self.assertIsNot(cipher_copy.generator, self._e2.generator)
+        self.assertIsNot(cipher_copy.encryption_rotors, self._e2.encryption_rotors)
+        self.assertIsNot(cipher_copy.decryption_rotors, self._e2.decryption_rotors)
+        self.assertIsNot(cipher_copy.encryption_plugboard, self._e2.encryption_plugboard)
+        self.assertIsNot(cipher_copy.decryption_plugboard, self._e2.decryption_plugboard)
+
+        # Content should be identical
+        np.testing.assert_array_equal(cipher_copy.encryption_rotors, self._e2.encryption_rotors)
+        np.testing.assert_array_equal(cipher_copy.decryption_rotors, self._e2.decryption_rotors)
+        np.testing.assert_array_equal(cipher_copy.encryption_plugboard, self._e2.encryption_plugboard)
+        np.testing.assert_array_equal(cipher_copy.decryption_plugboard, self._e2.decryption_plugboard)
+
     def test_underscore_encrypt_decrypt_methods(self):
         """Verifies that _encrypt and _decrypt exist and work properly in _E2."""
         data = np.array([1, 2, 3, 4], dtype=np.uint8)
-        enc = self._e2._encrypt(data)
-        dec = self._e2._decrypt(enc)
+        enc = self._e2._encrypt_raw_data(data)
+        dec = self._e2._decrypt_raw_data(enc)
         self.assertTrue(np.array_equal(dec, data))
 
     def test_rotor_overflow(self):
@@ -266,7 +294,7 @@ class Test_E2(unittest.TestCase):
                                   size=self._config.btype**self._config.number_rotors + 1, # data should be too large to handle using the actual rotors without causing overflow/reset on them
                                   dtype=self._config.dtype)
         with self.assertRaises(RotorOverflowError):
-            original_e2.encrypt(data_array)
+            original_e2._encrypt(data_array)
 
     @unittest.skip("Too slow")
     def test_cipher_all_btypes_encoding(self): # for usual checking better comment to avoid wasting a ton of time
@@ -310,9 +338,156 @@ class Test_E2(unittest.TestCase):
 
                 random_rng = np.random.default_rng(42)
                 data = random_rng.integers(0, local_config.btype, size=256, dtype=local_config.dtype)
-                encrypted = local_e2.encrypt(data)
-                decrypted = local_e2.decrypt(encrypted)
+                encrypted = local_e2._encrypt(data)
+                decrypted = local_e2._decrypt(encrypted)
                 np.testing.assert_array_equal(decrypted, data)
+
+    def test_e2_raw_data_inheritance(self):
+        """Verifies _E2 inherits from _E2_RawData and _E2_RawData works for encrypt/decrypt."""
+        from enigma2.core._e2_cipher import _E2_RawData
+        self.assertTrue(issubclass(_E2, _E2_RawData))
+        
+        # Test encrypt/decrypt directly using _E2_RawData
+        raw_e2 = _E2_RawData(params=self._params)
+        data = np.arange(20, dtype=self._config.dtype)
+        encrypted = raw_e2._encrypt(data.copy())
+        decrypted = raw_e2._decrypt(encrypted.copy())
+        np.testing.assert_array_equal(decrypted, data)
+        
+        # Verify that _E2_RawData does not have encrypt_file/decrypt_file
+        self.assertFalse(hasattr(raw_e2, 'encrypt_file'))
+        self.assertFalse(hasattr(raw_e2, 'decrypt_file'))
+
+    def test_chunked_encryption_decryption(self):
+        """Verifies that encrypting/decrypting in chunks recovers original data, and manually calculates the expected ciphertext chunk-by-chunk to verify correctness."""
+        local_start_op_index = 0
+        for chunk_size in [5, 3]:
+            config_data_chunked = self.config_data.copy()
+            config_data_chunked["chunk_size"] = chunk_size
+            params_chunked = _E2Params(**config_data_chunked)
+            e2_chunked = _E2(params=params_chunked)
+
+            # Large enough data to split across multiple chunks
+            data = np.arange(23, dtype=self._config.dtype)
+
+            # 1. Encrypt with chunked cipher
+            encrypted_chunked = e2_chunked._encrypt(data.copy())
+            
+            # 2. Decrypt with chunked cipher
+            decrypted_chunked = e2_chunked._decrypt(encrypted_chunked.copy())
+
+            # Assert correct recovery of original data
+            np.testing.assert_array_equal(decrypted_chunked, data)
+
+            # 3. Calculate encrypted data manually chunk-by-chunk in a rudimental/craftsman manner
+            number_chunks = (data.size + chunk_size - 1) // chunk_size
+            manual_encrypted = np.empty(data.size, dtype=self._config.dtype)
+            
+            for i in range(number_chunks):
+                start = i * chunk_size
+                end = min((i + 1) * chunk_size, data.size)
+                chunk_data = data[start:end]
+                
+                # Reset RNG for this chunk
+                e2_chunked.reset_rng(start + local_start_op_index)
+                
+                # Generate rotations and noise for this chunk manually
+                rotations = e2_chunked.generator.generate_rotations(
+                    chunk_data.size, 
+                    initial_rotations_index=start + local_start_op_index + e2_chunked.config.global_start_op_index
+                )
+                noise = e2_chunked.generator.generate_noise(chunk_data.size)
+                
+                # Manual step-by-step encryption of chunk
+                chunk_result = chunk_data.copy()
+                # A. Apply plugboard mapping
+                chunk_result = e2_chunked.encryption_plugboard[chunk_result]
+                # B. Apply rotors sequential encryption
+                for r_idx in range(e2_chunked.config.number_rotors):
+                    res = (chunk_result + rotations[r_idx]) % e2_chunked.config.btype
+                    chunk_result = e2_chunked.encryption_rotors[r_idx][res]
+                # C. Add noise
+                chunk_result = (chunk_result + noise) % e2_chunked.config.btype
+                
+                manual_encrypted[start:end] = chunk_result
+
+            # Assert that the actual encrypted data corresponds to the manually/craftsman-style calculated data
+            np.testing.assert_array_equal(encrypted_chunked, manual_encrypted)
+
+    def test_chunked_file_encryption_decryption(self):
+        """Verifies chunked file encryption/decryption using memory mapping (np.memmap)."""
+        config_data_chunked = self.config_data.copy()
+        config_data_chunked["chunk_size"] = 4
+        params_chunked = _E2Params(**config_data_chunked)
+        e2_chunked = _E2(params=params_chunked)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            source_file = tmpdir_path / "chunked_test_data.bin"
+            
+            # Write data within btype range (size 15, which splits into multiple chunks of size 4)
+            valid_bytes = bytes([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 11, 22, 33, 44, 55])
+            source_file.write_bytes(valid_bytes)
+
+            # Encrypt
+            encrypted_path = e2_chunked.encrypt_file(source_file)
+            self.assertTrue(encrypted_path.exists())
+            self.assertEqual(encrypted_path.suffix, ENCRYPTED_FILE_SUFFIX)
+
+            # Decrypt
+            decrypted_path = e2_chunked.decrypt_file(encrypted_path)
+            self.assertTrue(decrypted_path.exists())
+
+            # Check identity
+            self.assertEqual(source_file.read_bytes(), decrypted_path.read_bytes())
+
+    def test_chunk_size_neg_one(self):
+        """Verifies that chunk_size = -1 creates chunks dynamically and doesn't mutate config."""
+        config_data_chunked = self.config_data.copy()
+        config_data_chunked["chunk_size"] = -1
+        params_chunked = _E2Params(**config_data_chunked)
+        e2_chunked = _E2(params=params_chunked)
+
+        data = np.arange(25, dtype=self._config.dtype)
+        
+        # Verify encryption and decryption works
+        encrypted = e2_chunked._encrypt(data.copy())
+        decrypted = e2_chunked._decrypt(encrypted.copy())
+        np.testing.assert_array_equal(decrypted, data)
+
+        # Verify config is not mutated
+        self.assertEqual(e2_chunked.config.chunk_size, -1)
+
+    def test_preallocated_buffers(self):
+        """Verifies that mod_add and mod_sub use preallocated buffers, resize them correctly, and are isolated during copy."""
+        raw_e2 = _E2(params=self._params)
+        
+        # Initially, buffers do not exist
+        self.assertFalse(hasattr(raw_e2, "_add_buf"))
+        self.assertFalse(hasattr(raw_e2, "_sub_buf"))
+
+        # Run encrypt to trigger mod_add
+        data = np.arange(10, dtype=self._config.dtype)
+        encrypted = raw_e2._encrypt(data.copy())
+        
+        # Buffers should now be initialized
+        self.assertTrue(hasattr(raw_e2, "_add_buf"))
+        self.assertGreaterEqual(raw_e2._add_buf.size, 10)
+
+        # Run decrypt to trigger mod_sub
+        decrypted = raw_e2._decrypt(encrypted.copy())
+        self.assertTrue(hasattr(raw_e2, "_sub_buf"))
+        self.assertGreaterEqual(raw_e2._sub_buf.size, 10)
+
+        # Resizing check: run on larger data
+        large_data = np.arange(100, dtype=self._config.dtype)
+        encrypted_large = raw_e2._encrypt(large_data.copy())
+        self.assertGreaterEqual(raw_e2._add_buf.size, 100)
+
+        # Copy check: cloned instance must not share the buffers
+        copied_e2 = raw_e2.copy()
+        self.assertFalse(hasattr(copied_e2, "_add_buf"))
+        self.assertFalse(hasattr(copied_e2, "_sub_buf"))
 
 if __name__ == "__main__":
     unittest.main()

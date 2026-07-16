@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 import tempfile
 from pathlib import Path
+from enigma2.core._e2_cipher import ENCRYPTED_FILE_SUFFIX
 from enigma2.core._e2_async_cipher import _E2Async
 from enigma2.core.enigma2_async_cipher import E2Async
 from enigma2.config._e2_config import _E2Config
@@ -68,7 +69,7 @@ class TestE2Async(unittest.IsolatedAsyncioTestCase):
             # Async Encrypt
             encrypted_path = await self.e2_async.encrypt_file_async(source_file)
             self.assertTrue(encrypted_path.exists())
-            self.assertEqual(encrypted_path.suffix, ".npy")
+            self.assertEqual(encrypted_path.suffix, ENCRYPTED_FILE_SUFFIX)
 
             # Async Decrypt
             decrypted_dir = tmpdir_path / "decrypted"
@@ -99,7 +100,7 @@ class TestE2Async(unittest.IsolatedAsyncioTestCase):
             # Async Encrypt
             encrypted_path = await self._e2_async.encrypt_file_async(source_file)
             self.assertTrue(encrypted_path.exists())
-            self.assertEqual(encrypted_path.suffix, ".npy")
+            self.assertEqual(encrypted_path.suffix, ENCRYPTED_FILE_SUFFIX)
 
             # Async Decrypt
             decrypted_dir = tmpdir_path / "decrypted"

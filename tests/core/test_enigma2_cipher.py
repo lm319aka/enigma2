@@ -31,7 +31,7 @@ class TestE2(unittest.TestCase):
         self.params = E2Params(**self.config_data)
         self.config = E2Config(self.params)
         self.e2 = E2(params=self.params)
-        self.testing_files_path = Path(__file__).parent / "testing_files"
+        self.testing_files_path = Path(__file__).parent.parent / "testing_files"
 
     def test_random_key_generation(self):
         """Verifies that the random key generator produces bytes of correct length."""
@@ -162,6 +162,71 @@ class TestE2(unittest.TestCase):
             encrypted = cipher_compression.encrypt(data)
             decrypted = cipher_compression.decrypt(encrypted)
             self.assertEqual(data, decrypted.tobytes())
+
+    def test_cipher_compression_with_different_dtypes(self):
+        """Tests encryption and decryption with compression and non-uint8 dtypes."""
+        for alg in Compressor.AVAILABLE_ALGORITHMS:
+            for dtype, btype in [(np.uint16, 65536)]:
+                cipher_compression = create_cipher(E2Params(
+                    pwd=b"testpassword",
+                    dtype=dtype,
+                    btype=btype,
+                    data_compression_alg=alg
+                ))
+                random_rng = np.random.default_rng(12345)
+                # Generate random data of correct dtype and btype
+                data = random_rng.integers(0, btype, size=150, dtype=dtype)
+                
+                encrypted = cipher_compression.encrypt(data)
+                decrypted = cipher_compression.decrypt(encrypted)
+                np.testing.assert_array_equal(data, decrypted)
+
+    def test_decompression_error_on_corrupt_data(self):
+        """Verifies that DecompressionError is raised when decrypting compressed data with a wrong key."""
+        from enigma2.utils.e2_exceptions import DecompressionError
+        
+        cipher_encrypt = create_cipher(E2Params(
+            pwd=b"correct_password",
+            data_compression_alg="gzip"
+        ))
+        cipher_decrypt_wrong = create_cipher(E2Params(
+            pwd=b"wrong_password",
+            data_compression_alg="gzip"
+        ))
+        
+        data = b"Some data to compress and encrypt"
+        encrypted = cipher_encrypt.encrypt(data)
+        
+        # Trying to decrypt with the wrong password should raise DecompressionError
+        with self.assertRaises(DecompressionError):
+            cipher_decrypt_wrong.decrypt(encrypted)
+
+    def test_chunked_compression(self):
+        """Tests that combining chunk_size and compression works without broadcast error."""
+        import tempfile
+        from pathlib import Path
+
+        cipher = create_cipher(E2Params(
+            pwd=b"testpassword",
+            chunk_size=10,
+            data_compression_alg="gzip"
+        ))
+
+        data = b"This is a longer text that will be compressed and chunked during encryption process!"
+        encrypted = cipher.encrypt(data)
+        decrypted = cipher.decrypt(encrypted)
+        self.assertEqual(data, decrypted.tobytes())
+
+        # Test with files as well
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            src = tmpdir_path / "test.txt"
+            src.write_bytes(data)
+            
+            enc_file = cipher.encrypt_file(src)
+            dec_file = cipher.decrypt_file(enc_file)
+            
+            self.assertEqual(data, dec_file.read_bytes())
 
 if __name__ == "__main__":
     unittest.main()

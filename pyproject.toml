@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "enigma2"
-version = "2.4.3"
+version = "2.5.0"
 description = "Enigma2 encryption and decryption module"
 authors = [
     { name="r00st3r", email="s1llyr00st3r@gmail.com" }

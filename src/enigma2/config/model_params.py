@@ -151,9 +151,9 @@ class _E2Params(BaseModel):
     original_rotations: bool = False
     global_start_op_index: int = 0
     avoid_validation: bool = False
-    verbose: bool = False
+    verbose: Union[bool, str] = False
     log_path: Optional[Union[Path, str]] = None
-    chunk_size: Optional[PositiveInt] = None
+    chunk_size: Optional[int] = None
     hash_algorithm: Optional[str] = Field(default=None, validate_default=True)
     
     @field_validator("pwd", mode="before")
@@ -207,6 +207,18 @@ class _E2Params(BaseModel):
             raise ValueError(f"dtype {value} is not allowed. Must be one of {ALLOWED_DTYPES}")
         return value
 
+    @field_validator("verbose", mode="before")
+    @classmethod
+    def validate_verbose(cls, val: Any) -> Any:
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, str):
+            val_upper = val.upper()
+            if val_upper in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+                return val_upper
+            raise ValueError(f"verbose must be a boolean or a valid logging level string (DEBUG, INFO, WARNING, ERROR, CRITICAL), not {val}")
+        raise ValueError(f"verbose must be a boolean or string, not {type(val)}")
+
     @field_serializer("dtype")
     def serialize_dtype(self, dtype: Any) -> str:
         if hasattr(dtype, "__name__"):
@@ -214,6 +226,10 @@ class _E2Params(BaseModel):
         return str(dtype)
     
     def essential_params_validation(self):
+
+        if self.chunk_size is not None and (self.chunk_size < -1 or self.chunk_size == 0):
+            raise ValueError(f"chunk_size cannot be negative nor 0 (unless it is -1 to create equal chunks from data): {self.chunk_size}")
+
         # Ensure global_start_op_index is greater than 0
         if self.global_start_op_index < 0:
             raise NegativeGlobalStartOpIndexError(self.global_start_op_index)

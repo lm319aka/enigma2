@@ -125,24 +125,26 @@ class TestEnigma2CLI(unittest.TestCase):
             self.assertEqual(enc_res.returncode, 0, msg=enc_res.stderr)
             
             # Check that encrypted file test.txt.npy exists
-            encrypted_file = temp_file.with_suffix(".txt.npy")
+            encrypted_file = temp_file.with_suffix(".txt.e2")
             self.assertTrue(encrypted_file.exists())
             
             # Remove original file to make sure decryption restores it
             temp_file.unlink()
             
+            decrypted_file = temp_file.with_suffix(".txt.txt")
             # 2. Decrypt file
             dec_res = self.run_cli([
                 "-m", "enigma2",
                 "--fpath", str(encrypted_file),
+                "--out-path", str(decrypted_file),
                 "--pwd", self.pwd,
                 "--op", "D"
             ])
             self.assertEqual(dec_res.returncode, 0, msg=dec_res.stderr)
             
             # Check original file has been restored and content matches
-            self.assertTrue(temp_file.exists())
-            self.assertEqual(temp_file.read_bytes(), content)
+            self.assertTrue(decrypted_file.exists())
+            self.assertEqual(decrypted_file.read_bytes(), content)
 
     def test_original_enigma_cli(self):
         """Test encryption and decryption using the --original-enigma flag (no pwd required)."""
@@ -270,6 +272,33 @@ class TestEnigma2CLI(unittest.TestCase):
             # "--verbose"
         ])
         # self.assertEqual(dec_res.returncode, 0, msg=dec_res.stderr)
+        self.assertEqual(dec_res.stdout.strip(), message)
+
+    def test_creation_params_cli(self):
+        """Test encryption and decryption passing --creation-params as a JSON string."""
+        message = "Testing json creation parameters"
+        creation_json = '{"number_rotors": 3, "plugboard_size": 2, "noise_size": 4}'
+
+        # 1. Encrypt
+        enc_res = self.run_cli([
+            "-m", "enigma2",
+            message,
+            "--pwd", self.pwd,
+            "--creation-params", creation_json,
+            "--op", "E"
+        ])
+        self.assertEqual(enc_res.returncode, 0, msg=enc_res.stderr)
+        encrypted_text = enc_res.stdout.strip()
+
+        # 2. Decrypt
+        dec_res = self.run_cli([
+            "-m", "enigma2",
+            encrypted_text,
+            "--pwd", self.pwd,
+            "--creation-params", creation_json,
+            "--op", "D"
+        ])
+        self.assertEqual(dec_res.returncode, 0, msg=dec_res.stderr)
         self.assertEqual(dec_res.stdout.strip(), message)
 
 if __name__ == "__main__":
