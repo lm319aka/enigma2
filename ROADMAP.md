@@ -145,8 +145,7 @@ On this document you will find the different features of past, present and futur
 - [ ] use metadata of encrypted files to automatically detect if an encrypted file can be decrypted with a cipher and if something is missing/wrong in the metadata before decrypting it
 
 - [ ] Try to eliminate attributes from E2Config and manage them from the params
-- [ ] modify code to allow passing rotors and other static elements/arrays directly in config **(maybe implementing it is a waste of time)**
-- [ ] pass config as json in terminal **(well, you pass the path but nevermind)**
+- [X] modify code to allow passing rotors and other static elements/arrays directly in config **(maybe implementing it is a waste of time)**
 
 - [ ] modify README.md to include all the new features
 - [ ] TODO: create installable enigma.exe (it can be executed everywhere on windows pc)
@@ -158,7 +157,7 @@ On this document you will find the different features of past, present and futur
   - [x] Fix potential `ValueError` crash in `Compressor.compress_nparray` by treating compressed arrays as raw `np.uint8` bytes.
   - [X] Implement the missing `chunk_size` file encryption/decryption streaming logic to avoid loading entire files into memory.
   - [X] Eliminate CPU/memory bottleneck in `generate_noise` by replacing `noise_rng.choice(np.arange(size))` with `noise_rng.integers(0, size)`.
-  - [ ] Implement chunk-based processing to avoid generating massive random rotation arrays for large files.
+  - [X] Implement chunk-based processing to avoid generating massive random rotation arrays for large files.
   - [ ] Pre-allocate temporary buffers and optimize `mod_sub` in `_E2` class base arithmetic to avoid repetitive memory allocation and casting.
   - [X] Optimize encoding auto-detection in `encrypt_file` by sampling only a partial prefix (e.g. 32 KB) instead of reading the entire file.
 

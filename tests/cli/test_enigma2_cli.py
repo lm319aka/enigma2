@@ -274,6 +274,33 @@ class TestEnigma2CLI(unittest.TestCase):
         # self.assertEqual(dec_res.returncode, 0, msg=dec_res.stderr)
         self.assertEqual(dec_res.stdout.strip(), message)
 
+    def test_creation_params_cli(self):
+        """Test encryption and decryption passing --creation-params as a JSON string."""
+        message = "Testing json creation parameters"
+        creation_json = '{"number_rotors": 3, "plugboard_size": 2, "noise_size": 4}'
+
+        # 1. Encrypt
+        enc_res = self.run_cli([
+            "-m", "enigma2",
+            message,
+            "--pwd", self.pwd,
+            "--creation-params", creation_json,
+            "--op", "E"
+        ])
+        self.assertEqual(enc_res.returncode, 0, msg=enc_res.stderr)
+        encrypted_text = enc_res.stdout.strip()
+
+        # 2. Decrypt
+        dec_res = self.run_cli([
+            "-m", "enigma2",
+            encrypted_text,
+            "--pwd", self.pwd,
+            "--creation-params", creation_json,
+            "--op", "D"
+        ])
+        self.assertEqual(dec_res.returncode, 0, msg=dec_res.stderr)
+        self.assertEqual(dec_res.stdout.strip(), message)
+
 if __name__ == "__main__":
     # unittest.main()
 

@@ -3,6 +3,7 @@ import sys
 from enum import Enum
 import re
 import numpy as np
+import json
 
 from .config.model_params import _E2ElementsCreationParams, E2Params, _E2Params, E2TypesConversion
 from enigma2 import create_cipher
@@ -59,8 +60,9 @@ def cli_init_cipher(
     else:
         pwd_bytes = args.pwd.encode(args.encoding) if args.pwd else None
         orig_rtts = args.orig_rtts
-        elements_creation = _E2ElementsCreationParams()
-
+        elements_creation = None
+        if args.creation_params:
+            elements_creation = _E2ElementsCreationParams(**json.loads(args.creation_params))
         bt = args.btype
 
     # Initialize configuration
@@ -88,6 +90,7 @@ def cli_init_cipher(
             global_start_op_index=args.start_op_index,
             chunk_size=args.chunk_size,
             data_compression_alg=args.compression,
+            elements_creation_params=elements_creation,
             hash_algorithm=args.hash_alg,
             verbose=args.verbose
         )
@@ -116,6 +119,7 @@ def main() -> None:
     parser.add_argument("--hash-alg", type=str, default="sha3_512", help=f"Hash algorithm to use for password hashing. Available: {HashBitesLength()._hash_algorithms}")
     parser.add_argument("--verbose", nargs="?", const="INFO", default=False, type=str, help="Enable verbose logging with optional level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
     parser.add_argument("--version", action="version", version="enigma2: " + __version__)
+    parser.add_argument("--creation-params", type=str, default=None, help="JSON string representation of _E2ElementsCreationParams")
     # Parse command-line arguments
     args = parser.parse_args()
 
