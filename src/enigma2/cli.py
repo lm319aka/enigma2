@@ -114,10 +114,17 @@ def main() -> None:
     parser.add_argument("--chunk-size", type=int, default=None, help="Data chunk size for file encryption/decryption")
     parser.add_argument("--compression", type=str, default=None, choices=["gzip", "bz2", "lzma", "zlib"], help="Enable compression with given algorithm (gzip, bz2, lzma, zlib)")
     parser.add_argument("--hash-alg", type=str, default="sha3_512", help=f"Hash algorithm to use for password hashing. Available: {HashBitesLength()._hash_algorithms}")
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--verbose", nargs="?", const="INFO", default=False, type=str, help="Enable verbose logging with optional level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
     parser.add_argument("--version", action="version", version="enigma2: " + __version__)
     # Parse command-line arguments
     args = parser.parse_args()
+
+    if isinstance(args.verbose, str):
+        val_lower = args.verbose.lower()
+        if val_lower in {"true", "1"}:
+            args.verbose = True
+        elif val_lower in {"false", "0"}:
+            args.verbose = False
 
     if not args.data and not args.fpath and not sys.stdin.isatty():
         args.data = sys.stdin.read().strip()

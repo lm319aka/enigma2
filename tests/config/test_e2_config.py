@@ -421,5 +421,29 @@ class Test_E2Config(unittest.TestCase):
         params_neg_one = _E2Params(pwd=self.pwd, chunk_size=-1)
         self.assertEqual(params_neg_one.chunk_size, -1)
 
+    def test_verbose_validation_errors(self):
+        """Verifies that invalid verbose values raise ValidationError."""
+        # Invalid string log levels are forbidden
+        with self.assertRaises(ValidationError):
+            _E2Params(pwd=self.pwd, verbose="INVALID_LEVEL")
+
+        # Other types are forbidden
+        with self.assertRaises(ValidationError):
+            _E2Params(pwd=self.pwd, verbose=123)
+
+    def test_verbose_validation_success(self):
+        """Verifies that valid verbose values pass validation."""
+        # Booleans are allowed
+        p_bool_t = _E2Params(pwd=self.pwd, verbose=True)
+        self.assertEqual(p_bool_t.verbose, True)
+
+        p_bool_f = _E2Params(pwd=self.pwd, verbose=False)
+        self.assertEqual(p_bool_f.verbose, False)
+
+        # Standard log levels as strings are allowed (case-insensitive)
+        for level in ["DEBUG", "info", "WARNING", "Error", "CRITICAL"]:
+            p = _E2Params(pwd=self.pwd, verbose=level)
+            self.assertEqual(p.verbose, level.upper())
+
 if __name__ == "__main__":
     unittest.main()
