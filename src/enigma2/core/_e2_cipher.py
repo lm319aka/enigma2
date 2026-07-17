@@ -365,6 +365,15 @@ class _E2(_E2_RawData):
         super().__init__(params)
         self.physical_cores = multiprocessing.cpu_count()
     
+    def with_session(self, iv: bytes, kdf_salt: bytes) -> "_E2":
+        """
+        Creates a session-specific copy of the cipher with the given IV and KDF salt.
+        """
+        new_params = self.params.model_copy()
+        new_params.iv = iv
+        new_params.kdf_salt = kdf_salt
+        return self.__class__(new_params)
+    
     def __cipher_op_chunks(self, 
                            input_array: np.ndarray,
                            output_array: np.ndarray, 
