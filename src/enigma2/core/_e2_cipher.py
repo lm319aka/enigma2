@@ -1,5 +1,7 @@
 import numpy as np
 import os
+import hmac
+import hashlib
 from typing import Union, Optional, Tuple
 from pathlib import Path
 import time
@@ -7,10 +9,21 @@ import logging
 import multiprocessing
 from math import ceil, log
 from typing import Callable, Any
-from ..utils.encodings_getter import encoding_dtype_map, find_file_encoding, E2Encoding#, E2EncodingModel
+from ..utils.encodings_getter import encoding_dtype_map, find_file_encoding, E2Encoding
 from ..config._e2_config import _E2Config, _E2Generator
 from ..config.model_params import _E2Params, E2Params, E2TypesConversion
-from ..utils.e2_exceptions import StartOpIndexError, NegativeLocalStartOpIndexError, RotorOverflowError
+from ..utils.e2_exceptions import StartOpIndexError, NegativeLocalStartOpIndexError, RotorOverflowError, E2Error
+from ..utils.metadata import (
+    E2Metadata, 
+    compute_file_sha256, 
+    compute_file_hmac_sha256,
+    IV_SIZE, 
+    KDF_SALT_SIZE, 
+    HMAC_TAG_SIZE, 
+    BUFFER_SIZE
+)
+from ..utils.compression import Compressor
+from ..hashing.pwd_hashing import PwdBitChainSlicer
 
 ENCRYPTED_FILE_SUFFIX = ".e2"
 
@@ -47,7 +60,14 @@ def format_data_preview(data) -> str:
 
 class _E2_RawData:
     """
-    Base Enigma2 class containing all encryption and decryption logic for arrays and bytes.
+    Base raw data Enigma2 cipher class.
+    
+    This class contains the low-level mathematical implementation of the Enigma2 cipher.
+    It performs transformations (plugboard routing, rotor rotation mappings, noise addition)
+    on raw bytes and numpy arrays.
+    
+    This base class does not implement chunking or threading, which are instead provided 
+    by the subclasses `_E2` (for odd btypes) and `E2` (for standard perfect btypes).
     """
 
     def __init__(self, params: _E2Params) -> None:
@@ -211,11 +231,15 @@ class _E2_RawData:
                  data_array: Union[np.ndarray, bytes], 
                  local_start_op_index: int = 0) -> np.ndarray:
         """
-        Encrypts a numpy array or bytes using the Enigma2 algorithm.
+        Encrypts a numpy array or bytes directly without metadata or HMAC wrapping.
+        
+        This runs the low-level Enigma2 cipher steps: plugboard permutation, sequential
+        rotor substitution, and noise addition. Resetting and setting up RNG seeds
+        for rotations and noise occurs here.
 
-        :param data_array: Input data to encrypt.
-        :param local_start_op_index: Starting index for the operation (affects RNG).
-        :return: Encrypted numpy array.
+        :param data_array: Numeric array or raw bytes to encrypt.
+        :param local_start_op_index: local rotation keystream offset.
+        :return: Raw encrypted numpy array.
         """
         
         logger.info(f"Encrypting data: {format_data_preview(data_array)} with local_start_op_index: {local_start_op_index}")
@@ -261,11 +285,14 @@ class _E2_RawData:
                  data_array: Union[np.ndarray, bytes],
                  local_start_op_index: int = 0) -> np.ndarray:
         """
-        Decrypts a numpy array or bytes using the Enigma2 algorithm.
+        Decrypts raw ciphertext directly without metadata parsing or HMAC verification.
+        
+        Subtracts noise, performs inverse sequential rotor substitutions, and runs the 
+        inverse plugboard permutation.
 
-        :param data_array: Input data to decrypt.
-        :param local_start_op_index: Starting index for the operation.
-        :return: Decrypted numpy array.
+        :param data_array: Raw encrypted numeric array or bytes to decrypt.
+        :param local_start_op_index: local rotation keystream offset.
+        :return: Plaintext numpy array.
         """
         
         logger.info(f"Decrypting data: {format_data_preview(data_array)} with local_start_op_index: {local_start_op_index}")
@@ -310,6 +337,206 @@ class _E2_RawData:
                 data_array: Union[np.ndarray, bytes], 
                 local_start_op_index: int = 0) -> np.ndarray:
         return self._decrypt_raw_data(data_array, local_start_op_index)
+
+    def with_session(self, iv: bytes, kdf_salt: bytes) -> "_E2_RawData":
+        """
+        Creates a session-specific copy of the cipher with the given IV and KDF salt.
+        """
+        new_params = self.config.params.model_copy()
+        new_params.iv = iv
+        new_params.kdf_salt = kdf_salt
+        return self.__class__(new_params)
+
+    @timed
+    def encrypt(self, 
+                data_array: Union[np.ndarray, bytes], 
+                local_start_op_index: int = 0) -> np.ndarray:
+        """
+        High-level encryption method for in-memory data arrays and bytes.
+        
+        This method wrapper:
+          1. Generates cryptographically secure session IV and KDF salt.
+          2. Generates session keys via PwdBitChainSlicer (mitigating keystream reuse).
+          3. Optionally compresses the plaintext if a compression algorithm is configured.
+          4. Executes raw encryption on the processed data.
+          5. Prepends a structured 122-byte metadata header.
+          6. Appends an Encrypt-then-MAC HMAC-SHA256 signature calculated over header and ciphertext.
+          7. Pads the final payload to align with the input array's data type.
+
+        :param data_array: Plaintext input data (numpy array or bytes).
+        :param local_start_op_index: Starting keystream index offset.
+        :return: Complete encrypted numpy array containing header, ciphertext, padding, and HMAC.
+        """
+        if isinstance(data_array, np.ndarray):
+            data_bytes = data_array.tobytes()
+            dtype = data_array.dtype
+        else:
+            data_bytes = data_array
+            dtype = self.config.dtype
+
+        # 1. Generate session parameters (IV, KDF Salt)
+        iv = os.urandom(IV_SIZE)
+        kdf_salt = os.urandom(KDF_SALT_SIZE)
+
+        # 2. Compute plaintext checksum
+        plaintext_checksum = hashlib.sha256(data_bytes).digest()
+
+        # 3. Create session-specific copy of the cipher
+        session_cipher = self.with_session(iv=iv, kdf_salt=kdf_salt)
+
+        # 4. Handle compression (if enabled) and core encryption
+        comp_alg = getattr(self.config, "data_compression_alg", None)
+        if comp_alg is not None:
+            arr = np.frombuffer(data_bytes, dtype=dtype)
+            compressed_arr = Compressor.compress_nparray(arr, comp_alg)
+            encrypted_arr = session_cipher._encrypt(compressed_arr, local_start_op_index)
+        else:
+            input_arr = np.frombuffer(data_bytes, dtype=session_cipher.config.dtype)
+            encrypted_arr = session_cipher._encrypt(input_arr, local_start_op_index)
+            
+        encrypted_bytes = encrypted_arr.tobytes()
+
+        # 6. Calculate padding to align the final output to the input dtype itemsize
+        itemsize = np.dtype(dtype).itemsize
+        header_ciphertext_hmac_len = E2Metadata.SIZE + len(encrypted_bytes) + HMAC_TAG_SIZE
+        padding_len = (itemsize - (header_ciphertext_hmac_len % itemsize)) % itemsize
+        padding_bytes = b"\x00" * padding_len
+
+        # 7. Pack metadata
+        metadata = E2Metadata(
+            chunk_size=session_cipher.config.chunk_size,
+            compression_alg=comp_alg,
+            encoding=session_cipher.config.encoding,
+            btype=session_cipher.config.btype,
+            original_rotations=session_cipher.config.original_rotations,
+            global_start_op_index=session_cipher.config.global_start_op_index + local_start_op_index,
+            iv=iv,
+            kdf_salt=kdf_salt,
+            plaintext_checksum=plaintext_checksum,
+            padding_len=padding_len
+        )
+        header_bytes = metadata.pack()
+
+        # 8. Calculate Encrypt-then-MAC tag over header + encrypted_bytes + padding
+        k_auth = hashlib.new(
+            session_cipher.config.hash_algorithm, 
+            session_cipher.config.pwd_slicer.derived_key + b"authentication_key"
+        ).digest()
+        
+        mac = hmac.new(k_auth, digestmod=hashlib.sha256)
+        mac.update(header_bytes + encrypted_bytes + padding_bytes)
+        tag = mac.digest()
+
+        # 9. Concatenate everything and return as numpy array of the input dtype
+        full_payload = header_bytes + encrypted_bytes + padding_bytes + tag
+        return np.frombuffer(full_payload, dtype=dtype)
+
+    @timed
+    def decrypt(self, 
+                data_array: Union[np.ndarray, bytes], 
+                local_start_op_index: int = 0) -> np.ndarray:
+        """
+        High-level decryption method for in-memory metadata-wrapped payloads.
+        
+        This method wrapper:
+          1. Extracts the structured 122-byte metadata header.
+          2. Extracts the 32-byte HMAC-SHA256 tag and the encrypted payload.
+          3. Derives the authentication key using password and the header salt.
+          4. Verifies data integrity in constant time, raising E2Error if signature mismatches.
+          5. Recreates the cipher instance dynamically using parameters retrieved from metadata.
+          6. Performs raw decryption on the payload.
+          7. Decompresses the decrypted data if compression was used.
+          8. Validates the plaintext SHA-256 checksum against the one in metadata.
+
+        :param data_array: Encrypted numpy array or bytes (containing metadata and HMAC).
+        :param local_start_op_index: Local index offset (unused since auto-detected from metadata).
+        :return: Decrypted original plaintext numpy array.
+        """
+        if isinstance(data_array, np.ndarray):
+            data_bytes = data_array.tobytes()
+            dtype = data_array.dtype
+        else:
+            data_bytes = data_array
+            dtype = self.config.dtype
+
+        if len(data_bytes) < E2Metadata.SIZE + HMAC_TAG_SIZE:
+            raise ValueError("Data too short to contain Enigma2 metadata and authentication tag.")
+
+        # 1. Read metadata header
+        header_bytes = data_bytes[:E2Metadata.SIZE]
+        metadata = E2Metadata.unpack(header_bytes)
+
+        # 2. Extract tag and content
+        received_tag = data_bytes[-HMAC_TAG_SIZE:]
+        authenticated_payload = data_bytes[:-HMAC_TAG_SIZE]
+
+        # 3. Derive authentication key
+        master_slicer = PwdBitChainSlicer(
+            pwd_bytes=self.config.pwd,
+            btype=metadata.btype,
+            hash_alg=self.config.hash_algorithm,
+            kdf_salt=metadata.kdf_salt
+        )
+        k_auth = hashlib.new(self.config.hash_algorithm, master_slicer.derived_key + b"authentication_key").digest()
+
+        # 4. Verify HMAC in constant time
+        mac = hmac.new(k_auth, digestmod=hashlib.sha256)
+        mac.update(authenticated_payload)
+        calculated_tag = mac.digest()
+
+        if not hmac.compare_digest(calculated_tag, received_tag):
+            raise E2Error("Integrity Error: Data has been tampered with or incorrect password.")
+
+        # 5. Recreate session cipher using metadata
+        is_perfect = metadata.btype in E2TypesConversion.available_btypes()
+        if is_perfect:
+            session_params = self.config.params.model_copy()
+            session_params.iv = metadata.iv
+            session_params.kdf_salt = metadata.kdf_salt
+            session_params.btype = metadata.btype
+            session_params.encoding = E2Encoding(metadata.encoding)
+            session_params.original_rotations = metadata.original_rotations
+            session_params.global_start_op_index = metadata.global_start_op_index
+            session_params.chunk_size = metadata.chunk_size
+            if hasattr(session_params, "data_compression_alg"):
+                session_params.data_compression_alg = metadata.compression_alg
+            session_cipher = self.__class__(session_params)
+        else:
+            from ..config.model_params import _E2Params
+            dump = self.config.params.model_dump()
+            dump.update({
+                "iv": metadata.iv,
+                "kdf_salt": metadata.kdf_salt,
+                "btype": metadata.btype,
+                "encoding": E2Encoding(metadata.encoding),
+                "original_rotations": metadata.original_rotations,
+                "global_start_op_index": metadata.global_start_op_index,
+                "chunk_size": metadata.chunk_size
+            })
+            if "data_compression_alg" in dump:
+                dump["data_compression_alg"] = metadata.compression_alg
+            session_params = _E2Params(**dump)
+            session_cipher = _E2(session_params)
+
+        # 6. Extract encrypted bytes (excluding header and padding)
+        ciphertext_bytes = authenticated_payload[E2Metadata.SIZE:-metadata.padding_len] if metadata.padding_len > 0 else authenticated_payload[E2Metadata.SIZE:]
+
+        # 7. Core decrypt
+        input_arr = np.frombuffer(ciphertext_bytes, dtype=session_cipher.config.dtype)
+        decrypted_arr = session_cipher._decrypt(input_arr, 0)
+
+        # 8. Decompress if needed
+        if metadata.compression_alg is not None:
+            decrypted_arr = Compressor.decompress_nparray(decrypted_arr, metadata.compression_alg, session_cipher.config.dtype)
+
+        # 9. Verify plaintext checksum
+        decrypted_bytes = decrypted_arr.tobytes()
+        decrypted_checksum = hashlib.sha256(decrypted_bytes).digest()
+        if decrypted_checksum != metadata.plaintext_checksum:
+            raise E2Error("Integrity Error: Plaintext checksum mismatch.")
+
+        # 10. Convert output to input dtype
+        return np.frombuffer(decrypted_bytes, dtype=dtype)
 
     def copy(self) -> "_E2_RawData":
         import copy
@@ -358,14 +585,25 @@ class _E2_RawData:
 
 class _E2(_E2_RawData):
     """
-    Enigma2 class for encryption and decryption of data and files with odd btypes.
+    Low-level Enigma2 Cipher class.
+    
+    This subclass of `_E2_RawData`:
+      1. Uses `_E2Params` (which allows odd/imperfect btypes, e.g. btype=123).
+      2. Implements chunked data processing and concurrent multithreaded operations
+         (`_cipher_op_chunks`) for large datasets and files.
+      3. Provides file-based streaming encryption and decryption (`encrypt_file`/`decrypt_file`).
     """
 
     def __init__(self, params: _E2Params):
+        """
+        Initialize the low-level _E2 instance.
+
+        :param params: Operational parameters instance (allowing odd btypes).
+        """
         super().__init__(params)
         self.physical_cores = multiprocessing.cpu_count()
     
-    def __cipher_op_chunks(self, 
+    def _cipher_op_chunks(self, 
                            input_array: np.ndarray,
                            output_array: np.ndarray, 
                            is_encrypt: bool,
@@ -430,6 +668,17 @@ class _E2(_E2_RawData):
     def _encrypt(self, 
                 data_array: Union[np.ndarray, bytes], 
                 local_start_op_index: int = 0) -> np.ndarray:
+        """
+        Low-level raw encryption wrapper.
+        
+        If chunking is configured (`chunk_size` is not None), this partitions the array
+        and processes chunks in parallel across a thread pool. Otherwise, falls back
+        to sequential encryption of the entire array.
+
+        :param data_array: Plaintext numeric array or bytes.
+        :param local_start_op_index: Rotation keystream offset.
+        :return: Raw encrypted numpy array (no metadata/HMAC wrapper).
+        """
         if isinstance(data_array, bytes):
             data_array = np.frombuffer(data_array, dtype=self.config.dtype)
 
@@ -438,7 +687,7 @@ class _E2(_E2_RawData):
 
         output_array = np.empty(data_array.size, dtype=self.config.dtype)
 
-        self.__cipher_op_chunks(
+        self._cipher_op_chunks(
             input_array=data_array,
             output_array=output_array,
             is_encrypt=True,
@@ -446,17 +695,21 @@ class _E2(_E2_RawData):
         )
 
         return output_array
-    
-    @timed
-    def encrypt(self, 
-                data_array: Union[np.ndarray, bytes], 
-                local_start_op_index: int = 0) -> np.ndarray:
-        return self._encrypt(data_array, local_start_op_index)
 
     # @timed
     def _decrypt(self,
                 data_array: Union[np.ndarray, bytes],
                 local_start_op_index: int = 0) -> np.ndarray:
+        """
+        Low-level raw decryption wrapper.
+        
+        If chunking is configured, this partitions the array and decrypts chunks in
+        parallel using threads. Otherwise, decrypts the entire array sequentially.
+
+        :param data_array: Raw encrypted numeric array or bytes (no metadata/HMAC).
+        :param local_start_op_index: Rotation keystream offset.
+        :return: Decrypted plaintext numpy array.
+        """
         if isinstance(data_array, bytes):
             data_array = np.frombuffer(data_array, dtype=self.config.dtype)
 
@@ -465,7 +718,7 @@ class _E2(_E2_RawData):
         
         output_array = np.empty(data_array.size, dtype=self.config.dtype)
 
-        self.__cipher_op_chunks(
+        self._cipher_op_chunks(
             input_array=data_array,
             output_array=output_array,
             is_encrypt=False,
@@ -473,38 +726,6 @@ class _E2(_E2_RawData):
         )
 
         return output_array
-    
-    @timed
-    def decrypt(self, 
-                data_array: Union[np.ndarray, bytes], 
-                local_start_op_index: int = 0) -> np.ndarray:
-        return self._decrypt(data_array, local_start_op_index)
-
-    def _cipher_file_chunks(self, 
-                            file_path: Path, 
-                            output_path: Path, 
-                            is_encrypt: bool,
-                            detect_encoding: bool = False,
-                            local_start_op_index: int = 0) -> None:
-        if is_encrypt and detect_encoding:
-            file_encoding = find_file_encoding(file_path)
-            dtype = encoding_dtype_map[file_encoding]
-        else:
-            dtype = self.config.dtype
-
-        input_array = np.memmap(file_path, dtype=dtype, mode='r')
-        output_array = np.memmap(output_path, dtype=dtype, mode='w+', shape=input_array.shape)
-
-        self.__cipher_op_chunks(
-            input_array=input_array,
-            output_array=output_array,
-            is_encrypt=is_encrypt,
-            local_start_op_index=local_start_op_index
-        )
-
-        output_array.flush()
-        del input_array
-        del output_array
 
     @timed
     def encrypt_file(self, 
@@ -513,15 +734,23 @@ class _E2(_E2_RawData):
                      detect_encoding: bool = False,
                      local_start_op_index: int = 0) -> Path:
         """
-        Encrypts a file and saves the result as a .e2 file.
+        High-level file encryption method.
+        
+        Encrypts the source file and writes the encrypted payload to a `.e2` file.
+        This method wrapper:
+          1. Generates session IV and KDF salt.
+          2. Calculates the plaintext SHA-256 checksum.
+          3. Writes a structured binary metadata header to the output file.
+          4. Streams or memory-maps files to execute chunked encryption without loading
+             the entire file into RAM (avoiding OOM errors).
+          5. Computes and appends the HMAC-SHA256 integrity signature over the entire file payload.
 
-        :param file_path: Path to the input file.
-        :param output_path: Path to the output directory or file.
-        :param detect_encoding: If True, attempts to auto-detect file encoding.
-        :param local_start_op_index: Starting index for the operation.
-        :return: Path to the created encrypted file.
+        :param file_path: Path of the source plaintext file.
+        :param output_path: Optional custom path or directory for the output encrypted file.
+        :param detect_encoding: If True, samples the file contents to auto-detect encoding.
+        :param local_start_op_index: Keystream index offset.
+        :return: Path to the generated `.e2` encrypted file.
         """
-
         file_path = Path(file_path)
         if not file_path.exists():
             raise FileNotFoundError(f"File {file_path} does not exist")
@@ -533,51 +762,178 @@ class _E2(_E2_RawData):
             if output_path.is_dir():
                 output_path = output_path / (file_path.name + ENCRYPTED_FILE_SUFFIX)
 
-        logger.info(f"Initial filepath: {file_path}. Output filepath: {output_path}")
+        # 1. Generate session parameters (IV, KDF Salt)
+        iv = os.urandom(IV_SIZE)
+        kdf_salt = os.urandom(KDF_SALT_SIZE)
+        
+        # 2. Compute plaintext checksum
+        plaintext_checksum = compute_file_sha256(file_path)
 
-        # Use memmap for chunked encryption
-        if self.config.chunk_size is not None and getattr(self.config, "data_compression_alg", None) is None:
-            self._cipher_file_chunks(
-                file_path=file_path,
-                output_path=output_path,
+        # 3. Create session cipher
+        session_cipher = self.with_session(iv=iv, kdf_salt=kdf_salt)
+
+        # 4. Pack metadata header
+        metadata = E2Metadata(
+            chunk_size=session_cipher.config.chunk_size,
+            compression_alg=getattr(session_cipher, "data_compression_alg", None),
+            encoding=session_cipher.config.encoding,
+            btype=session_cipher.config.btype,
+            original_rotations=session_cipher.config.original_rotations,
+            global_start_op_index=session_cipher.config.global_start_op_index + local_start_op_index,
+            iv=iv,
+            kdf_salt=kdf_salt,
+            plaintext_checksum=plaintext_checksum,
+            padding_len=0
+        )
+        header_bytes = metadata.pack()
+
+        # 5. Encrypt data and write to output_path
+        if session_cipher.config.chunk_size is not None and getattr(session_cipher, "data_compression_alg", None) is None:
+            # Block-optimized flow (memmap)
+            if detect_encoding:
+                file_encoding = find_file_encoding(file_path)
+                dtype = encoding_dtype_map[file_encoding]
+            else:
+                dtype = session_cipher.config.dtype
+
+            input_array = np.memmap(file_path, dtype=dtype, mode='r')
+            data_bytes_size = input_array.nbytes
+            
+            # Write header and pre-extend output file
+            with open(output_path, 'wb') as f:
+                f.write(header_bytes)
+                f.truncate(len(header_bytes) + data_bytes_size)
+            
+            # Map memory starting at the header offset
+            output_array = np.memmap(output_path, dtype=dtype, mode='r+', offset=len(header_bytes), shape=input_array.shape)
+            
+            session_cipher._cipher_op_chunks(
+                input_array=input_array,
+                output_array=output_array,
                 is_encrypt=True,
-                detect_encoding=detect_encoding,
                 local_start_op_index=local_start_op_index
             )
+            output_array.flush()
+            del input_array
+            del output_array
         else:
-            # Traditional in-memory fallback
+            # Memory fallback
             if detect_encoding:
                 file_encoding = find_file_encoding(file_path)
                 data = np.fromfile(file_path, dtype=encoding_dtype_map[file_encoding])
             else:
-                data = np.fromfile(file_path, dtype=self.config.dtype)
+                data = np.fromfile(file_path, dtype=session_cipher.config.dtype)
             
-            logger.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
-            encrypted_data = self.encrypt(data, local_start_op_index)
+            if getattr(session_cipher, "data_compression_alg", None) is not None:
+                data = Compressor.compress_nparray(data, session_cipher.data_compression_alg)
+                
+            encrypted_data = session_cipher._encrypt(data, local_start_op_index)
             
             with open(output_path, 'wb') as f:
+                f.write(header_bytes)
                 encrypted_data.tofile(f)
+
+        # 6. Calculate and append HMAC tag (Encrypt-then-MAC)
+        k_auth = hashlib.new(
+            session_cipher.config.hash_algorithm, 
+            session_cipher.config.pwd_slicer.derived_key + b"authentication_key"
+        ).digest()
+        
+        tag = compute_file_hmac_sha256(output_path, k_auth)
+
+        with open(output_path, 'ab') as f:
+            f.write(tag)
         
         return output_path
 
     @timed
     def decrypt_file(self, 
-                     file_path: Union[str, Path], 
-                     output_path: Optional[Union[str, Path]] = None,
-                     local_start_op_index: int = 0) -> Path:
+                      file_path: Union[str, Path], 
+                      output_path: Optional[Union[str, Path]] = None,
+                      local_start_op_index: int = 0) -> Path:
         """
-        Decrypts a .e2 file and saves the result in its original format.
+        High-level file decryption method.
+        
+        Decrypts an encrypted `.e2` file, restoring the original plaintext file.
+        This method wrapper:
+          1. Reads the 122-byte metadata header from the beginning of the file.
+          2. Reads the 32-byte HMAC tag from the end of the file.
+          3. Derives the authentication key using user password and the header's KDF salt.
+          4. Computes and verifies the HMAC-SHA256 signature in constant time (raising E2Error on failure).
+          5. Instantiates a session-specific cipher engine using auto-detected parameters from metadata.
+          6. Streams decryption chunk-by-chunk to save system memory.
+          7. Handles decompression (if compression was used).
+          8. Calculates and validates the final plaintext SHA-256 checksum against the metadata checksum.
 
-        :param file_path: Path to the encrypted .e2 file.
-        :param output_path: Path to the output directory or file.
-        :param local_start_op_index: Starting index for the operation.
-        :return: Path to the decrypted file.
+        :param file_path: Path to the encrypted `.e2` file.
+        :param output_path: Optional custom output path or directory for the decrypted file.
+        :param local_start_op_index: Unused (starting index is auto-detected from metadata).
+        :return: Path to the restored original file.
         """
-
         file_path = Path(file_path)
         if not file_path.exists():
             raise FileNotFoundError(f"File {file_path} does not exist")
         
+        file_size = file_path.stat().st_size
+        if file_size < E2Metadata.SIZE + HMAC_TAG_SIZE:
+            raise ValueError("File is too small to be a valid Enigma2 encrypted file.")
+
+        # 1. Read metadata header
+        with open(file_path, 'rb') as f:
+            header_bytes = f.read(E2Metadata.SIZE)
+        metadata = E2Metadata.unpack(header_bytes)
+
+        # 2. Extract HMAC tag (last 32 bytes)
+        with open(file_path, 'rb') as f:
+            f.seek(file_size - HMAC_TAG_SIZE)
+            received_tag = f.read(HMAC_TAG_SIZE)
+
+        # 3. Derive user authentication key
+        master_slicer = PwdBitChainSlicer(
+            pwd_bytes=self.config.params.pwd,
+            btype=metadata.btype,
+            hash_alg=self.config.params.hash_algorithm,
+            kdf_salt=metadata.kdf_salt
+        )
+        k_auth = hashlib.new(self.config.params.hash_algorithm, master_slicer.derived_key + b"authentication_key").digest()
+
+        # 4. Verify integrity with HMAC
+        calculated_tag = compute_file_hmac_sha256(file_path, k_auth, limit=file_size - HMAC_TAG_SIZE)
+
+        if not hmac.compare_digest(calculated_tag, received_tag):
+            raise E2Error("Integrity Error: File has been tampered with or incorrect password.")
+
+        # 5. Instanitate the session-specific cipher using metadata
+        is_perfect = metadata.btype in E2TypesConversion.available_btypes()
+        if is_perfect:
+            session_params = self.config.params.model_copy()
+            session_params.iv = metadata.iv
+            session_params.kdf_salt = metadata.kdf_salt
+            session_params.btype = metadata.btype
+            session_params.encoding = E2Encoding(metadata.encoding)
+            session_params.original_rotations = metadata.original_rotations
+            session_params.global_start_op_index = metadata.global_start_op_index
+            session_params.chunk_size = metadata.chunk_size
+            if hasattr(session_params, "data_compression_alg"):
+                session_params.data_compression_alg = metadata.compression_alg
+            session_cipher = self.__class__(session_params)
+        else:
+            from ..config.model_params import _E2Params
+            dump = self.config.params.model_dump()
+            dump.update({
+                "iv": metadata.iv,
+                "kdf_salt": metadata.kdf_salt,
+                "btype": metadata.btype,
+                "encoding": E2Encoding(metadata.encoding),
+                "original_rotations": metadata.original_rotations,
+                "global_start_op_index": metadata.global_start_op_index,
+                "chunk_size": metadata.chunk_size
+            })
+            if "data_compression_alg" in dump:
+                dump["data_compression_alg"] = metadata.compression_alg
+            session_params = _E2Params(**dump)
+            session_cipher = _E2(session_params)
+
         if output_path is None:
             output_path = file_path.with_name(file_path.name.replace(ENCRYPTED_FILE_SUFFIX, ""))
         else:
@@ -585,26 +941,52 @@ class _E2(_E2_RawData):
             if output_path.is_dir():
                 output_path = output_path / file_path.name.replace(ENCRYPTED_FILE_SUFFIX, "")
 
-        logger.info(f"Initial filepath: {file_path}. Output filepath: {output_path}")
-
-        # Use memmap for chunked decryption
-        if self.config.chunk_size is not None and getattr(self.config, "data_compression_alg", None) is None:
-            self._cipher_file_chunks(
-                file_path=file_path,
-                output_path=output_path,
+        # 6. Decrypt ciphertext
+        ciphertext_bytes_len = file_size - E2Metadata.SIZE - HMAC_TAG_SIZE
+        if session_cipher.config.chunk_size is not None and getattr(session_cipher, "data_compression_alg", None) is None:
+            # Block-optimized decryption (memmap)
+            dtype = session_cipher.config.dtype
+            itemsize = np.dtype(dtype).itemsize
+            shape = (ciphertext_bytes_len // itemsize,)
+            
+            input_array = np.memmap(file_path, dtype=dtype, mode='r', offset=E2Metadata.SIZE, shape=shape)
+            output_array = np.memmap(output_path, dtype=dtype, mode='w+', shape=shape)
+            
+            session_cipher._cipher_op_chunks(
+                input_array=input_array,
+                output_array=output_array,
                 is_encrypt=False,
-                local_start_op_index=local_start_op_index
+                local_start_op_index=0
             )
+            output_array.flush()
+            del input_array
+            del output_array
         else:
-            # Traditional in-memory fallback
+            # Memory decryption
             with open(file_path, "rb") as f:
-                data: np.ndarray = np.frombuffer(f.read(), dtype=self.config.dtype)
-
-            logger.debug(f"Data shape: {data.shape}. Data type: {data.dtype}. Data: {data}")
-            decrypted_data = self.decrypt(data, local_start_op_index)
+                f.seek(E2Metadata.SIZE)
+                ciphertext_data = f.read(ciphertext_bytes_len)
+            
+            data = np.frombuffer(ciphertext_data, dtype=session_cipher.config.dtype)
+            decrypted_data = session_cipher._decrypt(data, local_start_op_index=0)
+            
+            if getattr(session_cipher, "data_compression_alg", None) is not None:
+                decrypted_data = Compressor.decompress_nparray(
+                    decrypted_data, 
+                    session_cipher.data_compression_alg, 
+                    session_cipher.config.dtype
+                )
             
             with open(output_path, "wb") as f:
                 f.write(decrypted_data.tobytes())
+
+        # 7. Validate decrypted plaintext checksum
+        decrypted_checksum = compute_file_sha256(output_path)
+
+        if decrypted_checksum != metadata.plaintext_checksum:
+            if output_path.exists():
+                output_path.unlink()
+            raise E2Error("Integrity Error: Decrypted plaintext checksum mismatch.")
 
         return output_path
 

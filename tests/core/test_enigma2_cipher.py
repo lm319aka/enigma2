@@ -197,8 +197,9 @@ class TestE2(unittest.TestCase):
         data = b"Some data to compress and encrypt"
         encrypted = cipher_encrypt.encrypt(data)
         
-        # Trying to decrypt with the wrong password should raise DecompressionError
-        with self.assertRaises(DecompressionError):
+        # Trying to decrypt with the wrong password should raise E2Error (HMAC mismatch)
+        from enigma2.utils.e2_exceptions import E2Error
+        with self.assertRaises(E2Error):
             cipher_decrypt_wrong.decrypt(encrypted)
 
     def test_chunked_compression(self):

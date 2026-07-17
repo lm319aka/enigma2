@@ -1,6 +1,6 @@
 # ENIGMA2
 
-================ done by lm319aka ================ (Updated for v2.5.0)
+================ done by lm319aka ================ (Updated for v2.5.1)
 
 Enigma2 is a Python package that provides a simple and efficient way to encrypt and decrypt data using a custom encryption algorithm. The package is designed to be easy to use and provides a range of features to make it suitable for a variety of applications.
 
@@ -31,6 +31,15 @@ To install as a package for a project:
 ```bash
 pip install "git+https://github.com/lm319aka/enigma2.git"
 ```
+
+## What's New in v2.5.1
+
+- **Session-Specific Vector of Initialization (IV) (Problem 1.2)**: Integrated random IV and KDF salt mixing during key derivation to generate unique session keys, ensuring distinct keystreams and rotor configurations for every encryption session to mitigate depth vulnerabilities and keystream reuse.
+- **Structured Binary Metadata Header (Problem 1.3)**: Added prepending of a fixed 122-byte binary metadata header containing configuration values (chunk size, compression, encoding, btype, original rotations, starting index, IV, KDF salt, and plaintext checksum) to all encrypted files and raw in-memory arrays.
+- **Encrypt-then-MAC Message Authentication (Problem 3.1)**: Wrapped encrypted payloads with HMAC-SHA256 integrity protection calculated over the entire metadata header and ciphertext, detecting unauthorized modification or incorrect passwords before attempting decryption/decompression.
+- **Unified Raw Data & File Encryption**: Extended session IV mixing, structured metadata, and HMAC verification to both file-based operations (`encrypt_file`/`decrypt_file`) and raw in-memory data operations (`encrypt`/`decrypt`), ensuring a consistent and cross-compatible data format.
+- **Automated Parameter Auto-Detection**: Standardized metadata parsing during decryption to automatically recover parameters (such as compression algorithm, chunk size, btype, encoding) directly from the file/data header, removing the requirement to configure matching parameters on the decrypting cipher instance.
+- **Encapsulated Hashing Utilities**: Centralized all file-based checksumming and HMAC calculations into clean, reusable utility functions to eliminate duplicate loops and clarify read limit offsets.
 
 ## What's New in v2.5.0
 
@@ -176,11 +185,15 @@ python -m enigma2 --help
 If you run the command above, the following message will be displayed:
 
 ```bash
-bashusage: __main__.py [-h] [--fpath FPATH] [--out-path OUT_PATH] [--pwd PWD] [--op {E,D}]
+usage: __main__.py [-h] [--fpath FPATH] [--out-path OUT_PATH] [--pwd PWD]
+                   [--op {E,D,_E,_D}]
                    [--encoding {utf-8,utf-16,utf-32,ascii,utf-7,base64-codec,big5,big5hkscs,bz2-codec,cp037,cp1026,cp1125,cp1140,cp1250,cp1251,cp1252,cp1253,cp1254,cp1255,cp1256,cp1257,cp1258,cp273,cp424,cp437,cp500,cp720,cp737,cp775,cp850,cp852,cp855,cp856,cp857,cp858,cp860,cp861,cp862,cp863,cp864,cp865,cp866,cp869,cp874,cp875,cp932,cp949,cp950,euc-jis-2004,euc-jisx0213,euc-jp,euc-kr,gb18030,gb2312,gbk,hex-codec,hp-roman8,hz,idna,iso2022-jp,iso2022-jp-1,iso2022-jp-2,iso2022-jp-2004,iso2022-jp-3,iso2022-jp-ext,iso2022-kr,iso8859-1,iso8859-10,iso8859-11,iso8859-13,iso8859-14,iso8859-15,iso8859-16,iso8859-2,iso8859-3,iso8859-4,iso8859-5,iso8859-6,iso8859-7,iso8859-8,iso8859-9,johab,koi8-r,koi8-t,koi8-u,kz1048,mac-cyrillic,mac-greek,mac-iceland,mac-latin2,mac-roman,mac-turkish,ptcp154,quopri-codec,raw-unicode-escape,rot-13,shift-jis,shift-jis-2004,shift-jisx0213,tis-620,utf-16-be,utf-16-le,utf-32-be,utf-32-le,utf-8-sig,uu-codec,zlib-codec,latin-1}]
-                   [--orig-rtts] [--start-op-index START_OP_INDEX] [--input-array] [--output-array] [--btype BTYPE]
-                   [--original-enigma] [--chunk-size CHUNK_SIZE] [--compression {gzip,bz2,lzma,zlib}]
-                   [--hash-alg HASH_ALG] [--verbose [VERBOSE]] [--version] [--creation-params CREATION_PARAMS]
+                   [--orig-rtts] [--start-op-index START_OP_INDEX]
+                   [--input-array] [--output-array] [--btype BTYPE]
+                   [--original-enigma] [--chunk-size CHUNK_SIZE]
+                   [--compression {gzip,bz2,lzma,zlib}] [--hash-alg HASH_ALG]
+                   [--verbose [VERBOSE]] [--version]
+                   [--creation-params CREATION_PARAMS]
                    [data]
 
 Enigma2 Encryption/Decryption CLI
@@ -193,7 +206,7 @@ options:
   --fpath FPATH         Path of file to encrypt/decrypt
   --out-path OUT_PATH   Path of output file
   --pwd PWD             Password for encryption/decryption
-  --op {E,D}            Operation: E (Encrypt), D (Decrypt)
+  --op {E,D,_E,_D}      Operation: E (Encrypt with metadata), D (Decrypt with metadata), _E (Encrypt raw data), _D (Decrypt raw data)
   --encoding {utf-8,utf-16,utf-32,ascii,utf-7,base64-codec,big5,big5hkscs,bz2-codec,cp037,cp1026,cp1125,cp1140,cp1250,cp1251,cp1252,cp1253,cp1254,cp1255,cp1256,cp1257,cp1258,cp273,cp424,cp437,cp500,cp720,cp737,cp775,cp850,cp852,cp855,cp856,cp857,cp858,cp860,cp861,cp862,cp863,cp864,cp865,cp866,cp869,cp874,cp875,cp932,cp949,cp950,euc-jis-2004,euc-jisx0213,euc-jp,euc-kr,gb18030,gb2312,gbk,hex-codec,hp-roman8,hz,idna,iso2022-jp,iso2022-jp-1,iso2022-jp-2,iso2022-jp-2004,iso2022-jp-3,iso2022-jp-ext,iso2022-kr,iso8859-1,iso8859-10,iso8859-11,iso8859-13,iso8859-14,iso8859-15,iso8859-16,iso8859-2,iso8859-3,iso8859-4,iso8859-5,iso8859-6,iso8859-7,iso8859-8,iso8859-9,johab,koi8-r,koi8-t,koi8-u,kz1048,mac-cyrillic,mac-greek,mac-iceland,mac-latin2,mac-roman,mac-turkish,ptcp154,quopri-codec,raw-unicode-escape,rot-13,shift-jis,shift-jis-2004,shift-jisx0213,tis-620,utf-16-be,utf-16-le,utf-32-be,utf-32-le,utf-8-sig,uu-codec,zlib-codec,latin-1}
                         Encoding to use
   --orig-rtts           Use original Enigma-style rotations
@@ -208,9 +221,7 @@ options:
                         Data chunk size for file encryption/decryption
   --compression {gzip,bz2,lzma,zlib}
                         Enable compression with given algorithm (gzip, bz2, lzma, zlib)
-  --hash-alg HASH_ALG   Hash algorithm to use for password hashing. Available: {'sha512_224', 'sha384', 'sha224',
-                        'sha3_512', 'shake_256', 'blake2s', 'sha3_256', 'sm3', 'sha1', 'sha512_256', 'shake_128',
-                        'md5-sha1', 'sha3_384', 'sha3_224', 'sha512', 'md5', 'blake2b', 'sha256', 'ripemd160'}
+  --hash-alg HASH_ALG   Hash algorithm to use for password hashing.
   --verbose [VERBOSE]   Enable verbose logging with optional level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
   --version             show program's version number and exit
   --creation-params CREATION_PARAMS
@@ -219,7 +230,9 @@ options:
 
 ### Examples
 
-**Encrypting data:**
+**Encrypting data (with Metadata):**
+
+The default operation `--op E` prepends a structured binary metadata header and calculates an HMAC-SHA256 checksum over the payload for authentication.
 
 ```bash
 python -m enigma2 "Hello, World!" --pwd "my_secret_password" --op E --encoding utf-8
@@ -227,13 +240,18 @@ python -m enigma2 "Hello, World!" --pwd "my_secret_password" --op E --encoding u
 # By default, --op is E and encoding is utf-8
 ```
 
-**Decrypting data:**
+**Decrypting data (with Metadata):**
+
+Because we are using encryption with embeded metadata, we need to provide the same password and iv used for encryption.
+Cli does not allow iv to be provided, so your encrypted data won't be the same as the one below although both will decrypt correctly.
 
 ```bash
-python -m enigma2 "[164, 25, 142, 71, 131, 220, 85, 100, 202, 191, 22, 234, 187]" --pwd "my_secret_password" --op D --encoding utf-8
+python -m enigma2 "[69, 78, 73, 71, 77, 65, 50, 0, 255, 255, 255, 255, 255, 255, 255, 254, 0, 0, 117, 116, 102, 45, 56, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 167, 152, 211, 126, 227, 22, 183, 6, 82, 76, 191, 121, 95, 82, 169, 25, 255, 139, 209, 220, 42, 213, 241, 172, 227, 33, 137, 182, 232, 169, 48, 150, 223, 253, 96, 33, 187, 43, 213, 176, 175, 103, 98, 144, 128, 158, 195, 165, 49, 145, 221, 129, 199, 247, 10, 75, 40, 104, 138, 54, 33, 130, 152, 111, 255, 255, 255, 255, 255, 255, 255, 255, 36, 68, 245, 206, 49, 171, 6, 144, 61, 159, 88, 180, 206, 142, 223, 43, 217, 201, 27, 12, 163, 108, 67, 202, 202, 174, 237, 208, 54, 75, 25, 242, 80, 151, 40, 63, 118, 216, 29, 29, 234, 251, 117, 90, 156]" --pwd "my_secret_password" --op D
 ```
 
 **Encrypting a file:**
+
+Files are *always* encrypted with a metadata header.
 
 ```bash
 python -m enigma2 --fpath "test.txt" --pwd "my_secret_password"
@@ -242,64 +260,66 @@ python -m enigma2 --fpath "test.txt" --pwd "my_secret_password"
 **Decrypting a file:**
 
 ```bash
-python -m enigma2 --fpath "test.txt.npy" --pwd "my_secret_password" --op D
+python -m enigma2 --fpath "test.txt.e2" --pwd "my_secret_password" --op D
 ```
 
-**Using other encodings:**
+**Using other encodings (raw mode, no metadata):**
+
+Using `--op _E` performs raw encryption without any metadata wrapper.
 
 ```bash
-python -m enigma2 "Hello, World!" --pwd "my_secret_password" --encoding utf-16
-```
-
-```bash
-python -m enigma2 "[42127, 54731, 13700, 49418, 60127, 11324, 31800, 15457, 31372, 55218, 31372, 61909, 44196, 21299]" --pwd "my_secret_password" --encoding utf-16 --op D
-```
-
-**Using original rotations:**
-
-Original rotations can be very useful when working with small btypes.
-
-```bash
-python -m enigma2 "Hello, World!" --pwd "my_secret_password" --orig-rtts
+python -m enigma2 "Hello, World!" --pwd "my_secret_password" --encoding utf-16 --op _E
 ```
 
 ```bash
-python -m enigma2 "[182, 102, 5, 169, 182, 110, 76, 198, 191, 241, 182, 108, 74]" --pwd "my_secret_password" --orig-rtts --op D
+python -m enigma2 "[42127, 54731, 13700, 49418, 60127, 11324, 31800, 15457, 31372, 55218, 31372, 61909, 44196, 21299]" --pwd "my_secret_password" --encoding utf-16 --op _D
 ```
 
-**Encrypting/decrypting a chunk of data with a specific start_op_index:**
+**Using original rotations (raw mode):**
 
 ```bash
-python -m enigma2 "abcd" --pwd "my_secret_password" --start-op-index 4
-```
-
-```bash
-python -m enigma2 "[41, 187, 165, 173]" --pwd "my_secret_password" --start-op-index 4 --op D
-```
-
-**Providing input and receiving output as numpy arrays:**
-
-```bash
-python -m enigma2 "[1, 2, 3, 4]" --pwd "my_secret_password" --input-array
-```
-
-By default in console operations, the output after encryption is a numpy array to avoid encoding issues.
-
-```bash
-python -m enigma2 "[142, 153, 188, 48]" --pwd "my_secret_password" --output-array --op D
-```
-
-**Using a custom btype:**
-
-```bash
-python -m enigma2 "[1, 2, 3, 4]" --pwd "my_secret_password" --btype 123 --input-array
+python -m enigma2 "Hello, World!" --pwd "my_secret_password" --orig-rtts --op _E
 ```
 
 ```bash
-python -m enigma2 "[61, 93, 40, 6]" --pwd "my_secret_password" --btype 123 --output-array --op D
+python -m enigma2 "[182, 102, 5, 169, 182, 110, 76, 198, 191, 241, 182, 108, 74]" --pwd "my_secret_password" --orig-rtts --op _D
+```
+
+**Encrypting/decrypting a chunk of data with a specific start_op_index (raw mode):**
+
+```bash
+python -m enigma2 "abcd" --pwd "my_secret_password" --start-op-index 4 --op _E
+```
+
+```bash
+python -m enigma2 "[41, 187, 165, 173]" --pwd "my_secret_password" --start-op-index 4 --op _D
+```
+
+**Providing input and receiving output as numpy arrays (raw mode):**
+
+```bash
+python -m enigma2 "[1, 2, 3, 4]" --pwd "my_secret_password" --input-array --op _E
+```
+
+```bash
+python -m enigma2 "[142, 153, 188, 48]" --pwd "my_secret_password" --output-array --op _D
+```
+
+**Using a custom btype (raw mode):**
+
+```bash
+python -m enigma2 "[1, 2, 3, 4]" --pwd "my_secret_password" --btype 123 --input-array --op _E
+```
+
+Note that since `--op _D` decrypts raw ciphertext (no metadata header), you must explicitly supply `--btype 123` to match the encryption parameters:
+
+```bash
+python -m enigma2 "[61, 93, 40, 6]" --pwd "my_secret_password" --btype 123 --output-array --op _D
 ```
 
 **Emulating the Original Enigma Machine:**
+
+This mode bypasses metadata processing automatically.
 
 ```bash
 # Encrypt message (no password/--pwd required)
@@ -311,12 +331,14 @@ python -m enigma2 "iwsebrbtzrx" --original-enigma --op D
 
 **Using Data Compression:**
 
+Compression parameters are stored in file/data metadata, so this requires operations `E`/`D`.
+
 ```bash
 # Encrypt file with gzip compression (also works with --data)
 python -m enigma2 --fpath "large_file.txt" --pwd "my_secret_password" --compression gzip
 
 # Decrypt compressed file
-python -m enigma2 --fpath "large_file.txt.npy" --pwd "my_secret_password" --compression gzip --op D
+python -m enigma2 --fpath "large_file.txt.e2" --pwd "my_secret_password" --op D
 ```
 
 **Using a Custom Chunk Size:**
@@ -326,14 +348,16 @@ python -m enigma2 --fpath "large_file.txt.npy" --pwd "my_secret_password" --comp
 python -m enigma2 --fpath "large_file.txt" --pwd "my_secret_password" --chunk-size 4096
 ```
 
-**Using a Custom Password Hashing Algorithm:**
+**Using a Custom Password Hashing Algorithm (raw mode):**
 
 ```bash
 # Encrypt using SHA-256 for password hashing (instead of default pbkdf2_sha512)
-python -m enigma2 "Hello, World!" --pwd "my_secret_password" --hash-alg sha256
+python -m enigma2 "Hello, World!" --pwd "my_secret_password" --hash-alg sha256 --op _E
+```
 
+```bash
 # Decrypt using SHA-256 for password hashing
-python -m enigma2 "[251, 71, 238, 215, 49, 250, 135, 183, 174, 159, 94, 254, 178]" --pwd "my_secret_password" --hash-alg sha256 --op D
+python -m enigma2 "[251, 71, 238, 215, 49, 250, 135, 183, 174, 159, 94, 254, 178]" --pwd "my_secret_password" --hash-alg sha256 --op _D
 ```
 
 The operations shown above can be combined in different ways within the same command. (The only exception is the compression flag, it only works using bases (btype) that matches the data type (dtype), e.g. btype=256 and dtype=np.uint8 would work, but btype=123 and dtype=np.uint8 would not, program raises error)
@@ -686,6 +710,46 @@ async def run_parallel_batch():
         print(dec.tobytes().decode("utf-8"))
 
 asyncio.run(run_parallel_batch())
+```
+
+### 5. Structured Metadata Header & Integrity Verification (v2.5.1)
+
+Enigma2 includes built-in metadata auto-detection and Encrypt-then-MAC authentication. When decrypting, the engine reads the metadata header from the ciphertext, automatically restores configurations, and validates data integrity.
+
+```python
+import numpy as np
+from enigma2.config.model_params import E2Params
+from enigma2.core.enigma2_cipher import E2
+from enigma2.utils.e2_exceptions import E2Error
+
+# 1. Encrypting with custom parameters
+encrypt_params = E2Params(
+    pwd=b"my_password",
+    data_compression_alg="gzip",
+    chunk_size=16
+)
+cipher_encrypt = E2(encrypt_params)
+
+original_data = b"Very sensitive data payload."
+ciphertext = cipher_encrypt.encrypt(original_data)
+
+# 2. Decrypting with a default cipher (Only password required)
+# The engine will auto-detect compression_alg and chunk_size!
+decrypt_params = E2Params(pwd=b"my_password")
+cipher_decrypt = E2(decrypt_params)
+
+decrypted_data = cipher_decrypt.decrypt(ciphertext)
+print(decrypted_data.tobytes())  # Prints: b"Very sensitive data payload."
+
+# 3. Integrity verification (Anti-tampering)
+# Modifying even a single byte of the ciphertext triggers an Integrity Error
+tampered_ciphertext = bytearray(ciphertext.tobytes())
+tampered_ciphertext[-1] ^= 0x01  # Alter the last byte (tag)
+
+try:
+    cipher_decrypt.decrypt(np.array(tampered_ciphertext, dtype=np.uint8))
+except E2Error as e:
+    print(f"Decryption failed: {e}")  # Prints: Decryption failed: Integrity Error: Data has been tampered with or incorrect password.
 ```
 
 ### Configuration Parameters Reference

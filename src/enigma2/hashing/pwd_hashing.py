@@ -1,4 +1,5 @@
 import hashlib
+from typing import Optional
 from ..config.model_params import _E2ElementsCreationParams
 from ..utils._e2_exceptions import *
 from math import log2
@@ -22,7 +23,9 @@ class PwdBitChainSlicer:
             pwd_bytes: bytes,
             btype: int,
             hash_alg: str = "pbkdf2_sha512", # KDF algorithm identifier
-            hash_iterations:int = 100_000
+            hash_iterations: int = 100_000,
+            kdf_salt: Optional[bytes] = None,
+            iv: Optional[bytes] = None
         ):
         
         real_hash_alg = hash_alg
@@ -36,7 +39,8 @@ class PwdBitChainSlicer:
         self.__hash_alg = real_hash_alg
         self.__btype = btype
 
-        salt = hashlib.sha256(pwd_bytes).digest()
+        # Use provided kdf_salt or fallback to deterministic password-based salt
+        salt = kdf_salt if kdf_salt is not None else hashlib.sha256(pwd_bytes).digest()
         self.derived_key = hashlib.pbkdf2_hmac(
             hash_name=self.__hash_alg, # "sha512",
             password=pwd_bytes,
@@ -44,7 +48,15 @@ class PwdBitChainSlicer:
             iterations=hash_iterations
         )
 
-        self.__bitchain = self.generate_bitchain(self.derived_key)
+        # Mix IV to derive unique session key
+        if iv is not None:
+            hasher = hashlib.new(self.__hash_alg)
+            hasher.update(self.derived_key + iv)
+            self.session_key = hasher.digest()
+        else:
+            self.session_key = self.derived_key
+
+        self.__bitchain = self.generate_bitchain(self.session_key)
         self.__seeds_number: int = 4
         self.__seeds_space_on_hash: float = 0.9
         self.__main_seeds_len: int = int((len(self.__bitchain) * self.__seeds_space_on_hash) // self.__seeds_number)
@@ -91,18 +103,11 @@ class PwdBitChainSlicer:
     def slices(self) -> _E2ElementsCreationParams:
 
         elements_creation_params = _E2ElementsCreationParams()
-
-        # Successive chained hashing (Proposal 2)
-        # seed_1 = Hash(derived_key)
-        # seed_2 = Hash(seed_1)
-        # seed_3 = Hash(seed_2)
-        # seed_4 = Hash(seed_3)
-        # seed_5 = Hash(seed_4)
         
         hash_func = lambda data: hashlib.new(self.__hash_alg, data).digest()
         
-        # Adding a little bit of salt to each hash iteration
-        seed_1_bytes = hash_func(self.derived_key + b"rotations_seed")
+        # Adding a little bit of salt to each hash iteration, using self.session_key instead of self.derived_key
+        seed_1_bytes = hash_func(self.session_key + b"rotations_seed")
         seed_2_bytes = hash_func(seed_1_bytes + b"rotors_seed")
         seed_3_bytes = hash_func(seed_2_bytes + b"plugboard_seed")
         seed_4_bytes = hash_func(seed_3_bytes + b"noise_seed")

@@ -17,6 +17,9 @@ class CipherOperation(Enum):
     ENCRYPT = "E"
     DECRYPT = "D"
 
+    ENCRYPT_NO_METADATA = "_E"
+    DECRYPT_NO_METADATA = "_D"
+
 
 class OriginalEnigmaData:
 
@@ -104,7 +107,7 @@ def main() -> None:
     parser.add_argument("--fpath", type=str, help="Path of file to encrypt/decrypt")
     parser.add_argument("--out-path", type=str, default=None, help="Path of output file")
     parser.add_argument("--pwd", type=str, default=None, help="Password for encryption/decryption")
-    parser.add_argument("--op", type=str, default="E", choices=["E", "D"], help="Operation: E (Encrypt), D (Decrypt)")
+    parser.add_argument("--op", type=str, default="E", choices=["E", "D", "_E", "_D"], help="Operation: E (Encrypt with metadata), D (Decrypt with metadata), _E (Encrypt raw data), _D (Decrypt raw data)")
     parser.add_argument("--encoding", type=str, default="utf-8", choices=encoding_dtype_map.keys(), help="Encoding to use")
     parser.add_argument("--orig-rtts", action="store_true", help="Use original Enigma-style rotations")
     parser.add_argument("--start-op-index", type=int, default=0, help="Starting index for rotations")
@@ -172,8 +175,11 @@ def main() -> None:
             input_data = args.data.encode(args.encoding)
 
         # Handle direct data input
-        if cipher_operation == CipherOperation.ENCRYPT:
-            result = codec.encrypt(input_data, local_start_op_index=args.start_op_index)
+        if cipher_operation == CipherOperation.ENCRYPT or cipher_operation == CipherOperation.ENCRYPT_NO_METADATA:
+            if args.original_enigma or cipher_operation == CipherOperation.ENCRYPT_NO_METADATA:
+                result = codec._encrypt(input_data, local_start_op_index=args.start_op_index)
+            else:
+                result = codec.encrypt(input_data, local_start_op_index=args.start_op_index)
             # print(f"Encrypted data: {result.tolist()}")
 
             if args.original_enigma:
@@ -181,8 +187,11 @@ def main() -> None:
             else:
                 print(result.tolist())
 
-        elif cipher_operation == CipherOperation.DECRYPT:
-            result = codec.decrypt(input_data, local_start_op_index=args.start_op_index)
+        elif cipher_operation == CipherOperation.DECRYPT or cipher_operation == CipherOperation.DECRYPT_NO_METADATA:
+            if args.original_enigma or cipher_operation == CipherOperation.DECRYPT_NO_METADATA:
+                result = codec._decrypt(input_data, local_start_op_index=args.start_op_index)
+            else:
+                result = codec.decrypt(input_data, local_start_op_index=args.start_op_index)
             if args.output_array:
                 print(result.tolist())
             elif args.original_enigma:
@@ -196,6 +205,8 @@ def main() -> None:
             codec.encrypt_file(args.fpath, args.out_path, detect_encoding=False, local_start_op_index=args.start_op_index)
         elif cipher_operation == CipherOperation.DECRYPT:
             codec.decrypt_file(args.fpath, args.out_path, local_start_op_index=args.start_op_index)
+        else:
+            parser.error(f"Unsupported operation for file input: {args.op}")
 
     else:
         parser.error("Either data (positional) or --fpath must be provided.")

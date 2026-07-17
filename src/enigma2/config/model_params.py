@@ -155,6 +155,8 @@ class _E2Params(BaseModel):
     log_path: Optional[Union[Path, str]] = None
     chunk_size: Optional[int] = None
     hash_algorithm: Optional[str] = Field(default=None, validate_default=True)
+    iv: Optional[bytes] = None
+    kdf_salt: Optional[bytes] = None
     
     @field_validator("pwd", mode="before")
     @classmethod
@@ -162,6 +164,24 @@ class _E2Params(BaseModel):
         if isinstance(value, str):
             return value.encode("utf-8")
         return value
+
+    @field_validator("iv", "kdf_salt", mode="before")
+    @classmethod
+    def parse_hex_bytes(cls, value: Any):
+        if isinstance(value, str):
+            try:
+                return bytes.fromhex(value)
+            except ValueError:
+                return value.encode("utf-8")
+        return value
+
+    @field_serializer("iv")
+    def serialize_iv(self, iv: Optional[bytes]) -> Optional[str]:
+        return iv.hex() if iv is not None else None
+
+    @field_serializer("kdf_salt")
+    def serialize_kdf_salt(self, kdf_salt: Optional[bytes]) -> Optional[str]:
+        return kdf_salt.hex() if kdf_salt is not None else None
 
     @field_validator("encoding", mode="before")
     @classmethod
