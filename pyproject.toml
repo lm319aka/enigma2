@@ -19,7 +19,9 @@ dependencies = [
 
 [tool.setuptools]
 package-dir = { "" = "src" }
-packages = ["enigma2"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [project.scripts]
 enigma2-cipher = "enigma2.core.enigma2_cipher:main"
