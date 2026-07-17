@@ -5,12 +5,28 @@ from enigma2.config.model_params import E2Params
 from enigma2.core.enigma2_cipher import E2
 
 class TestSessionIV(unittest.TestCase):
+    """
+    Test suite verifying the behavior of session IVs and KDF salts.
+    
+    This suite ensures that:
+      1. Different IVs yield distinct internal seeds (rotations, rotors, noise, plugboard).
+      2. Different IVs yield distinct rotor permutations/plugboards.
+      3. Different IVs produce different ciphertexts for the same plaintext.
+      4. Correct decryption matches encryption when matching session parameters are used.
+    """
+
     def setUp(self):
+        """Sets up default parameters for password, btype, and dtype."""
         self.pwd = b"my_super_secure_password"
         self.btype = 256
         self.dtype = np.uint8
 
     def test_different_ivs_produce_different_seeds(self):
+        """
+        Verify that utilizing distinct Initialization Vectors (IVs)
+        produces completely different internal random seeds (rotations, rotors, noise, plugboard)
+        even when the base user password and KDF salt are identical.
+        """
         # Create params with same pwd but different IVs
         iv1 = os.urandom(16)
         iv2 = os.urandom(16)
@@ -41,6 +57,10 @@ class TestSessionIV(unittest.TestCase):
         self.assertNotEqual(cipher1.config.plugboard_seed, cipher2.config.plugboard_seed)
 
     def test_different_ivs_produce_different_rotors(self):
+        """
+        Verify that different session IVs lead to the generation of
+        different physical rotor layouts and plugboard configurations.
+        """
         iv1 = os.urandom(16)
         iv2 = os.urandom(16)
         kdf_salt = os.urandom(16)
@@ -53,6 +73,10 @@ class TestSessionIV(unittest.TestCase):
         self.assertFalse(np.array_equal(cipher1.encryption_plugboard, cipher2.encryption_plugboard))
 
     def test_different_ivs_produce_different_ciphertexts(self):
+        """
+        Verify that encrypting the same payload using distinct session IVs
+        produces completely different ciphertext byte streams.
+        """
         iv1 = os.urandom(16)
         iv2 = os.urandom(16)
         kdf_salt = os.urandom(16)
@@ -68,6 +92,10 @@ class TestSessionIV(unittest.TestCase):
         self.assertFalse(np.array_equal(ciphertext1, ciphertext2))
 
     def test_identity_with_session_cipher(self):
+        """
+        Verify that data encrypted with a session cipher can be successfully
+        restored (decrypted) by another instance initialized with matching session parameters.
+        """
         iv = os.urandom(16)
         kdf_salt = os.urandom(16)
 
