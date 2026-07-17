@@ -202,28 +202,28 @@ def find_file_encoding(obj: Union[str, Path], chunk_len: int = 32768) -> str:
 
 # DEPRECATED
 def file2array_bits(path, bit_unit):
-    # 1. Leer archivo como uint8 (bytes crudos)
+    # 1. Read file as uint8 (raw bytes)
     with open(path, "rb") as f:
         data = np.frombuffer(f.read(), dtype=np.uint8)
 
-    # 2. Expandir a bits (array de 0/1)
+    # 2. Expand to bits (array of 0/1)
     bits = np.unpackbits(data)
 
-    # 3. Calcular padding para múltiplo de bit_unit
+    # 3. Calculate padding to make multiple of bit_unit
     resto = bits.size % bit_unit
-    print("Resto:", resto)
+    print("Remainder:", resto)
     if resto != 0:
         bits = np.concatenate([bits, np.zeros(bit_unit - resto, dtype=np.uint8)])
 
-    # 4. Agrupar y convertir a enteros
-    #   reshape: cada fila = un valor
+    # 4. Group and convert to integers
+    #   reshape: each row = one value
     bit_chunks = bits.reshape(-1, bit_unit)
 
-    # Convertir cada grupo de bits a número entero
-    # Creamos potencias de 2: [2^(n-1), ..., 2^0]
+    # Convert each group of bits to integer
+    # Create powers of 2: [2^(n-1), ..., 2^0]
     potencias = 2 ** np.arange(bit_unit - 1, -1, -1, dtype=np.uint64)
 
-    # 5. Selección de dtype según el tamaño necesario
+    # 5. Select dtype based on the required size
     if bit_unit <= 8:
         dtype = np.uint8
     elif bit_unit <= 16:
@@ -231,7 +231,7 @@ def file2array_bits(path, bit_unit):
     elif bit_unit <= 32:
         dtype = np.uint32
     else:
-        dtype = np.uint64  # hasta 64 bits sin perder
+        dtype = np.uint64  # up to 64 bits without loss
 
     values = np.array((bit_chunks * potencias).sum(axis=1), dtype=dtype)
 

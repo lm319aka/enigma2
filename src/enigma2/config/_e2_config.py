@@ -9,9 +9,9 @@ from ..utils.encodings_getter import E2Encoding #, E2EncodingModel
 from .model_params import _E2Params, E2TypesConversion, _E2ElementsCreationParams
 from ..hashing.pwd_hashing import PwdBitChainSlicer
 
-# Concepto Educativo (Namespace Pollution):
-# Importar con asterisco (`from .e2_exceptions import *`) contamina el espacio de nombres, dificulta
-# el rastreo del origen de los símbolos y previene optimizaciones de linters/analizadores estáticos.
+# Educational Concept (Namespace Pollution):
+# Importing with wildcard (`from .e2_exceptions import *`) pollutes the namespace, makes
+# tracing symbol origins difficult, and prevents static analyzer/linter optimizations.
 from ..utils.e2_exceptions import (
     E2Error,
     PasswordLengthError,
@@ -47,8 +47,8 @@ class _E2Config:
         self.btype: int = params.btype if params.btype is not None else E2TypesConversion.dtype2btype(self.dtype)
 
         # Initialize password and derive key using PBKDF2-HMAC-SHA512 for secure seed derivation.
-        # Concepto Educativo: Las KDFs (Key Derivation Functions) agregan sal (salt) para evitar ataques con tablas arcoíris
-        # y aplican estiramiento de claves (key stretching mediante iteraciones) para encarecer ataques de fuerza bruta.
+        # Educational Concept: Key Derivation Functions (KDFs) add salt to prevent rainbow table attacks
+        # and apply key stretching (via iterations) to make brute force attacks more expensive.
         self.pwd: bytes = params.pwd
         self.pwd_slicer = PwdBitChainSlicer(
             pwd_bytes=self.pwd, 
@@ -105,8 +105,8 @@ class _E2Config:
     def _validate_derived_params(self) -> None:
         """
         Performs range validation on derived and provided parameters.
-        Concepto Educativo: Reemplazar `assert` por `raise` con excepciones explícitas garantiza que las validaciones
-        se ejecuten siempre en producción, incluso si Python se ejecuta en modo optimizado (-O).
+        Educational Concept: Replacing `assert` with explicit `raise` exceptions guarantees that validations
+        are always executed in production, even if Python is run in optimized mode (-O).
         """
         if self.number_rotors < 1 or self.number_rotors > self.pwd_slicer.get_number_rotors_range[1]:
             raise RotorsNumberError(f"Number of rotors must be in range (1, {self.pwd_slicer.get_number_rotors_range[1]}): {self.number_rotors}")
@@ -183,20 +183,20 @@ class _E2Generator:
     def _init_rng(self, start_index: int = 0) -> None:
         """Initializes or resets the random number generators."""
         
-        # Concepto Educativo (CSPRNG vs PRNG):
-        # Los generadores por defecto de NumPy (como PCG64) son generadores pseudoaleatorios (PRNG) no criptográficos
-        # optimizados para simulación estadística. Para aplicaciones criptográficas de producción, las semillas deben
-        # ser alimentadas con alta entropía del sistema operativo (por ejemplo mediante el módulo `secrets` de Python
-        # usando secrets.randbits(128)).
-        # En Enigma2, cuando no se proveen semillas manuales, se derivan del KDF con PBKDF2-HMAC-SHA512.
+        # Educational Concept (CSPRNG vs PRNG):
+        # NumPy's default generators (like PCG64) are non-cryptographic pseudo-random number generators (PRNG)
+        # optimized for statistical simulation. For production cryptographic applications, seeds should
+        # be fed with high entropy from the operating system (for example, using Python's `secrets` module
+        # with secrets.randbits(128)).
+        # In Enigma2, when manual seeds are not provided, they are derived from the KDF using PBKDF2-HMAC-SHA512.
         self.rotations_rng = np.random.default_rng(self.config.rotations_seed)
         self.rotors_rng = np.random.default_rng(self.config.rotors_seed)
         self.noise_rng = np.random.default_rng(self.config.noise_seed)
         self.plugboard_rng = np.random.default_rng(self.config.plugboard_seed)
         
-        # Concepto Educativo (State Skipping O(1)):
-        # En lugar de generar y descartar 'start_index' números flotantes consumiendo CPU y RAM,
-        # utilizamos `.bit_generator.advance(delta)` que altera el estado interno del generador en tiempo constante O(1).
+        # Educational Concept (State Skipping O(1)):
+        # Instead of generating and discarding 'start_index' float numbers consuming CPU and RAM,
+        # we use `.bit_generator.advance(delta)` which changes the internal generator state in constant time O(1).
         if start_index > 0:
             self.rotations_rng.bit_generator.advance(start_index)
             self.rotors_rng.bit_generator.advance(start_index)

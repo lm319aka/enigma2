@@ -77,7 +77,7 @@ class TestMetadataAuth(unittest.TestCase):
             with self.assertRaises(E2Error) as context:
                 cipher.decrypt_file(tampered_file, dec_file)
                 
-            self.assertIn("Error de Integridad", str(context.exception))
+            self.assertIn("Integrity Error", str(context.exception))
 
             # Tamper with a byte in the header
             ciphertext = bytearray(enc_file.read_bytes())
@@ -88,7 +88,7 @@ class TestMetadataAuth(unittest.TestCase):
             with self.assertRaises(E2Error) as context:
                 cipher.decrypt_file(tampered_file2, dec_file)
                 
-            self.assertIn("Error de Integridad", str(context.exception))
+            self.assertIn("Integrity Error", str(context.exception))
 
     def test_wrong_password_abort(self):
         """
@@ -108,7 +108,7 @@ class TestMetadataAuth(unittest.TestCase):
             with self.assertRaises(E2Error) as context:
                 wrong_cipher.decrypt_file(enc_file, dec_file)
                 
-            self.assertIn("Error de Integridad", str(context.exception))
+            self.assertIn("Integrity Error", str(context.exception))
 
 if __name__ == "__main__":
     unittest.main()

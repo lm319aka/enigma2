@@ -44,24 +44,6 @@ class E2(_E2):
     def preprocess_encrypt_data(self, data_array: Union[np.ndarray, bytes]) -> np.ndarray:
         return self.check_entry_data(data_array)
     
-    @timed
-    def encrypt(self, 
-                data_array: Union[np.ndarray, bytes], 
-                local_start_op_index: int = 0) -> np.ndarray:
-        if self.config.data_compression_alg is not None:
-            data_array = self.check_entry_data(data_array)
-            data_array = Compressor.compress_nparray(data_array, self.config.data_compression_alg)
-        return self._encrypt(data_array, local_start_op_index)
-
-    @timed
-    def decrypt(self, 
-                data_array: Union[np.ndarray, bytes], 
-                local_start_op_index: int = 0) -> np.ndarray:
-        data_array = self._decrypt(data_array, local_start_op_index)
-        if self.config.data_compression_alg is not None:
-            data_array = Compressor.decompress_nparray(data_array, self.data_compression_alg, self.config.dtype)
-        return data_array
-    
     def __first_logging_info(self):
         logger.info(
             f"E2 Initialized: \n{self}"

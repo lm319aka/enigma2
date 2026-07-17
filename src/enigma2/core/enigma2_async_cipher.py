@@ -19,7 +19,7 @@ class E2Async(E2):
         :param local_start_op_index: Starting index for the operation (affects RNG).
         :return: Encrypted numpy array.
         """
-        return await asyncio.to_thread(self._encrypt, data_array, local_start_op_index=local_start_op_index)
+        return await asyncio.to_thread(self.encrypt, data_array, local_start_op_index=local_start_op_index)
 
     async def decrypt_async(self, 
                             data_array: Union[np.ndarray, bytes], 
@@ -31,7 +31,7 @@ class E2Async(E2):
         :param local_start_op_index: Starting index for the operation.
         :return: Decrypted numpy array.
         """
-        return await asyncio.to_thread(self._decrypt, data_array, local_start_op_index=local_start_op_index)
+        return await asyncio.to_thread(self.decrypt, data_array, local_start_op_index=local_start_op_index)
 
     async def encrypt_file_async(self, 
                                  file_path: Union[str, Path], 

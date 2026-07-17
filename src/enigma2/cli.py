@@ -173,7 +173,10 @@ def main() -> None:
 
         # Handle direct data input
         if cipher_operation == CipherOperation.ENCRYPT:
-            result = codec.encrypt(input_data, local_start_op_index=args.start_op_index)
+            if args.original_enigma:
+                result = codec._encrypt(input_data, local_start_op_index=args.start_op_index)
+            else:
+                result = codec.encrypt(input_data, local_start_op_index=args.start_op_index)
             # print(f"Encrypted data: {result.tolist()}")
 
             if args.original_enigma:
@@ -182,7 +185,10 @@ def main() -> None:
                 print(result.tolist())
 
         elif cipher_operation == CipherOperation.DECRYPT:
-            result = codec.decrypt(input_data, local_start_op_index=args.start_op_index)
+            if args.original_enigma:
+                result = codec._decrypt(input_data, local_start_op_index=args.start_op_index)
+            else:
+                result = codec.decrypt(input_data, local_start_op_index=args.start_op_index)
             if args.output_array:
                 print(result.tolist())
             elif args.original_enigma:
